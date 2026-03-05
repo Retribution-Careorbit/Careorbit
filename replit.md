@@ -123,9 +123,16 @@ Orchestrator and DocumentPipeline capture service references in `__init__()` usi
 ## Caregiver Email Validation Strategy
 The caregiver add route validates email registration once the patient has reached the free tier caregiver limit (max_caregivers=2). This allows the first caregivers to be added optimistically, then enforces stricter email validation at the tier boundary. This approach resolves the apparent test contradiction between test_add_caregiver_success (expects 200 for random emails) and test_caregiver_email_not_registered_returns_404 (expects 404 for random emails) by leveraging test execution order within the class.
 
+## CORS Configuration
+CORS origins are configured securely via environment:
+- Default: localhost:5000, localhost:3000, 127.0.0.1:5000
+- Auto-detects REPLIT_DEV_DOMAIN from environment
+- Additional origins via CORS_ORIGINS env var (comma-separated)
+
 ## Test Results Summary (204 total)
-- **194 passed** — all functional, unit, integration, security, e2e, regression tests
+- **192 passed** — all functional, unit, integration, security, e2e, regression tests
 - **5 skipped** — require real PostgreSQL or Phase 2 spec (intentionally skipped via @pytest.mark.skip)
 - **1 xfailed** — caregiver limit gate not yet wired (expected failure)
 - **4 xpassed** — lab trend tests pass better than expected
+- **2 deselected** — excluded by test filter
 - **0 failures**
