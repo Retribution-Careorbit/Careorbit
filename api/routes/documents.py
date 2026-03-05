@@ -33,12 +33,26 @@ async def upload_document(
 
     ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
 
-    result = await document_pipeline.process_document(
-        image_bytes=contents,
-        patient_id=patient_id,
-        uploaded_by=current_user["id"],
-        file_extension=ext,
-    )
+    try:
+        result = await document_pipeline.process_document(
+            image_bytes=contents,
+            patient_id=patient_id,
+            uploaded_by=current_user["id"],
+            file_extension=ext,
+        )
+    except NotImplementedError:
+        return {
+            "document_id": None,
+            "document_type": "unknown",
+            "processing_status": "failed",
+            "status": "failed",
+            "nodes_created": 0,
+            "interaction_alerts": [],
+            "care_gap_alerts": [],
+            "confirmation_needed": [],
+            "processing_time_ms": 0,
+            "error_message": "Document processing services are being configured. Please try again later.",
+        }
 
     nodes_count = len(result.nodes_created) if isinstance(result.nodes_created, list) else result.nodes_created
 
