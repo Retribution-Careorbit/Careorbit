@@ -32,3 +32,8 @@ async def verify_patient_access(user_id: str, patient_id: str = None, required_p
         )
 
     return {"access_type": "caregiver", "permission_level": granted_level}
+
+
+async def require_permission(user_id: str, patient_id: str, required_permission: str = "view"):
+    access = await verify_patient_access(user_id, patient_id, required_permission)
+    return access

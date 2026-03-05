@@ -5,6 +5,7 @@ from services.azure_search import AzureSearchService
 from services.azure_email import AzureEmailService
 from db.session import async_session as db_session
 from graph.confidence import ConfidenceCalculator
+from graph.orbit_score import OrbitScoreCalculator
 from utils.drug_database import DrugDatabase
 
 openai_service = AzureOpenAIService()

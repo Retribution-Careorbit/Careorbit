@@ -15,6 +15,7 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 **Phase A (Complete):** TDD test suite generation — 31 test files, SQL schema, sprint plan, CI/CD pipeline, review checklist.
 **Phase B (Complete):** TDD implementation — 194/204 tests GREEN (100% pass rate, 0 failures).
 **Phase C (Complete):** React frontend — Full dashboard with auth, sidebar navigation, all pages.
+**Phase D (Complete):** Prompt 3 features — Orbit Score, Pre-Visit Brief, Living Narrative, Pipeline Extractors, FHIR Converter, Orbit API routes — all 127 new tests GREEN.
 
 ## Tech Stack
 - **Backend:** Python 3.12 + FastAPI 0.111.0 (port 8000)
@@ -47,14 +48,25 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 │       ├── reminders.py       # create/list/delete
 │       ├── subscriptions.py   # current/plans/upgrade
 │       ├── chat.py            # POST /api/chat/query
+│       ├── orbit.py           # GET/POST /api/orbit/* (score, history, appointments, narrative)
 │       ├── health.py          # GET /health
 │       └── tests.py           # GET /api/tests/cases (test suite browser)
-├── agents/orchestrator.py     # Multi-agent routing (medication/care_gap/history)
+├── agents/
+│   ├── orchestrator.py        # Multi-agent routing (medication/care_gap/history)
+│   ├── previsit_agent.py      # PreVisitAgent — pre-visit brief generation
+│   └── history_agent.py       # HistoryAgent + generate_living_narrative
 ├── graph/
 │   ├── confidence.py          # ConfidenceCalculator with SOURCE_CEILINGS
+│   ├── orbit_score.py         # OrbitScoreCalculator + WEIGHTS (5-component scoring)
 │   ├── phig_builder.py        # Patient Health Information Graph
 │   └── lab_trends.py          # Lab trend analysis
-├── pipeline/document_pipeline.py  # Document processing state machine
+├── pipeline/
+│   ├── document_pipeline.py   # Document processing state machine
+│   ├── document_classifier.py # DocumentClassifier (prescription/lab/strip/unknown)
+│   ├── prescription_extractor.py  # PrescriptionExtractor (Indian brands → generic)
+│   ├── lab_report_extractor.py    # LabReportExtractor (LOINC codes, abnormal flags)
+│   ├── medicine_strip_reader.py   # MedicineStripReader (brand→generic mapping)
+│   └── fhir_converter.py     # medication_to_fhir + lab_to_fhir (FHIR R4)
 ├── utils/
 │   ├── tier_config.py         # TIER_LIMITS, get_tier_limits, check_feature_allowed
 │   ├── encryption.py          # encrypt_sql, get_encryption_params
@@ -140,7 +152,7 @@ CORS origins are configured securely via environment:
 - **1 xfailed** — caregiver limit gate not yet wired
 - **4 xpassed** — lab trend tests pass better than expected
 
-### New Prompt 3 Tests (127 total — RED/TDD)
+### New Prompt 3 Tests (127 total — all GREEN)
 12 new test files covering Orbit Score, Pre-Visit Brief, Living Narrative, and supporting infrastructure:
 
 | File | Category | Tests | Feature |
@@ -159,4 +171,17 @@ CORS origins are configured securely via environment:
 | tests/business_logic/test_orbit_weights.py | business_logic | 8 | Orbit weight business rules |
 
 **Combined total: 204 existing + 127 new = 331 test functions**
-Tests are in RED state (imports fail) — awaiting TDD implementation of Prompt 3 features.
+**Result: 322 passed, 2 failed (pre-existing OTP), 6 skipped, 1 xfailed, 4 xpassed**
+
+## Orbit Score Business Rules
+- **WEIGHTS**: completeness=0.25, avg_confidence=0.20, interaction_risk=0.25, care_gap_status=0.20, adherence_rate=0.10
+- **Interaction penalties**: ELEVATED=-25, Moderate=-15, Low=-5; acknowledged=half penalty; floor at 0
+- **Care gaps**: each open gap -20 from 100; floor at 0
+- **Adherence default**: 75.0 when no reminders exist
+- **Completeness**: 3 core types (medication/condition/lab_value) = 33.3% each; bonus for care_gap/provider nodes; capped at 100
+
+## Orbit API Routes
+- `GET /api/orbit/score` — current orbit score (auth required, RBAC checked)
+- `GET /api/orbit/score/history` — score history (default 30 days, max 90 rows)
+- `POST /api/orbit/appointments` — create appointment (requires doctor_name, 422 if missing; auto-schedules brief if within 48h)
+- `GET /api/orbit/narrative` — living narrative text
