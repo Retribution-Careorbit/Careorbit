@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Bell,
   Settings,
+  FlaskConical,
   LogOut,
   Moon,
   Sun,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/documents", label: "Documents", icon: FileUp, testId: "link-documents" },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, testId: "link-chat" },
   { href: "/reminders", label: "Reminders", icon: Bell, testId: "link-reminders" },
+  { href: "/test-cases", label: "Test Cases", icon: FlaskConical, testId: "link-test-cases" },
   { href: "/settings", label: "Settings", icon: Settings, testId: "link-settings" },
 ];
 
