@@ -13,13 +13,16 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 
 ## Current Phase
 **Phase A (Complete):** TDD test suite generation — 31 test files, SQL schema, sprint plan, CI/CD pipeline, review checklist.
-**Phase B (In Progress):** TDD implementation — 191/192 tests GREEN (99.5% pass rate).
+**Phase B (Complete):** TDD implementation — 191/192 tests GREEN (99.5% pass rate).
+**Phase C (Complete):** React frontend — Full dashboard with auth, sidebar navigation, all pages.
 
 ## Tech Stack
-- **Backend:** Python 3.12 + FastAPI 0.111.0
-- **DB:** In-memory session (InMemorySession) with async_session factory; ready for Azure PostgreSQL
+- **Backend:** Python 3.12 + FastAPI 0.111.0 (port 8000)
+- **Frontend:** React 18 + Vite 5 + Express proxy (port 5000) → FastAPI
+- **State:** Zustand (auth), TanStack Query v5 (data fetching)
+- **UI:** Tailwind CSS 3.4 + shadcn/ui components + Lucide icons
+- **DB:** In-memory session (InMemorySession) with async_session factory
 - **Testing:** pytest 8.2.0 + pytest-asyncio 0.23.0
-- **Frontend (Sprint 6):** React 18 + Vite 5, Tailwind CSS 3.4, Zustand + TanStack Query v5
 - **Azure Services (8 stubs):** Vision, OpenAI, Translator, Language, Blob, Email, Search, KeyVault
 
 ## Project Structure
@@ -66,6 +69,25 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 │   ├── azure_search.py
 │   └── azure_keyvault.py
 ├── database/schema.py         # AUDIT_LOG_COLUMNS
+├── client/src/
+│   ├── App.tsx                # Main app with routing (wouter)
+│   ├── lib/auth.ts            # Zustand auth store + authFetch helpers
+│   ├── components/
+│   │   ├── app-sidebar.tsx    # Sidebar navigation
+│   │   ├── layout.tsx         # Main layout wrapper
+│   │   ├── theme-provider.tsx # Dark mode provider
+│   │   └── ui/               # shadcn components
+│   └── pages/
+│       ├── login.tsx          # Login form
+│       ├── register.tsx       # Registration form
+│       ├── dashboard.tsx      # Patient overview + stats
+│       ├── medications.tsx    # Medication list with confidence
+│       ├── documents.tsx      # Drag-drop document upload
+│       ├── chat.tsx           # AI chat (Hindi/English)
+│       ├── reminders.tsx      # CRUD medication reminders
+│       └── settings.tsx       # Profile + subscription plans
+├── server/routes.ts           # Express proxy to FastAPI (port 8000)
+├── start.sh                   # Starts both FastAPI + Express
 └── tests/                     # 31 test files (DO NOT MODIFY)
 ```
 
