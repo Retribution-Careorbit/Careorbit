@@ -7,11 +7,16 @@ channel = "stable-24_05"
 packages = ["cargo", "libiconv", "libxcrypt", "rustc"]
 
 [[ports]]
+localPort = 1111
+externalPort = 9000
+
+[[ports]]
 localPort = 5000
 externalPort = 5000
 
 [[ports]]
 localPort = 8000
+externalPort = 3000
 
 [env]
 PORT = "5000"

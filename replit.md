@@ -129,10 +129,32 @@ CORS origins are configured securely via environment:
 - Auto-detects REPLIT_DEV_DOMAIN from environment
 - Additional origins via CORS_ORIGINS env var (comma-separated)
 
-## Test Results Summary (204 total)
-- **192 passed** — all functional, unit, integration, security, e2e, regression tests
-- **5 skipped** — require real PostgreSQL or Phase 2 spec (intentionally skipped via @pytest.mark.skip)
-- **1 xfailed** — caregiver limit gate not yet wired (expected failure)
+## Test Results Summary
+
+### Existing Tests (204 total — unchanged)
+- **195 passed** — all functional, unit, integration, security, e2e, regression tests
+- **2 failed** — pre-existing OTP tests (expect 202 but get 200, OTP flow not wired)
+- **6 skipped** — require real PostgreSQL or Phase 2 spec
+- **1 xfailed** — caregiver limit gate not yet wired
 - **4 xpassed** — lab trend tests pass better than expected
-- **2 deselected** — excluded by test filter
-- **0 failures**
+
+### New Prompt 3 Tests (127 total — RED/TDD)
+12 new test files covering Orbit Score, Pre-Visit Brief, Living Narrative, and supporting infrastructure:
+
+| File | Category | Tests | Feature |
+|------|----------|-------|---------|
+| tests/unit/test_orbit_score.py | unit | 24 | Orbit Score computation engine |
+| tests/unit/test_previsit_agent.py | unit | 10 | Pre-Visit Brief generation |
+| tests/unit/test_living_narrative.py | unit | 10 | Living Narrative delta |
+| tests/functional/test_api_orbit.py | functional | 16 | Orbit API endpoints (4 routes) |
+| tests/unit/test_azure_services.py | unit | 16 | Azure service real implementations |
+| tests/unit/test_pipeline_extractors.py | unit | 12 | Pipeline extractors + classifier |
+| tests/unit/test_fhir_converter.py | unit | 6 | FHIR resource conversion |
+| tests/integration/test_orbit_integration.py | integration | 8 | Orbit + pipeline full flow |
+| tests/integration/test_reminder_scheduler.py | integration | 6 | APScheduler reminder delivery |
+| tests/e2e/test_orbit_journey.py | e2e | 5 | Orbit E2E user journey |
+| tests/security/test_orbit_rbac.py | security | 6 | Orbit RBAC + auth |
+| tests/business_logic/test_orbit_weights.py | business_logic | 8 | Orbit weight business rules |
+
+**Combined total: 204 existing + 127 new = 331 test functions**
+Tests are in RED state (imports fail) — awaiting TDD implementation of Prompt 3 features.
