@@ -1,0 +1,252 @@
+name: CareOrbit CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'sprint/*']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: '3.12'
+  POSTGRES_VERSION: '16'
+  NODE_VERSION: '20'
+
+jobs:
+  # ══════════════════════════════════════════════════════
+  # STAGE 1: SAFETY (Blocks ALL downstream stages)
+  # False negatives + critical security tests run FIRST.
+  # A failure here means a known dangerous interaction is being
+  # missed or a HIPAA violation exists. Pipeline stops immediately.
+  # ══════════════════════════════════════════════════════
+  safety:
+    name: "Stage 1: SAFETY"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      - name: Run false negative tests (critical safety)
+        run: |
+          pytest tests/false_positive_negative/ -m critical -v --tb=long -x
+      - name: Run cross-patient RBAC isolation
+        run: |
+          pytest tests/security/test_cross_patient_rbac.py -v --tb=long -x
+      - name: Run audit append-only verification
+        run: |
+          pytest tests/security/test_audit_append_only.py -v --tb=long -x
+
+  # ══════════════════════════════════════════════════════
+  # STAGE 2: UNIT TESTS (90% coverage gate)
+  # Pure logic tests — no network, no DB, no mocks of external services.
+  # ══════════════════════════════════════════════════════
+  unit:
+    name: "Stage 2: UNIT"
+    needs: safety
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
+      - name: Run unit tests with coverage
+        run: |
+          pytest tests/unit/ -v --tb=short -x \
+            --cov=graph --cov=utils --cov=api/middleware \
+            --cov-report=term-missing \
+            --cov-fail-under=90
+
+  # ══════════════════════════════════════════════════════
+  # STAGE 3: INTEGRATION (Postgres 16 + pgcrypto)
+  # Tests that require DB or cross-module coordination.
+  # Includes security tests that verify DB-level constraints.
+  # ══════════════════════════════════════════════════════
+  integration:
+    name: "Stage 3: INTEGRATION"
+    needs: safety
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: careorbit_test
+          POSTGRES_PASSWORD: testpass123
+          POSTGRES_DB: careorbit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://careorbit_test:testpass123@localhost:5432/careorbit_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx asyncpg
+      - name: Enable pgcrypto extension
+        run: |
+          PGPASSWORD=testpass123 psql -h localhost -U careorbit_test -d careorbit_test \
+            -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          PGPASSWORD=testpass123 psql -h localhost -U careorbit_test -d careorbit_test \
+            -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+      - name: Apply schema
+        run: |
+          PGPASSWORD=testpass123 psql -h localhost -U careorbit_test -d careorbit_test \
+            -f database/schema.sql
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ tests/security/ -v --tb=short \
+            --cov=pipeline --cov=agents --cov=api \
+            --cov-report=term-missing \
+            --cov-fail-under=80
+
+  # ══════════════════════════════════════════════════════
+  # STAGE 4: FUNCTIONAL (Mock Azure services)
+  # API endpoint tests with mocked Azure service wrappers.
+  # ══════════════════════════════════════════════════════
+  functional:
+    name: "Stage 4: FUNCTIONAL"
+    needs: [unit, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      - name: Run functional tests
+        run: |
+          pytest tests/functional/ tests/business_logic/ -v --tb=short \
+            -m "not phase2 and not phase3 and not demo_only"
+      - name: Run regression tests
+        run: |
+          pytest tests/regression/ -v --tb=short
+
+  # ══════════════════════════════════════════════════════
+  # STAGE 5: E2E (main branch only)
+  # Full end-to-end journey tests + Playwright browser tests.
+  # ══════════════════════════════════════════════════════
+  e2e:
+    name: "Stage 5: E2E"
+    needs: functional
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: careorbit_e2e
+          POSTGRES_PASSWORD: e2epass123
+          POSTGRES_DB: careorbit_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://careorbit_e2e:e2epass123@localhost:5432/careorbit_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+      - name: Apply schema
+        run: |
+          PGPASSWORD=e2epass123 psql -h localhost -U careorbit_e2e -d careorbit_e2e \
+            -f database/schema.sql
+      - name: Run backend E2E tests
+        run: |
+          pytest tests/e2e/ -v --tb=long
+      - name: Run coverage matrix verification
+        run: |
+          pytest tests/coverage_matrix.py -v
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright tests
+        run: npx playwright test --reporter=html
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  # ══════════════════════════════════════════════════════
+  # STAGE 6: DEPLOY (main branch only, all stages pass)
+  # Deploy backend to Azure Container Apps,
+  # frontend to Azure Static Web Apps.
+  # ══════════════════════════════════════════════════════
+  deploy:
+    name: "Stage 6: DEPLOY"
+    needs: e2e
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build and push Docker image
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/careorbit-api:${{ github.sha }} .
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/careorbit-api:${{ github.sha }}
+      - name: Deploy backend to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name careorbit-api \
+            --resource-group ${{ secrets.AZURE_RG }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/careorbit-api:${{ github.sha }}
+      - name: Deploy frontend to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "/"
+          output_location: "dist"
+      - name: Smoke test
+        run: |
+          sleep 30
+          curl -f https://${{ secrets.API_HOSTNAME }}/health || exit 1
+          echo "Smoke test passed — API is healthy"
