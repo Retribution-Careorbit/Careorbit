@@ -1,0 +1,2546 @@
+CareOrbit Backend TDD Plan
+
+Overall approach
+
+
+
+
+
+Test-first development for all backend features: write tests → run and see them fail (RED) → implement minimal code → run and see them pass (GREEN).
+
+
+
+Azure SDK isolation via thin service wrappers (e.g. AzureVisionService, AzureOpenAIService, etc.), with all tests mocking only wrapper methods (except DB-level encryption and audit constraints).
+
+
+
+Safety-critical behavior (auth, RBAC, drug interactions, care gaps) receives dedicated security and false positive/negative test suites before implementation.
+
+
+
+Postgres + pgcrypto used for PII encryption; Key Vault provides secrets, and tests validate correct usage via SQL-level assertions where appropriate.
+
+
+
+Sprint 1 — Infrastructure, Auth, and Core Security
+
+Sprint goal: JWT auth, bcrypt passwords, pgcrypto PII encryption, append-only audit trail, basic RBAC, rate limiting, refresh token rotation.
+
+Azure services introduced: Azure PostgreSQL (with pgcrypto), Azure Key Vault (azure-keyvault-secrets).
+
+
+
+
+
+Domain areas: auth routes and middleware, token & password utilities, audit logging, basic RBAC checks, rate limiter wiring, encryption helpers.
+
+
+
+Key modules to create:
+
+
+
+
+
+api/routes/auth.py — register/login/refresh/logout/change-password.
+
+
+
+api/middleware/auth.py — JWT encode/decode, password hashing utilities.
+
+
+
+api/middleware/audit.py — log_audit hook and audit model integration.
+
+
+
+api/middleware/feature_gate.py — TIER_LIMITS, check_feature_allowed, get_tier_limits.
+
+
+
+api/middleware/rate_limit.py — per-identity login rate limiting.
+
+
+
+models/user.py, models/refresh_token.py, models/audit_log.py — SQLAlchemy models with pgcrypto usage on PII.
+
+
+
+utils/encryption.py — encrypt_sql, get_encryption_params.
+
+
+
+db/session.py — async engine/session with app user role.
+
+
+
+services/azure_keyvault.py — Key Vault wrapper for secrets.
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/unit/test_auth_tokens.py
+
+
+
+Unit tests for JWT & bcrypt
+
+
+
+None
+
+
+
+Token and password helpers specify exact behavior without implementation.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/unit/test_auth_tokens.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+All tests fail due to missing/partial implementations.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+api/middleware/auth.py
+
+
+
+Implement JWT & password utilities
+
+
+
+AzureKeyVaultService for secrets if needed
+
+
+
+Unit tests for tokens & hashing pass.
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/unit/test_auth_tokens.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+All token/password tests green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/unit/test_encryption.py
+
+
+
+Unit + query-level encryption tests
+
+
+
+AzureKeyVaultService for key in settings
+
+
+
+Tests assert pgcrypto usage and key propagation.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/unit/test_encryption.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+DB encryption tests fail due to missing SQL wiring.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+utils/encryption.py, api/routes/auth.py, models/user.py
+
+
+
+Implement encrypt_sql, registration INSERT using pgcrypto
+
+
+
+AzureKeyVaultService → key material
+
+
+
+Encryption tests pass, SQL uses pgp_sym_encrypt.
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/unit/test_encryption.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+All encryption tests green.
+
+
+
+
+
+9
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_auth.py
+
+
+
+Functional auth route tests
+
+
+
+AzureKeyVaultService (indirect)
+
+
+
+Register/login/refresh/logout behavior fully specified.
+
+
+
+
+
+10
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_auth.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Functional tests fail until routes and models exist.
+
+
+
+
+
+11
+
+
+
+WRITE CODE
+
+
+
+api/routes/auth.py, models/refresh_token.py, db/session.py
+
+
+
+Implement register/login/refresh/logout with rotation
+
+
+
+Key Vault secrets used for JWT & pgcrypto
+
+
+
+All auth functional tests pass.
+
+
+
+
+
+12
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_auth.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+End-to-end auth tests green.
+
+
+
+
+
+13
+
+
+
+WRITE TEST
+
+
+
+tests/security/test_rate_limiting.py, tests/security/test_refresh_token_security.py, tests/security/test_audit_trail.py, tests/security/test_audit_append_only.py, tests/security/test_rbac_enforcement.py, tests/security/test_password_change_revocation.py
+
+
+
+Security & audit tests
+
+
+
+AzureKeyVaultService for secrets
+
+
+
+Lockout, audit, RBAC, rotation specified.
+
+
+
+
+
+14
+
+
+
+RUN (RED)
+
+
+
+pytest tests/security
+
+
+
+CI/security
+
+
+
+None
+
+
+
+Tests fail on missing rate limiter/audit/constraints.
+
+
+
+
+
+15
+
+
+
+WRITE CODE
+
+
+
+api/middleware/rate_limit.py, api/middleware/audit.py, migrations for audit append-only, RBAC checks in routes
+
+
+
+DB + Key Vault only
+
+
+
+Security & audit tests pass in local and slow CI.
+
+
+
+
+
+
+
+
+
+16
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/security -m 'not slow' then full
+
+
+
+CI/security
+
+
+
+None
+
+
+
+All non-slow tests green; slow DB tests pass in gated job.
+
+
+
+Sprint 2 — Document Pipeline and OCR
+
+Sprint goal: Document upload endpoint, Azure Vision OCR, Language Healthcare NER, PHIG node creation, Blob Storage persistence, document state machine.
+
+Azure services introduced: Document Intelligence (azure-ai-documentintelligence), Azure Language (azure-ai-textanalytics), Azure Blob Storage (azure-storage-blob).
+
+
+
+
+
+Domain areas: file upload validation, async OCR and NER pipeline, PHIG graph node writes, document status handling, blob upload.
+
+
+
+Key modules:
+
+
+
+
+
+api/routes/documents.py — /api/documents/upload endpoint.
+
+
+
+pipeline/document_pipeline.py — process_document() state machine.
+
+
+
+graph/phig_builder.py — node creation support used by pipeline.
+
+
+
+services/azure_vision.py, services/azure_language.py, services/azure_blob.py — Azure service wrappers.
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_documents_boundaries.py
+
+
+
+Upload boundary tests
+
+
+
+None
+
+
+
+Size/mime/field validations defined.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_documents_boundaries.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails due to missing upload route/validation.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+api/routes/documents.py
+
+
+
+Implement endpoint with validation only
+
+
+
+None
+
+
+
+Boundary tests pass without full pipeline.
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_documents_boundaries.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All boundary tests green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/integration/test_document_state_machine.py
+
+
+
+Integration tests for process_document
+
+
+
+Vision, Language, Blob, OpenAI (wrapper-level)
+
+
+
+State machine behavior specified.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/integration/test_document_state_machine.py
+
+
+
+CI/integration
+
+
+
+None
+
+
+
+Fails until pipeline/service wrappers exist.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+pipeline/document_pipeline.py, services/azure_vision.py, services/azure_language.py, services/azure_blob.py, graph/phig_builder.py
+
+
+
+Implement OCR→NER→nodes→blob flow
+
+
+
+Wrapper mocks from tests
+
+
+
+Pipeline tests pass.
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/integration/test_document_state_machine.py
+
+
+
+CI/integration
+
+
+
+None
+
+
+
+All state machine tests green.
+
+
+
+
+
+9
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_documents.py
+
+
+
+Functional upload tests
+
+
+
+Vision, Language, Blob, Email, OpenAI services
+
+
+
+API contract around pipeline specified.
+
+
+
+
+
+10
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_documents.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until route wires to pipeline and email.
+
+
+
+
+
+11
+
+
+
+WRITE CODE
+
+
+
+api/routes/documents.py, services/azure_email.py
+
+
+
+Wire upload route to pipeline + email
+
+
+
+Azure services mocked in tests
+
+
+
+Upload functional tests pass.
+
+
+
+
+
+12
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_documents.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All upload tests green.
+
+
+
+Sprint 3 — Drug Interaction and Care Gap Engine
+
+Sprint goal: PHIG-based drug interaction detection via Azure Search RAG, renal impairment severity escalation, care gap detection via guidelines, patient confirmation flow.
+
+Azure services introduced: Azure AI Search (azure-search-documents).
+
+
+
+
+
+Domain areas: phig_builder interaction logic, care gap engine, interaction/care-gap API wiring, confirmations.
+
+
+
+Key modules:
+
+
+
+
+
+services/azure_search.py — search service wrapper.
+
+
+
+utils/drug_database.py — DrugDatabase for RxNorm and fuzzy matching.
+
+
+
+graph/phig_builder.py — interaction detection and care gap evaluation.
+
+
+
+api/routes/patients.py — medications and care-gap endpoints.
+
+
+
+api/routes/confirmations.py — confirmation and correction logic.
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/unit/test_drug_database.py
+
+
+
+Unit tests for drug DB
+
+
+
+None
+
+
+
+Exact and fuzzy RxNorm behavior defined.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/unit/test_drug_database.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+Fails until DrugDatabase implemented.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+utils/drug_database.py
+
+
+
+Implement lookup and fuzzy matching
+
+
+
+None
+
+
+
+Drug database tests pass.
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/unit/test_drug_database.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+All drug DB tests green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/unit/test_confidence_scoring.py
+
+
+
+Confidence logic tests
+
+
+
+None
+
+
+
+Source ceilings & scoring behavior specified.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/unit/test_confidence_scoring.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+Fails until ConfidenceCalculator and confirmations logic exist.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+graph/confidence.py, api/routes/confirmations.py
+
+
+
+Implement calculator and confirmation bypass
+
+
+
+None
+
+
+
+Confidence tests pass.
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/unit/test_confidence_scoring.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+All scoring tests green.
+
+
+
+
+
+9
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_confirmations.py
+
+
+
+Confirmation route tests
+
+
+
+Drug DB and phig_builder mocked appropriately
+
+
+
+Route contract defined.
+
+
+
+
+
+10
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_confirmations.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until confirmations route wired.
+
+
+
+
+
+11
+
+
+
+WRITE CODE
+
+
+
+api/routes/confirmations.py
+
+
+
+Implement confirm/correct behavior
+
+
+
+Search and graph used indirectly
+
+
+
+Functional confirmation tests pass.
+
+
+
+
+
+12
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_confirmations.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All confirmation tests green.
+
+
+
+
+
+13
+
+
+
+WRITE TEST
+
+
+
+tests/false_positive_negative/test_interaction_false_positives.py, tests/false_positive_negative/test_interaction_false_negatives.py
+
+
+
+FP/FN suites (wiring + algorithm layers)
+
+
+
+AzureSearchService mocked only in algorithm tests
+
+
+
+Interaction safety behavior fully specified.
+
+
+
+
+
+14
+
+
+
+RUN (RED)
+
+
+
+pytest tests/false_positive_negative
+
+
+
+CI/safety
+
+
+
+None
+
+
+
+Fails until phig_builder + endpoints wired.
+
+
+
+
+
+15
+
+
+
+WRITE CODE
+
+
+
+graph/phig_builder.py, api/routes/patients.py
+
+
+
+Implement interaction engine and API surfacing
+
+
+
+Azure Search wrapper used
+
+
+
+FP/FN tests pass; critical FN tests green in Stage 1.
+
+
+
+
+
+16
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/false_positive_negative
+
+
+
+CI/safety
+
+
+
+None
+
+
+
+All interaction tests green.
+
+
+
+Sprint 4 — AI Chat and Multi-Agent Orchestrator
+
+Sprint goal: Medication/CareGap/History agents, language-aware routing, Azure Translator, Azure OpenAI GPT-4o chat and structured extraction.
+
+Azure services introduced: Azure OpenAI (openai), Azure Translator (via httpx), continued Azure Search for RAG.
+
+
+
+
+
+Domain areas: orchestrator routing, agent implementations, translation, chat endpoints, history agent logic.
+
+
+
+Key modules:
+
+
+
+
+
+services/azure_openai.py, services/azure_translator.py — wrappers.
+
+
+
+agents/orchestrator.py, agents/medication_agent.py, agents/care_gap_agent.py, agents/history_agent.py — agent graph.
+
+
+
+api/routes/chat.py — chat query endpoint.
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/integration/test_orchestrator.py
+
+
+
+Orchestrator routing/tests
+
+
+
+Translator, OpenAI, Search (wrappers)
+
+
+
+Agent routing and output fields specified.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/integration/test_orchestrator.py
+
+
+
+CI/integration
+
+
+
+None
+
+
+
+Fails until orchestrator & agents exist.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+agents/orchestrator.py + agent modules
+
+
+
+Implement routing & call patterns
+
+
+
+Wrapper services used
+
+
+
+Orchestrator tests pass.
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/integration/test_orchestrator.py
+
+
+
+CI/integration
+
+
+
+None
+
+
+
+All orchestrator tests green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_health.py
+
+
+
+Health endpoint tests
+
+
+
+None
+
+
+
+Health contract defined.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_health.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until /health exists.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+api/routes/health.py, include in main.py
+
+
+
+Implement health route
+
+
+
+None
+
+
+
+Health tests pass.
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_health.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Health tests green.
+
+
+
+
+
+9
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_subscriptions.py
+
+
+
+Subscription endpoints tests
+
+
+
+None
+
+
+
+Tier info & upgrade demo behavior specified.
+
+
+
+
+
+10
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_subscriptions.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until subscriptions routes and tier config exist.
+
+
+
+
+
+11
+
+
+
+WRITE CODE
+
+
+
+api/routes/subscriptions.py, wire feature_gate
+
+
+
+Implement plans/current/upgrade
+
+
+
+None
+
+
+
+Subscription tests pass.
+
+
+
+
+
+12
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_subscriptions.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All subscription tests green.
+
+
+
+Sprint 5 — Summaries, Reminders, Subscriptions Gates, and Tier Logic
+
+Sprint goal: PDF health summaries stored in Blob Storage, reminder CRUD with RBAC, subscription tier gates, email reminders, and adherence support.
+
+Azure services introduced: Azure Communication Services Email (azure-communication-email), continued Blob Storage and OpenAI for summarization.
+
+
+
+
+
+Domain areas: summary PDF generation and download, reminder scheduling and email, tier gate enforcement in routes, adherence endpoints.
+
+
+
+Key modules:
+
+
+
+
+
+api/routes/summary.py — generate/download summary.
+
+
+
+api/routes/reminders.py — reminder CRUD.
+
+
+
+api/routes/adherence.py — adherence tracking.
+
+
+
+services/azure_email.py — email wrapper.
+
+
+
+utils/pdf_generator.py — health summary creation.
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_summary.py
+
+
+
+Summary endpoint tests
+
+
+
+Blob, OpenAI, Search as needed
+
+
+
+PDF and empty-patient behaviors specified.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_summary.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until summary route exists.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+api/routes/summary.py, utils/pdf_generator.py
+
+
+
+Implement summary generation + blob
+
+
+
+Blob & OpenAI wrappers
+
+
+
+Summary tests pass.
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_summary.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All summary tests green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_reminders.py
+
+
+
+Reminder CRUD + scheduler tests
+
+
+
+Email wrapper mocked
+
+
+
+Reminder behavior specified.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_reminders.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+Fails until reminders implemented.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+api/routes/reminders.py, scheduler module
+
+
+
+Implement reminder model, routes, scheduler hook
+
+
+
+Email service wrapper
+
+
+
+Reminder tests and scheduler test pass.
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/functional/test_api_reminders.py
+
+
+
+CI/functional
+
+
+
+None
+
+
+
+All reminder tests green.
+
+
+
+
+
+9
+
+
+
+WRITE TEST
+
+
+
+tests/functional/test_api_caregivers.py, tests/security/test_rbac_permission_levels.py, tests/security/test_cross_patient_rbac.py
+
+
+
+Caregiver & RBAC edge tests
+
+
+
+None
+
+
+
+Permission boundaries and isolation specified.
+
+
+
+
+
+10
+
+
+
+RUN (RED)
+
+
+
+pytest tests/functional/test_api_caregivers.py tests/security/test_rbac_permission_levels.py tests/security/test_cross_patient_rbac.py
+
+
+
+CI/security
+
+
+
+None
+
+
+
+Fails until caregivers and isolation checks exist.
+
+
+
+
+
+11
+
+
+
+WRITE CODE
+
+
+
+api/routes/caregivers.py, RBAC helpers
+
+
+
+Implement caregiver management & cross-patient checks
+
+
+
+None
+
+
+
+Caregiver & RBAC tests pass.
+
+
+
+
+
+12
+
+
+
+RUN (GREEN)
+
+
+
+Same as step 10
+
+
+
+CI/security
+
+
+
+None
+
+
+
+All caregiver/RBAC tests green.
+
+
+
+
+
+13
+
+
+
+WRITE TEST
+
+
+
+tests/business_logic/test_tier_config.py, tests/regression/test_lab_trend_edge_cases.py
+
+
+
+Tier limits & lab trend behavior
+
+
+
+None
+
+
+
+Limits and trends specified (labs xfailed initially).
+
+
+
+
+
+14
+
+
+
+RUN (RED)
+
+
+
+pytest tests/business_logic/test_tier_config.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+Fails until feature gate implemented.
+
+
+
+
+
+15
+
+
+
+WRITE CODE
+
+
+
+api/middleware/feature_gate.py, api/routes/labs.py
+
+
+
+Implement tier limits & labs router
+
+
+
+None
+
+
+
+Tier tests green; lab tests later un-xfailed.
+
+
+
+
+
+16
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/business_logic/test_tier_config.py
+
+
+
+CI/unit
+
+
+
+None
+
+
+
+Tier config tests all pass.
+
+
+
+Sprint 6 — Frontend Integration, E2E, and Coverage Matrix
+
+Sprint goal: Backend-ready React/Vite integration, Playwright E2E flows, consolidated coverage matrix to ensure P0 safety, and Ramesh journey test.
+
+Azure services introduced: Azure Static Web Apps (deployment target, not SDK-tested).
+
+
+
+
+
+Domain areas: high-level system validation, coverage accounting, end-to-end flows, CI gating.
+
+
+
+Key modules/tests:
+
+
+
+
+
+tests/e2e/test_patient_journey_ramesh.py — full backend E2E (backend-only, not UI automation).
+
+
+
+tests/coverage_matrix.py — coverage accounting.
+
+
+
+Playwright config and frontend tests (outside this backend suite, but aligned).
+
+TDD step table
+
+
+
+
+
+
+
+Step
+
+
+
+Order
+
+
+
+File
+
+
+
+Type
+
+
+
+Azure Mock Used
+
+
+
+Passes When
+
+
+
+
+
+1
+
+
+
+WRITE TEST
+
+
+
+tests/e2e/test_patient_journey_ramesh.py
+
+
+
+Backend E2E journey
+
+
+
+All Azure service wrappers mocked
+
+
+
+Ramesh flow fully specified.
+
+
+
+
+
+2
+
+
+
+RUN (RED)
+
+
+
+pytest tests/e2e/test_patient_journey_ramesh.py
+
+
+
+CI/e2e
+
+
+
+None
+
+
+
+Fails until full stack wired.
+
+
+
+
+
+3
+
+
+
+WRITE CODE
+
+
+
+Cross-cutting adjustments in routes, services, graph
+
+
+
+All Azure wrappers
+
+
+
+E2E journey passes under mocks.
+
+
+
+
+
+
+
+
+
+4
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/e2e/test_patient_journey_ramesh.py
+
+
+
+CI/e2e
+
+
+
+None
+
+
+
+E2E test green.
+
+
+
+
+
+5
+
+
+
+WRITE TEST
+
+
+
+tests/coverage_matrix.py
+
+
+
+Coverage matrix tests
+
+
+
+None
+
+
+
+Matrix expectations defined.
+
+
+
+
+
+6
+
+
+
+RUN (RED)
+
+
+
+pytest tests/coverage_matrix.py
+
+
+
+CI/meta
+
+
+
+None
+
+
+
+Fails until matrix filled.
+
+
+
+
+
+7
+
+
+
+WRITE CODE
+
+
+
+tests/coverage_matrix.py COVERAGE_MATRIX mapping
+
+
+
+None
+
+
+
+Matrix tests pass.
+
+
+
+
+
+
+
+
+
+8
+
+
+
+RUN (GREEN)
+
+
+
+pytest tests/coverage_matrix.py
+
+
+
+CI/meta
+
+
+
+None
+
+
+
+Coverage accounting green.
+
+Mermaid view of document/interaction path
+
+flowchart TD
+  client[Client] --> apiDocs[api_documents_upload]
+  apiDocs --> docPipeline[process_document]
+  docPipeline --> visionService[AzureVisionService]
+  docPipeline --> languageService[AzureLanguageService]
+  docPipeline --> blobService[AzureBlobService]
+  docPipeline --> phigBuilder[phig_builder]
+  phigBuilder --> searchService[AzureSearchService]
+  phigBuilder --> summaryRoute[api_summary_generate]
+
+CI strategy
+
+
+
+
+
+Stage 1 (fast, critical): pytest -m 'not phase2 and not phase3 and not demo_only and critical' for safety-critical clinical tests.
+
+
+
+Stage 2 (default Phase 1): pytest -m 'not phase2 and not phase3 and not demo_only' for Phase 1 suite.
+
+
+
+Stage 3 (extended): include slow and phase2/phase3/demo_only markers for full regression.
+
