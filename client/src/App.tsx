@@ -14,7 +14,6 @@ import DocumentsPage from "@/pages/documents";
 import ChatPage from "@/pages/chat";
 import RemindersPage from "@/pages/reminders";
 import SettingsPage from "@/pages/settings";
-import TestCasesPage from "@/pages/test-cases";
 
 function AuthenticatedRoutes() {
   return (
@@ -25,7 +24,6 @@ function AuthenticatedRoutes() {
       <Route path="/chat" component={ChatPage} />
       <Route path="/reminders" component={RemindersPage} />
       <Route path="/settings" component={SettingsPage} />
-      <Route path="/test-cases" component={TestCasesPage} />
       <Route component={NotFound} />
     </Switch>
   );
