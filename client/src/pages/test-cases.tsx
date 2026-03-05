@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
-import { FlaskConical, Search, ListChecks, Sparkles, Archive, Layers } from "lucide-react";
+import { FlaskConical, Search, ListChecks, Sparkles, Archive } from "lucide-react";
 
 interface TestCase {
   name: string;
@@ -52,28 +52,21 @@ function formatCategory(cat: string): string {
 
 export default function TestCasesPage() {
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
   const [showNewOnly, setShowNewOnly] = useState(false);
 
   const { data, isLoading } = useQuery<TestCasesResponse>({
     queryKey: ["/api/tests/cases"],
   });
 
-  const categories = useMemo(() => {
-    if (!data) return [];
-    return Object.keys(data.summary.by_category).sort();
-  }, [data]);
-
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.tests.filter((t) => {
-      if (activeCategory !== "all" && t.category !== activeCategory) return false;
       if (showNewOnly && !t.is_new) return false;
       if (search && !t.name.toLowerCase().includes(search.toLowerCase()) &&
           !t.feature_area.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [data, activeCategory, showNewOnly, search]);
+  }, [data, showNewOnly, search]);
 
   const summary = data?.summary;
 
@@ -91,8 +84,8 @@ export default function TestCasesPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
               <Card key={i}>
                 <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
                 <CardContent><Skeleton className="h-8 w-16" /></CardContent>
@@ -100,7 +93,7 @@ export default function TestCasesPage() {
             ))}
           </div>
         ) : summary ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">Total Tests</CardTitle>
@@ -131,48 +124,10 @@ export default function TestCasesPage() {
                 <p className="text-xs text-muted-foreground mt-1">Phase 1 & 2 coverage</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Categories</CardTitle>
-                <Layers className="h-5 w-5 text-chart-3" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-chart-3" data-testid="text-categories-count">{categories.length}</div>
-                <p className="text-xs text-muted-foreground mt-1">Test categories</p>
-              </CardContent>
-            </Card>
           </div>
         ) : null}
 
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2" data-testid="filter-category-tabs">
-            <button
-              onClick={() => setActiveCategory("all")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeCategory === "all"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
-              data-testid="filter-tab-all"
-            >
-              All {summary ? `(${summary.total})` : ""}
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  activeCategory === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-accent"
-                }`}
-                data-testid={`filter-tab-${cat}`}
-              >
-                {formatCategory(cat)} ({summary?.by_category[cat] || 0})
-              </button>
-            ))}
-          </div>
-
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
