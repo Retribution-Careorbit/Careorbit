@@ -47,7 +47,8 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 │       ├── reminders.py       # create/list/delete
 │       ├── subscriptions.py   # current/plans/upgrade
 │       ├── chat.py            # POST /api/chat/query
-│       └── health.py          # GET /health
+│       ├── health.py          # GET /health
+│       └── tests.py           # GET /api/tests/cases (test suite browser)
 ├── agents/orchestrator.py     # Multi-agent routing (medication/care_gap/history)
 ├── graph/
 │   ├── confidence.py          # ConfidenceCalculator with SOURCE_CEILINGS
@@ -85,6 +86,7 @@ CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
 │       ├── documents.tsx      # Drag-drop document upload
 │       ├── chat.tsx           # AI chat (Hindi/English)
 │       ├── reminders.tsx      # CRUD medication reminders
+│       ├── test-cases.tsx     # Test suite browser (331 tests)
 │       └── settings.tsx       # Profile + subscription plans
 ├── server/routes.ts           # Express proxy to FastAPI (port 8000)
 ├── start.sh                   # Starts both FastAPI + Express

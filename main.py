@@ -34,6 +34,7 @@ from api.routes.summary import router as summary_router
 from api.routes.reminders import router as reminders_router
 from api.routes.subscriptions import router as subscriptions_router
 from api.routes.chat import router as chat_router
+from api.routes.tests import router as tests_router
 
 app.include_router(auth_router)
 app.include_router(health_router)
@@ -45,6 +46,7 @@ app.include_router(summary_router)
 app.include_router(reminders_router)
 app.include_router(subscriptions_router)
 app.include_router(chat_router)
+app.include_router(tests_router)
 
 if __name__ == "__main__":
     import uvicorn

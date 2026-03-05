@@ -8,6 +8,7 @@ packages = ["cargo", "libiconv", "libxcrypt", "rustc"]
 
 [[ports]]
 localPort = 1111
+externalPort = 9000
 
 [[ports]]
 localPort = 5000
