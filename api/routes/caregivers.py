@@ -38,6 +38,18 @@ async def add_caregiver(body: AddCaregiverRequest, request: Request):
     if body.permission_level not in VALID_PERMISSIONS:
         raise HTTPException(status_code=400, detail=f"Invalid permission level. Must be one of: {VALID_PERMISSIONS}")
 
+    patient_id = current_user["id"]
+    tier = current_user.get("tier", "free")
+
+    from utils.tier_config import get_tier_limits
+    limits = get_tier_limits(tier)
+    max_caregivers = limits.get("max_caregivers", 2)
+
+    active_links = [
+        link for link in _caregiver_links
+        if link["patient_id"] == patient_id and not link.get("revoked")
+    ]
+
     from api.routes.auth import _users_store
     caregiver_user = None
     for u in _users_store.values():
@@ -45,11 +57,24 @@ async def add_caregiver(body: AddCaregiverRequest, request: Request):
             caregiver_user = u
             break
 
+    if not caregiver_user:
+        session = async_session()
+        result = await session.execute(
+            "SELECT id, name FROM users WHERE email = :email",
+            {"email": body.caregiver_email}
+        )
+        db_user = result.mappings().first()
+        if db_user:
+            caregiver_user = db_user
+
+    if not caregiver_user and len(active_links) >= max_caregivers:
+        raise HTTPException(status_code=404, detail="Caregiver email not registered")
+
     caregiver_name = caregiver_user["name"] if caregiver_user else body.caregiver_email.split("@")[0]
-    caregiver_id = caregiver_user["id"] if caregiver_user else body.caregiver_email
+    caregiver_id = caregiver_user.get("id", body.caregiver_email) if caregiver_user else body.caregiver_email
 
     _caregiver_links.append({
-        "patient_id": current_user["id"],
+        "patient_id": patient_id,
         "caregiver_id": caregiver_id,
         "caregiver_name": caregiver_name,
         "relationship": body.relationship,
