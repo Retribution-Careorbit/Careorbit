@@ -1,0 +1,282 @@
+You are a senior backend architect, QA lead, and TDD reviewer for CareOrbit.
+
+Your task is to create a detailed IMPLEMENTATION PLAN for generating production-grade test cases for NEW onboarding/profile-completion features in CareOrbit.
+
+Context you must follow
+CareOrbit is a healthcare web platform with:
+- FastAPI backend
+- PostgreSQL with pgcrypto
+- Azure-hosted services
+- RBAC + audit trail + refresh-token auth
+- existing production-style test suite (unit, integration, functional, security, business logic, E2E)
+
+Existing MVP-aligned facts to respect
+1. Registration currently creates a user and then creates an EMPTY patient_profiles row.
+2. users already supports:
+   - preferred_language
+   - medical_literacy_level
+3. patient_profiles already supports:
+   - date_of_birth
+   - gender
+   - blood_group
+   - height_cm
+   - weight_kg
+   - emergency_contact_name
+   - emergency_contact_phone_encrypted
+   - city
+   - state
+   - country
+4. PII like DOB/phone/emergency contact phone must be handled with pgcrypto / encryption-aware SQL patterns.
+5. Audit trail is append-only and must log important actions like registration and profile updates.
+6. Age should be DERIVED from date_of_birth, not stored as a static field.
+7. Family dashboard and personalization logic may use age and gender from profile data.
+8. Current patient profile update request already includes fields like date_of_birth, gender, blood_group, height_cm, weight_kg, city, and state.
+
+New feature goal
+We want to add mandatory onboarding/profile-completion signals that improve personalization and model output quality:
+- Mandatory:
+  - date_of_birth
+  - gender
+  - preferred_language
+  - medical_literacy_level
+- Optional / nice-to-have:
+  - blood_group
+  - height_cm
+  - weight_kg
+  - city
+  - state
+  - country
+  - emergency_contact_name
+  - emergency_contact_phone
+  - prefer_not_to_say option for gender
+
+Product requirement
+The user should provide these fields either:
+A. at registration, OR
+B. at first login / first profile completion step
+
+The implementation plan must compare both options, recommend one, and explain why from:
+- product UX
+- backend complexity
+- security/privacy
+- testability
+- MVP alignment
+
+What you must produce
+Create a structured implementation plan with the following sections:
+
+SECTION 1 — Objective
+- Explain the goal of the feature in 1–2 paragraphs.
+- State how collecting DOB, gender, preferred_language, and medical_literacy_level improves output quality, personalization, language, and safety relevance.
+- Explain why DOB should be stored instead of age.
+
+SECTION 2 — Recommended Product Flow
+- Compare:
+  1. collect at registration
+  2. collect at first login / onboarding completion
+- Recommend the better option for CareOrbit’s current MVP architecture.
+- Clearly describe the user journey for:
+  - new user registration
+  - first authenticated session
+  - incomplete onboarding state
+  - completed onboarding state
+- Include API/state transitions.
+
+SECTION 3 — Backend Change Plan
+- Identify exactly what backend layers would need to change:
+  - request models
+  - route contracts
+  - validation rules
+  - database write logic
+  - audit logging
+  - encryption handling
+  - response contracts
+- Explicitly call out whether changes belong in:
+  - /api/auth/register
+  - /api/patients/profile
+  - auth middleware / onboarding gate
+  - family dashboard / derived age logic
+- If current schema already supports a field, say “no schema migration needed”.
+- If a field needs a new enum or validation layer, say so.
+
+SECTION 4 — Validation Rules
+Define precise validation and edge-case rules for each field:
+- date_of_birth
+  - cannot be future date
+  - must be plausible human age range
+  - age derived dynamically
+- gender
+  - allowed values
+  - include “prefer_not_to_say” if recommended
+  - explain how model should behave when unknown
+- preferred_language
+  - allowed values for MVP
+  - default/fallback behavior
+- medical_literacy_level
+  - allowed values
+  - expected impact on response verbosity/explanation style
+- height_cm / weight_kg
+  - plausible bounds
+- blood_group
+  - supported valid values
+- emergency contact fields
+  - optional but validated if supplied
+
+SECTION 5 — Security / Privacy / Compliance Impact
+- Explain how these fields affect:
+  - encryption requirements
+  - RBAC
+  - audit trail
+  - exposure in APIs
+  - profile retrieval
+- Distinguish between:
+  - sensitive-but-supported profile data
+  - fields that must be encrypted
+  - fields that should NOT be logged in plaintext
+- Mention what test cases are required to ensure audit log correctness and append-only behavior.
+
+SECTION 6 — Test Strategy
+Build a test-generation strategy for these new features, aligned with production TDD.
+
+You must organize test planning into:
+- unit tests
+- functional/API tests
+- integration tests
+- security tests
+- business logic tests
+- E2E/onboarding journey tests
+- regression tests
+
+For each category, specify:
+- purpose
+- what should be mocked vs real
+- key failure modes
+- what belongs in CI vs nightly
+
+SECTION 7 — Exact Test Case Inventory
+Generate a highly detailed test inventory for the new features.
+
+At minimum include test cases for:
+A. Registration flow
+- register succeeds with minimum required onboarding fields
+- register fails when mandatory fields missing (if registration path chosen)
+- register persists preferred_language correctly
+- register creates empty profile + onboarding_required flag (if first-login path chosen)
+- register audit event written
+- PII encryption-aware SQL executed for protected fields
+
+B. First login / onboarding completion flow
+- first login returns onboarding incomplete status (if applicable)
+- profile completion succeeds with mandatory fields
+- incomplete profile update rejected
+- subsequent profile updates do not require mandatory fields again
+- onboarding completion is idempotent / safe to retry
+- onboarding completion writes audit metadata
+
+C. Validation tests
+- future DOB rejected
+- impossible age rejected
+- invalid gender rejected
+- invalid language rejected
+- invalid literacy level rejected
+- unrealistic height/weight rejected
+- invalid blood group rejected
+- malformed emergency contact rejected
+
+D. Security tests
+- user cannot update another patient’s profile
+- caregiver with view cannot edit profile
+- caregiver with edit/full behavior clarified and tested
+- encrypted fields are not stored/plaintext-exposed incorrectly
+- audit log cannot be silently bypassed
+- no conditional-guard tests
+- no always-true assertions
+
+E. Personalization/business-behavior tests
+- preferred_language changes output language selection behavior
+- medical_literacy_level changes explanation style selection
+- age is derived from DOB correctly
+- family dashboard reflects age and gender when present
+- null/missing optional fields do not crash dashboard or orchestrator
+
+F. Migration / backward compatibility tests
+- legacy users with empty patient_profiles are handled safely
+- old users are prompted for onboarding completion
+- existing API clients do not break unexpectedly
+- null historical records remain readable
+
+SECTION 8 — API Contract Proposals
+Propose the exact response contracts for:
+- registration response
+- login response when onboarding incomplete
+- profile update response
+- profile fetch response
+- optional onboarding-status endpoint
+
+For each endpoint, specify:
+- request body
+- response body
+- status codes
+- error payloads
+- whether this is a breaking change
+
+SECTION 9 — Suggested File Layout
+Recommend which new/updated test files should be created.
+
+Example structure:
+- tests/functional/test_api_profile_onboarding.py
+- tests/security/test_profile_rbac.py
+- tests/unit/test_profile_validators.py
+- tests/integration/test_profile_encryption_sql.py
+- tests/e2e/test_first_login_onboarding_journey.py
+
+Also suggest which existing test files should be updated.
+
+SECTION 10 — Priority and Delivery Plan
+Break implementation into phases:
+- Phase 1: contract + validators
+- Phase 2: API behavior
+- Phase 3: security/audit/encryption
+- Phase 4: E2E / regression
+
+For each phase include:
+- dev tasks
+- test tasks
+- dependencies
+- blockers
+- release risk
+
+SECTION 11 — Risks / Ambiguities
+Identify any requirements ambiguities, including:
+- registration vs first-login onboarding
+- gender field semantics
+- how strict medical_literacy_level should be
+- whether emergency contact is MVP or optional
+- whether onboarding completion should block all other features
+
+SECTION 12 — Final Recommendation
+End with:
+1. recommended product path
+2. recommended API path
+3. recommended test rollout order
+4. minimum CI-gating subset
+5. what should be deferred
+
+Output requirements
+- Be concrete and implementation-oriented.
+- Do NOT give generic testing advice.
+- Do NOT hallucinate endpoints that do not fit the described CareOrbit architecture.
+- Assume FastAPI + PostgreSQL + pgcrypto + audit middleware + current V4-style test suite.
+- Prefer date_of_birth over age.
+- Prefer deterministic validations.
+- Explicitly avoid flaky tests, conditional-guard tests, and “always true” assertions.
+- Where useful, include sample test names in pytest style.
+- Use production-level language and architecture reasoning.
+
+Deliverable format
+Return the answer as:
+1. Executive summary
+2. Proposed implementation plan
+3. Detailed test case matrix
+4. Recommended API contracts
+5. Risks and final recommendation
