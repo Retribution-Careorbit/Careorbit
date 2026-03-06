@@ -28,13 +28,13 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, testId: "link-dashboard" },
-  { href: "/medications", label: "Medications", icon: Pill, testId: "link-medications" },
-  { href: "/documents", label: "Documents", icon: FileUp, testId: "link-documents" },
-  { href: "/chat", label: "AI Chat", icon: MessageCircle, testId: "link-chat" },
-  { href: "/reminders", label: "Reminders", icon: Bell, testId: "link-reminders" },
-  { href: "/test-cases", label: "Test Cases", icon: FlaskConical, testId: "link-test-cases" },
-  { href: "/settings", label: "Settings", icon: Settings, testId: "link-settings" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+  { href: "/medications", label: "Medications", icon: Pill, testId: "nav-medications" },
+  { href: "/documents", label: "Documents", icon: FileUp, testId: "nav-documents" },
+  { href: "/chat", label: "AI Chat", icon: MessageCircle, testId: "nav-ai-chat" },
+  { href: "/reminders", label: "Reminders", icon: Bell, testId: "nav-reminders" },
+  { href: "/test-cases", label: "Test Cases", icon: FlaskConical, testId: "nav-test-cases" },
+  { href: "/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
 ];
 
 export function AppSidebar() {
@@ -124,7 +124,7 @@ export function AppSidebar() {
           variant="ghost"
           className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           onClick={logout}
-          data-testid="button-logout"
+          data-testid="button-sign-out-sidebar"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out

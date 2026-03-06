@@ -45,7 +45,7 @@ export default function MedicationsPage() {
     const style = label ? CONFIDENCE_STYLES[label] : undefined;
     const badgeClass = style?.badge || "border-muted";
     const displayLabel = label ? label.charAt(0) + label.slice(1).toLowerCase() : "Unknown";
-    return <Badge className={`${badgeClass} border font-medium text-xs`}>{displayLabel}</Badge>;
+    return <Badge className={`${badgeClass} border font-medium text-xs`} data-testid={`badge-confidence-${(label || "unknown").toLowerCase()}`}>{displayLabel}</Badge>;
   };
 
   const getBorderClass = (label?: string) => {
@@ -119,7 +119,7 @@ export default function MedicationsPage() {
                           <p><span className="text-muted-foreground">Confidence:</span> <span className="font-medium">{(med.confidence * 100).toFixed(0)}%</span></p>
                         )}
                         {med.interactions && med.interactions.length > 0 && (
-                          <div className="mt-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                          <div className="mt-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20" data-testid={`alert-interaction-${i}`}>
                             <div className="flex items-center gap-1.5 text-destructive font-medium text-sm">
                               <AlertTriangle className="h-4 w-4" />
                               Interaction Alerts

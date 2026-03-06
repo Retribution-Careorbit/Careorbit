@@ -18,6 +18,17 @@ Test Coverage:
 - TC-NAV-010: Active indicator slides to selected item
 """
 
+import pytest
+from fastapi.testclient import TestClient
+from main import app
+from uuid import uuid4
+
+client = TestClient(app)
+
+RAMESH_CREDENTIALS = {
+    "email": "ramesh@careorbit.dev",
+    "password": "Ramesh123!"
+}
 
 NAV_ITEMS = [
     {"label": "Dashboard", "path": "/", "testid": "nav-dashboard"},
@@ -93,7 +104,7 @@ NAVIGATION_TEST_PLANS = {
         "steps": [
             "[Browser] On any page (logged in)",
             "[Verify] Note current theme (light by default)",
-            "[Browser] Click theme toggle button [data-testid='button-theme']",
+            "[Browser] Click theme toggle button [data-testid='button-theme-toggle']",
             "[Verify] Page switches to dark mode",
             "[Verify] Background becomes dark, text becomes light",
             "[Verify] Cards and sidebar adapt to dark theme",
@@ -101,7 +112,7 @@ NAVIGATION_TEST_PLANS = {
             "[Verify] Page returns to light mode",
         ],
         "selectors": {
-            "theme_toggle": "button-theme",
+            "theme_toggle": "button-theme-toggle",
         },
     },
     "TC-NAV-006": {
@@ -129,14 +140,14 @@ NAVIGATION_TEST_PLANS = {
         "name": "Sign out button works",
         "steps": [
             "[Browser] On any page (logged in)",
-            "[Browser] Click [data-testid='button-sign-out'] in sidebar",
+            "[Browser] Click [data-testid='button-sign-out-sidebar'] in sidebar",
             "[Verify] User is logged out",
             "[Verify] URL redirects to / (login page)",
             "[Verify] Login form is visible (not dashboard)",
             "[Verify] localStorage tokens are cleared",
         ],
         "selectors": {
-            "sign_out": "button-sign-out",
+            "sign_out": "button-sign-out-sidebar",
         },
     },
     "TC-NAV-009": {
@@ -161,3 +172,60 @@ NAVIGATION_TEST_PLANS = {
         ],
     },
 }
+
+
+class TestNavigationAPIBackend:
+    """Backend-verifiable tests for navigation-related API endpoints."""
+
+    def test_tc_nav_001_all_api_routes_accessible(self):
+        """TC-NAV-001 backend: All main API routes return valid responses for authenticated user."""
+        auth = client.post("/api/auth/login", json=RAMESH_CREDENTIALS).json()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        routes = [
+            ("/api/patients/overview", 200),
+            ("/api/patients/medications", 200),
+            ("/api/reminders/list", 200),
+            ("/api/subscriptions/current", 200),
+            ("/api/subscriptions/plans", 200),
+        ]
+        for route, expected_status in routes:
+            resp = client.get(route, headers=headers)
+            assert resp.status_code == expected_status, f"{route} returned {resp.status_code}"
+
+    def test_tc_nav_005_login_returns_token(self):
+        """TC-NAV-005 backend: Login returns access token for authenticated navigation."""
+        resp = client.post("/api/auth/login", json=RAMESH_CREDENTIALS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert len(data["access_token"]) > 20
+
+    def test_tc_nav_008_logout_invalidates_refresh(self):
+        """TC-NAV-008 backend: POST /api/auth/logout invalidates refresh token."""
+        auth = client.post("/api/auth/login", json=RAMESH_CREDENTIALS).json()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.post("/api/auth/logout", headers=headers,
+                           json={"refresh_token": auth["refresh_token"]})
+        assert resp.status_code == 200
+        reuse = client.post("/api/auth/refresh",
+                            json={"refresh_token": auth["refresh_token"]})
+        assert reuse.status_code in (401, 403)
+
+    def test_tc_nav_007_login_returns_email(self):
+        """TC-NAV-007 backend: Login response includes user email for sidebar display."""
+        auth = client.post("/api/auth/login", json=RAMESH_CREDENTIALS).json()
+        assert "user" in auth
+        assert auth["user"]["email"] == "ramesh@careorbit.dev"
+
+    def test_tc_nav_unauthenticated_routes_blocked(self):
+        """Unauthenticated requests to protected routes are rejected."""
+        routes = [
+            "/api/patients/overview",
+            "/api/patients/medications",
+            "/api/reminders/list",
+            "/api/subscriptions/current",
+        ]
+        for route in routes:
+            resp = client.get(route)
+            assert resp.status_code in (401, 403), f"{route} should require auth"

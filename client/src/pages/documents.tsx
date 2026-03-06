@@ -128,7 +128,7 @@ export default function DocumentsPage() {
                 {uploadMutation.isPending ? (
                   <div className="space-y-4">
                     <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" data-testid="spinner-processing" />
                     </div>
                     <p className="text-lg font-heading font-medium">Processing document...</p>
                     <p className="text-sm text-muted-foreground">AI is extracting health data</p>

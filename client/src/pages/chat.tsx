@@ -192,7 +192,7 @@ export default function ChatPage() {
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <Bot className="h-4 w-4 text-primary" />
                 </div>
-                <div className="bg-muted rounded-2xl rounded-bl-md p-3.5 flex items-center gap-1.5">
+                <div className="bg-muted rounded-2xl rounded-bl-md p-3.5 flex items-center gap-1.5" data-testid="typing-indicator">
                   <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
                   <span className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />

@@ -18,6 +18,23 @@ Test Coverage:
 - TC-DB-010: Stat cards have gradient accent styling
 """
 
+import pytest
+from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+RAMESH_CREDENTIALS = {
+    "email": "ramesh@careorbit.dev",
+    "password": "Ramesh123!"
+}
+
+
+def _login_ramesh():
+    resp = client.post("/api/auth/login", json=RAMESH_CREDENTIALS)
+    assert resp.status_code == 200
+    return resp.json()
+
 
 DASHBOARD_TEST_PLANS = {
     "TC-DB-001": {
@@ -159,3 +176,51 @@ DASHBOARD_TEST_PLANS = {
         },
     },
 }
+
+
+class TestDashboardAPIBackend:
+    """Backend-verifiable tests for dashboard data endpoints."""
+
+    def test_tc_db_001_overview_returns_stats(self):
+        """TC-DB-001 backend: GET /api/patients/overview returns stat data."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/patients/overview", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "conditions" in data or "nodes" in data or "medications" in data or "total_nodes" in data
+
+    def test_tc_db_002_medications_returns_list(self):
+        """TC-DB-002 backend: GET /api/patients/medications returns medications with count > 0."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/patients/medications", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "medications" in data
+        assert len(data["medications"]) > 0
+
+    def test_tc_db_004_reminders_endpoint_accessible(self):
+        """TC-DB-004 backend: GET /api/reminders/list returns reminder data."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/reminders/list", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+
+    def test_tc_db_004_subscription_endpoint_accessible(self):
+        """TC-DB-004 backend: GET /api/subscriptions/current returns tier."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/subscriptions/current", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "tier" in data
+
+    def test_tc_db_009_login_returns_user_name(self):
+        """TC-DB-009 backend: Login response includes user name for greeting."""
+        auth = _login_ramesh()
+        assert "user" in auth
+        assert "name" in auth["user"]
+        assert auth["user"]["name"] == "Ramesh Kumar"

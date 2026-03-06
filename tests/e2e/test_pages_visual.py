@@ -23,6 +23,36 @@ Test Coverage:
 - TC-VIS-015: Design system — typography (Inter/Poppins fonts)
 """
 
+import pytest
+from fastapi.testclient import TestClient
+from main import app
+from uuid import uuid4
+
+client = TestClient(app)
+
+RAMESH_CREDENTIALS = {
+    "email": "ramesh@careorbit.dev",
+    "password": "Ramesh123!"
+}
+
+
+def _login_ramesh():
+    resp = client.post("/api/auth/login", json=RAMESH_CREDENTIALS)
+    assert resp.status_code == 200
+    return resp.json()
+
+
+def _register_new_user():
+    email = f"vis.{uuid4().hex[:8]}@example.com"
+    resp = client.post("/api/auth/register", json={
+        "name": "Visual Test",
+        "email": email,
+        "password": "StrongPass123!",
+        "phone_number": "+919876543210"
+    })
+    assert resp.status_code in (200, 201)
+    return resp.json()
+
 
 PAGES_VISUAL_TEST_PLANS = {
     "TC-VIS-001": {
@@ -228,3 +258,88 @@ PAGES_VISUAL_TEST_PLANS = {
         ],
     },
 }
+
+
+class TestPagesAPIBackend:
+    """Backend-verifiable tests for page data endpoints."""
+
+    def test_tc_vis_001_medications_have_confidence_labels(self):
+        """TC-VIS-001 backend: Medications include confidence_label field."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/patients/medications", headers=headers)
+        assert resp.status_code == 200
+        meds = resp.json()["medications"]
+        assert len(meds) > 0
+        for med in meds:
+            assert "confidence_label" in med, f"Missing confidence_label in {med.get('name')}"
+
+    def test_tc_vis_002_medications_have_interactions(self):
+        """TC-VIS-002 backend: Ramesh has drug interactions in medication data."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/patients/medications", headers=headers)
+        assert resp.status_code == 200
+        meds = resp.json()["medications"]
+        has_interaction = any(
+            med.get("interactions") and len(med["interactions"]) > 0
+            for med in meds
+        )
+        assert has_interaction, "Expected at least one medication with interactions"
+
+    def test_tc_vis_006_chat_endpoint_returns_response(self):
+        """TC-VIS-006 backend: POST /api/chat/query returns AI response."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.post("/api/chat/query", headers=headers, json={
+            "message": "What medications am I taking?",
+            "language": "en"
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "message" in data
+        assert len(data["message"]) > 0
+
+    def test_tc_vis_008_reminders_create_and_list(self):
+        """TC-VIS-008 backend: Create and list reminders via API."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        create_resp = client.post("/api/reminders/create", headers=headers, json={
+            "medication_node_id": "metformin-node-id",
+            "reminder_time": "08:00",
+            "days_of_week": [1, 3, 5]
+        })
+        assert create_resp.status_code in (200, 201)
+        list_resp = client.get("/api/reminders/list", headers=headers)
+        assert list_resp.status_code == 200
+        reminders = list_resp.json()
+        assert isinstance(reminders, list)
+        assert len(reminders) >= 1
+
+    def test_tc_vis_009_subscription_has_plans(self):
+        """TC-VIS-009 backend: GET /api/subscriptions/plans returns plan options."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/subscriptions/plans", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "plans" in data
+        assert len(data["plans"]) >= 2
+        plan_tiers = [p["tier"] for p in data["plans"]]
+        assert "premium_individual" in plan_tiers
+
+    def test_tc_vis_009_settings_profile_data(self):
+        """TC-VIS-009 backend: Profile endpoint returns user data for settings page."""
+        auth = _login_ramesh()
+        headers = {"Authorization": f"Bearer {auth['access_token']}"}
+        resp = client.get("/api/patients/profile", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "email" in data or "name" in data or "onboarding_complete" in data
+
+    def test_tc_vis_010_register_returns_tokens(self):
+        """TC-VIS-010 backend: Registration returns access tokens for immediate login."""
+        auth = _register_new_user()
+        assert "access_token" in auth
+        assert "refresh_token" in auth
+        assert auth["user"]["onboarding_complete"] is False

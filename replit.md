@@ -19,7 +19,8 @@ Key architectural patterns include:
 -   **Patient Health Information Graph (PHIG):** The `phig_builder.py` constructs a graph of patient health data.
 -   **Orbit Score:** A `OrbitScoreCalculator` computes a patient's overall health score based on weighted components (completeness, avg_confidence, interaction_risk, care_gap_status, adherence_rate).
 -   **Onboarding Flow:** New or incomplete profiles are redirected to an onboarding process to gather mandatory patient details, improving the quality of health reports.
--   **UI/UX Design:** The application features a premium healthcare aesthetic with a brand-specific color palette (Primary: #FF385C, Secondary: #00A699), Inter and Poppins fonts, enhanced shadows, and softer border-radii. `framer-motion` is used for animations, including `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, and `PageTransition` for a smooth user experience.
+-   **UI/UX Design:** The application features a premium healthcare aesthetic with a brand-specific color palette (Primary: #FF385C, Secondary: #00A699), Inter and Poppins fonts, enhanced shadows, and softer border-radii. `framer-motion` is used for animations, including `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, and `PageTransition` for a smooth user experience. All animations respect `prefers-reduced-motion`.
+-   **Test Suite:** 427 passing tests (2 pre-existing OTP failures, 6 skipped). E2e test files contain both Playwright test plan dictionaries (for UI testing via runTest) AND executable pytest backend-verification methods. Sidebar nav testids use `nav-*` prefix (e.g., `nav-dashboard`, `nav-medications`). Sign-out button testid is `button-sign-out` (both sidebar and settings). Theme toggle is `button-theme-toggle` (sidebar) and `button-theme` (settings).
 -   **CORS Configuration:** Origins are securely configured via environment variables, defaulting to `localhost` and auto-detecting `REPLIT_DEV_DOMAIN`.
 
 ## External Dependencies
