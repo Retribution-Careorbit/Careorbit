@@ -38,6 +38,8 @@ _users_store[DEMO_USER_ID] = {
     "city": RAMESH_PROFILE["city"],
     "state": RAMESH_PROFILE["state"],
     "preferred_language": RAMESH_PROFILE["preferred_language"],
+    "medical_literacy_level": RAMESH_PROFILE["medical_literacy_level"],
+    "onboarding_completed_at": RAMESH_PROFILE["onboarding_completed_at"],
 }
 # END DEMO SEED
 
@@ -153,6 +155,8 @@ async def register(body: RegisterRequest, request: Request):
         "city": body.city,
         "state": body.state,
         "preferred_language": body.preferred_language,
+        "medical_literacy_level": None,
+        "onboarding_completed_at": None,
     }
 
     params = get_encryption_params({
@@ -185,7 +189,7 @@ async def register(body: RegisterRequest, request: Request):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": {"id": user_id},
+        "user": {"id": user_id, "name": body.name, "email": body.email, "onboarding_complete": False},
     }
 
 
@@ -224,6 +228,7 @@ async def login(body: LoginRequest, request: Request):
             "id": user["id"],
             "name": user.get("name"),
             "email": user["email"],
+            "onboarding_complete": all(user.get(f) for f in ("date_of_birth", "gender", "preferred_language", "medical_literacy_level")),
         },
     }
 

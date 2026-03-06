@@ -13,7 +13,9 @@ RAMESH_PROFILE = {
     "city": "Durgapur",
     "state": "West Bengal",
     "preferred_language": "hi",
+    "medical_literacy_level": "basic",
     "tier": "free",
+    "onboarding_completed_at": "2026-01-10T08:00:00+00:00",
 }
 
 RAMESH_CONDITIONS = [

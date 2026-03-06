@@ -1,10 +1,180 @@
-from fastapi import APIRouter, Request
+from datetime import date
+from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
+from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
+from utils.profile_validators import (
+    validate_date_of_birth, validate_gender, validate_preferred_language,
+    validate_medical_literacy_level, validate_blood_type,
+    validate_height_cm, validate_weight_kg, derive_age,
+)
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
+
+
+class ProfileUpdateRequest(BaseModel):
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    preferred_language: Optional[str] = None
+    medical_literacy_level: Optional[str] = None
+    blood_type: Optional[str] = None
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+
+
+MANDATORY_ONBOARDING_FIELDS = ["date_of_birth", "gender", "preferred_language", "medical_literacy_level"]
+
+
+def _get_users_store():
+    from api.routes.auth import _users_store
+    return _users_store
+
+
+def _check_onboarding_complete(user_data: dict) -> bool:
+    for field in MANDATORY_ONBOARDING_FIELDS:
+        if not user_data.get(field):
+            return False
+    return True
+
+
+def _build_profile_response(user_data: dict) -> dict:
+    dob_str = user_data.get("date_of_birth")
+    age = None
+    if dob_str:
+        try:
+            if isinstance(dob_str, str):
+                from datetime import datetime
+                dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
+            else:
+                dob = dob_str
+            age = derive_age(dob)
+        except (ValueError, TypeError):
+            pass
+
+    return {
+        "profile": {
+            "date_of_birth": user_data.get("date_of_birth"),
+            "age": age,
+            "gender": user_data.get("gender"),
+            "preferred_language": user_data.get("preferred_language", "en"),
+            "medical_literacy_level": user_data.get("medical_literacy_level"),
+            "blood_type": user_data.get("blood_type"),
+            "height_cm": user_data.get("height_cm"),
+            "weight_kg": user_data.get("weight_kg"),
+            "city": user_data.get("city"),
+            "state": user_data.get("state"),
+            "country": user_data.get("country"),
+        },
+        "onboarding_complete": _check_onboarding_complete(user_data),
+    }
+
+
+@router.get("/profile")
+async def get_profile(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    users_store = _get_users_store()
+    user_data = users_store.get(patient_id, {})
+    return _build_profile_response(user_data)
+
+
+@router.put("/profile")
+async def update_profile(body: ProfileUpdateRequest, request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    users_store = _get_users_store()
+    user_data = users_store.get(patient_id)
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    fields_updated = []
+
+    if body.date_of_birth is not None:
+        try:
+            validated_dob = validate_date_of_birth(body.date_of_birth)
+            user_data["date_of_birth"] = body.date_of_birth
+            fields_updated.append("date_of_birth")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.gender is not None:
+        try:
+            user_data["gender"] = validate_gender(body.gender)
+            fields_updated.append("gender")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.preferred_language is not None:
+        try:
+            user_data["preferred_language"] = validate_preferred_language(body.preferred_language)
+            fields_updated.append("preferred_language")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.medical_literacy_level is not None:
+        try:
+            user_data["medical_literacy_level"] = validate_medical_literacy_level(body.medical_literacy_level)
+            fields_updated.append("medical_literacy_level")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.blood_type is not None:
+        try:
+            user_data["blood_type"] = validate_blood_type(body.blood_type)
+            fields_updated.append("blood_type")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.height_cm is not None:
+        try:
+            user_data["height_cm"] = validate_height_cm(body.height_cm)
+            fields_updated.append("height_cm")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.weight_kg is not None:
+        try:
+            user_data["weight_kg"] = validate_weight_kg(body.weight_kg)
+            fields_updated.append("weight_kg")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    if body.city is not None:
+        user_data["city"] = body.city.strip()
+        fields_updated.append("city")
+
+    if body.state is not None:
+        user_data["state"] = body.state.strip()
+        fields_updated.append("state")
+
+    if body.country is not None:
+        user_data["country"] = body.country.strip().upper()[:3]
+        fields_updated.append("country")
+
+    was_complete = user_data.get("onboarding_completed_at") is not None
+    is_now_complete = _check_onboarding_complete(user_data)
+
+    if is_now_complete and not was_complete:
+        from datetime import datetime, timezone
+        user_data["onboarding_completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    await log_audit(current_user["id"], patient_id, "PROFILE_UPDATE", request, {
+        "fields_updated": fields_updated,
+        "onboarding_triggered": is_now_complete and not was_complete,
+    })
+
+    return _build_profile_response(user_data)
 
 
 @router.get("/overview")

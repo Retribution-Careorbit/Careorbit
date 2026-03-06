@@ -201,12 +201,21 @@ Hardcoded demo data for UI demonstration purposes. **Remove when Azure services 
 - **Wired in**: `api/routes/auth.py` (login), `graph/phig_builder.py` (overview/medications/labs), `api/routes/orbit.py` (score/history/narrative)
 - **Login response**: Now includes `user: {id, name, email}` for dashboard greeting
 
-## Onboarding Implementation Plan
-Comprehensive plan at `docs/onboarding_implementation_plan.md` covering:
-- 12 sections: objective, recommended flow, backend changes, validation rules, security, test strategy, 67 test cases, API contracts, file layout, delivery plan, risks, recommendation
-- Recommends **Option B (first-login onboarding)** over registration-time collection
-- 4 mandatory fields: `date_of_birth`, `gender`, `preferred_language`, `medical_literacy_level`
-- 6 optional fields: `blood_type`, `height_cm`, `weight_kg`, `city`, `state`, `country`
-- New endpoints: `PUT /api/patients/profile`, `GET /api/patients/profile`
-- 67 test cases across 7 new test files
-- 4-phase delivery: validators → API → security → E2E (10-13 days)
+## Onboarding Feature (Implemented)
+After registration or login, users without a completed profile are redirected to `/onboarding` to fill in mandatory details that improve health reports.
+
+**Flow**: Register/Login → `/onboarding` (if profile incomplete) → Fill form → Dashboard
+
+**Backend**:
+- `utils/profile_validators.py`: Validates DOB, gender, language, literacy, blood type, height, weight, phone
+- `GET /api/patients/profile`: Returns profile with derived `age` and `onboarding_complete` boolean
+- `PUT /api/patients/profile`: Updates profile fields with validation, sets `onboarding_completed_at` when all mandatory fields present
+- Login/register responses include `onboarding_complete` flag in `user` object
+- Onboarding complete = all 4 mandatory fields present: `date_of_birth`, `gender`, `preferred_language`, `medical_literacy_level`
+
+**Frontend**:
+- `client/src/pages/onboarding.tsx`: Profile completion form (4 mandatory + 4 optional fields in collapsible section)
+- Login redirects to `/onboarding` if `onboarding_complete=false`, to `/` if true
+- Register always redirects to `/onboarding`
+- Dashboard shows banner for incomplete profiles with link to `/onboarding`
+- Demo user (Ramesh) has all fields → skips onboarding

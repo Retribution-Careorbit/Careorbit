@@ -27,8 +27,9 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Login failed");
-      setAuth(data.access_token, data.refresh_token, { id: data.user?.id || email, email, name: data.user?.name });
-      navigate("/");
+      const onboardingComplete = data.user?.onboarding_complete ?? false;
+      setAuth(data.access_token, data.refresh_token, { id: data.user?.id || email, email, name: data.user?.name, onboardingComplete });
+      navigate(onboardingComplete ? "/" : "/onboarding");
     } catch (err: any) {
       toast({ title: "Login Failed", description: err.message, variant: "destructive" });
     } finally {

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
-import { Pill, FileText, Bell, Activity, Shield, Heart } from "lucide-react";
+import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -68,6 +69,25 @@ export default function DashboardPage() {
             Your healthcare overview at a glance
           </p>
         </div>
+
+        {user?.onboardingComplete === false && (
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium" data-testid="text-onboarding-banner">
+                  Complete your profile for personalized health reports
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Your age, gender, and language preferences help us tailor health insights to you.
+                </p>
+              </div>
+              <Link href="/onboarding">
+                <Button size="sm" data-testid="link-complete-profile">Complete Profile</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (

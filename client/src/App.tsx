@@ -15,11 +15,13 @@ import ChatPage from "@/pages/chat";
 import RemindersPage from "@/pages/reminders";
 import SettingsPage from "@/pages/settings";
 import TestCasesPage from "@/pages/test-cases";
+import OnboardingPage from "@/pages/onboarding";
 
 function AuthenticatedRoutes() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
+      <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/medications" component={MedicationsPage} />
       <Route path="/documents" component={DocumentsPage} />
       <Route path="/chat" component={ChatPage} />
