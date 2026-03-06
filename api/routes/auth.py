@@ -24,6 +24,23 @@ _users_store = {}
 _rate_limit_store = defaultdict(list)
 _refresh_tokens_store = {}
 
+# DEMO SEED — remove when Azure + DB available
+from db.seed_demo import DEMO_USER_ID, DEMO_EMAIL, DEMO_PASSWORD, RAMESH_PROFILE
+_users_store[DEMO_USER_ID] = {
+    "id": DEMO_USER_ID,
+    "name": RAMESH_PROFILE["name"],
+    "email": DEMO_EMAIL,
+    "password_hash": hash_password(DEMO_PASSWORD),
+    "phone_number": RAMESH_PROFILE["phone_number"],
+    "tier": RAMESH_PROFILE["tier"],
+    "date_of_birth": RAMESH_PROFILE["date_of_birth"],
+    "gender": RAMESH_PROFILE["gender"],
+    "city": RAMESH_PROFILE["city"],
+    "state": RAMESH_PROFILE["state"],
+    "preferred_language": RAMESH_PROFILE["preferred_language"],
+}
+# END DEMO SEED
+
 
 class RegisterRequest(BaseModel):
     name: str
@@ -203,6 +220,11 @@ async def login(body: LoginRequest, request: Request):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "user": {
+            "id": user["id"],
+            "name": user.get("name"),
+            "email": user["email"],
+        },
     }
 
 

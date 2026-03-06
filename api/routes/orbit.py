@@ -5,13 +5,23 @@ from typing import Optional
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
+from db.seed_demo import (
+    DEMO_USER_ID, RAMESH_ORBIT_HISTORY, RAMESH_NARRATIVE,
+    get_phig_for_orbit,
+)
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
 
 async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     from graph.orbit_score import OrbitScoreCalculator
-    phig = {"nodes": [], "interactions": [], "care_gaps": [], "reminders": None}
+    # DEMO SEED — remove when Azure + DB available
+    if patient_id == DEMO_USER_ID:
+        phig = get_phig_for_orbit()
+        phig["reminders"] = None
+    else:
+        phig = {"nodes": [], "interactions": [], "care_gaps": [], "reminders": None}
+    # END DEMO SEED
     calc = OrbitScoreCalculator(phig)
     score = calc.compute()
     if user_tier == "free":
@@ -21,6 +31,10 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
 
 
 async def get_score_history(patient_id: str, days: int = 30) -> list:
+    # DEMO SEED — remove when Azure + DB available
+    if patient_id == DEMO_USER_ID:
+        return RAMESH_ORBIT_HISTORY
+    # END DEMO SEED
     return []
 
 
@@ -45,6 +59,14 @@ async def create_appointment(patient_id: str, data: dict) -> dict:
 
 
 async def get_living_narrative(patient_id: str) -> dict:
+    # DEMO SEED — remove when Azure + DB available
+    if patient_id == DEMO_USER_ID:
+        return {
+            "narrative": RAMESH_NARRATIVE,
+            "trigger_event": "initial_profile_complete",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    # END DEMO SEED
     return {
         "narrative": "",
         "trigger_event": None,

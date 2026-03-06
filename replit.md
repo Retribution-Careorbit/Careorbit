@@ -185,3 +185,18 @@ CORS origins are configured securely via environment:
 - `GET /api/orbit/score/history` — score history (default 30 days, max 90 rows)
 - `POST /api/orbit/appointments` — create appointment (requires doctor_name, 422 if missing; auto-schedules brief if within 48h)
 - `GET /api/orbit/narrative` — living narrative text
+
+## Demo Seed Data (Ramesh Kumar)
+Hardcoded demo data for UI demonstration purposes. **Remove when Azure services + real DB are available.**
+
+- **Module**: `db/seed_demo.py` — all Ramesh data constants + `get_phig_for_orbit()` helper
+- **Login**: `ramesh@careorbit.dev` / `Ramesh123!` (pre-registered in `_users_store` at module load)
+- **Patient**: 68M, Durgapur, West Bengal, Hindi-speaking, free tier
+- **Conditions**: T2DM (E11.9), Hypertension (I10), Dyslipidemia (E78.5)
+- **Medications**: Metformin 500mg BD, Amlodipine 5mg OD, Atorvastatin 10mg HS, Aspirin 75mg OD, Ibuprofen 400mg SOS
+- **Labs**: HbA1c 7.8%, Creatinine 1.4, eGFR 52 (all abnormal)
+- **Interaction**: Metformin + Ibuprofen ELEVATED (renal concern)
+- **Orbit Score**: Computed from real PHIG (~83.9), 4 historical entries showing improvement
+- **Narrative**: Full living narrative with trigger_event
+- **Wired in**: `api/routes/auth.py` (login), `graph/phig_builder.py` (overview/medications/labs), `api/routes/orbit.py` (score/history/narrative)
+- **Login response**: Now includes `user: {id, name, email}` for dashboard greeting
