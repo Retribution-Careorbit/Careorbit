@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
+import { FadeIn, ScaleIn } from "@/components/animations";
 import { Heart, LogIn } from "lucide-react";
 
 export default function LoginPage() {
@@ -38,59 +39,69 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Heart className="h-8 w-8 text-primary" />
-            <CardTitle className="text-2xl font-bold">CareOrbit</CardTitle>
-          </div>
-          <CardDescription>Sign in to your healthcare dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                data-testid="input-email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                data-testid="input-password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-              data-testid="button-login"
-            >
-              <LogIn className="h-4 w-4 mr-2" />
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Don't have an account?{" "}
-            <Link href="/register" className="text-primary hover:underline" data-testid="link-register">
-              Register
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      <ScaleIn>
+        <Card className="w-full max-w-md shadow-xl border-border/50">
+          <CardHeader className="text-center pb-2">
+            <FadeIn delay={0.1}>
+              <div className="flex items-center justify-center gap-2.5 mb-3">
+                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow-lg">
+                  <Heart className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <CardTitle className="text-2xl font-heading font-bold tracking-tight">CareOrbit</CardTitle>
+              </div>
+            </FadeIn>
+            <CardDescription className="text-base">Sign in to your healthcare dashboard</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FadeIn delay={0.2}>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    data-testid="input-email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    data-testid="input-password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11"
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-11 shadow-sm"
+                  disabled={loading}
+                  data-testid="button-login"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  {loading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </FadeIn>
+            <p className="text-center text-sm text-muted-foreground mt-5">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-primary font-medium hover:underline" data-testid="link-register">
+                Register
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </ScaleIn>
     </div>
   );
 }

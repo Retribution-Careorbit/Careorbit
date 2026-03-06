@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
 import { authFetch } from "@/lib/auth";
-import { Heart, ChevronDown, ChevronUp, UserCheck } from "lucide-react";
+import { FadeIn, ScaleIn } from "@/components/animations";
+import { motion, AnimatePresence } from "framer-motion";
+import { Heart, ChevronDown, ChevronUp, UserCheck, Sparkles } from "lucide-react";
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
@@ -56,6 +58,9 @@ export default function OnboardingPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const token = useAuthStore((s) => s.token);
   const refreshToken = useAuthStore((s) => s.refreshToken);
+
+  const filledCount = [dateOfBirth, gender, preferredLanguage, medicalLiteracyLevel].filter(Boolean).length;
+  const progressPct = (filledCount / 4) * 100;
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -109,179 +114,217 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Heart className="h-8 w-8 text-primary" />
-            <CardTitle className="text-2xl font-bold">CareOrbit</CardTitle>
-          </div>
-          <CardDescription className="text-base">
-            Complete your profile to get personalized health reports tailored to your age, gender, and language preference.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <h3 className="text-lg font-semibold" data-testid="text-onboarding-title">Complete Your Profile</h3>
-
-            <div className="space-y-2">
-              <Label htmlFor="dob">Date of Birth *</Label>
-              <Input
-                id="dob"
-                type="date"
-                data-testid="input-date-of-birth"
-                value={dateOfBirth}
-                onChange={(e) => { setDateOfBirth(e.target.value); setErrors((p) => ({ ...p, dateOfBirth: "" })); }}
-                max={new Date().toISOString().split("T")[0]}
-              />
-              {errors.dateOfBirth && <p className="text-sm text-destructive" data-testid="error-date-of-birth">{errors.dateOfBirth}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="gender">Gender *</Label>
-              <Select value={gender} onValueChange={(v) => { setGender(v); setErrors((p) => ({ ...p, gender: "" })); }}>
-                <SelectTrigger data-testid="select-gender">
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  {GENDER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} data-testid={`option-gender-${opt.value}`}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.gender && <p className="text-sm text-destructive" data-testid="error-gender">{errors.gender}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="language">Preferred Language *</Label>
-              <Select value={preferredLanguage} onValueChange={(v) => { setPreferredLanguage(v); setErrors((p) => ({ ...p, preferredLanguage: "" })); }}>
-                <SelectTrigger data-testid="select-language">
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} data-testid={`option-language-${opt.value}`}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.preferredLanguage && <p className="text-sm text-destructive" data-testid="error-language">{errors.preferredLanguage}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="literacy">Medical Literacy Level *</Label>
-              <Select value={medicalLiteracyLevel} onValueChange={(v) => { setMedicalLiteracyLevel(v); setErrors((p) => ({ ...p, medicalLiteracyLevel: "" })); }}>
-                <SelectTrigger data-testid="select-literacy">
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LITERACY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} data-testid={`option-literacy-${opt.value}`}>
-                      {opt.label} — {opt.description}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.medicalLiteracyLevel && <p className="text-sm text-destructive" data-testid="error-literacy">{errors.medicalLiteracyLevel}</p>}
-            </div>
-
-            <div className="border-t pt-4">
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full justify-start px-0"
-                onClick={() => setShowOptional(!showOptional)}
-                data-testid="button-toggle-optional"
-              >
-                {showOptional ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                Additional Details (optional)
-              </Button>
-
-              {showOptional && (
-                <div className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bloodType">Blood Type</Label>
-                    <Select value={bloodType} onValueChange={setBloodType}>
-                      <SelectTrigger data-testid="select-blood-type">
-                        <SelectValue placeholder="Select blood type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BLOOD_TYPE_OPTIONS.map((bt) => (
-                          <SelectItem key={bt} value={bt} data-testid={`option-blood-${bt}`}>
-                            {bt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="height">Height (cm)</Label>
-                      <Input
-                        id="height"
-                        type="number"
-                        data-testid="input-height"
-                        placeholder="e.g. 170"
-                        value={heightCm}
-                        onChange={(e) => setHeightCm(e.target.value)}
-                        min="30"
-                        max="300"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="weight">Weight (kg)</Label>
-                      <Input
-                        id="weight"
-                        type="number"
-                        data-testid="input-weight"
-                        placeholder="e.g. 70"
-                        value={weightKg}
-                        onChange={(e) => setWeightKg(e.target.value)}
-                        min="1"
-                        max="500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      data-testid="input-city"
-                      placeholder="e.g. Mumbai"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                    />
-                  </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-secondary/5 p-4">
+      <ScaleIn>
+        <Card className="w-full max-w-lg shadow-xl border-border/50">
+          <CardHeader className="text-center pb-2">
+            <FadeIn delay={0.1}>
+              <div className="flex items-center justify-center gap-2.5 mb-3">
+                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center shadow-lg">
+                  <Heart className="h-6 w-6 text-primary-foreground" />
                 </div>
-              )}
+                <CardTitle className="text-2xl font-heading font-bold tracking-tight">CareOrbit</CardTitle>
+              </div>
+            </FadeIn>
+            <CardDescription className="text-base">
+              Complete your profile to get personalized health reports tailored to your age, gender, and language preference.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-heading font-semibold flex items-center gap-2" data-testid="text-onboarding-title">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Complete Your Profile
+                </h3>
+                <span className="text-xs text-muted-foreground font-medium">{filledCount}/4</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-primary rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPct}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                />
+              </div>
             </div>
+
+            <FadeIn delay={0.15}>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="dob">Date of Birth *</Label>
+                  <Input
+                    id="dob"
+                    type="date"
+                    data-testid="input-date-of-birth"
+                    value={dateOfBirth}
+                    onChange={(e) => { setDateOfBirth(e.target.value); setErrors((p) => ({ ...p, dateOfBirth: "" })); }}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="h-11"
+                  />
+                  {errors.dateOfBirth && <p className="text-sm text-destructive" data-testid="error-date-of-birth">{errors.dateOfBirth}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender *</Label>
+                  <Select value={gender} onValueChange={(v) => { setGender(v); setErrors((p) => ({ ...p, gender: "" })); }}>
+                    <SelectTrigger data-testid="select-gender" className="h-11">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GENDER_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} data-testid={`option-gender-${opt.value}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.gender && <p className="text-sm text-destructive" data-testid="error-gender">{errors.gender}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="language">Preferred Language *</Label>
+                  <Select value={preferredLanguage} onValueChange={(v) => { setPreferredLanguage(v); setErrors((p) => ({ ...p, preferredLanguage: "" })); }}>
+                    <SelectTrigger data-testid="select-language" className="h-11">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} data-testid={`option-language-${opt.value}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.preferredLanguage && <p className="text-sm text-destructive" data-testid="error-language">{errors.preferredLanguage}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="literacy">Medical Literacy Level *</Label>
+                  <Select value={medicalLiteracyLevel} onValueChange={(v) => { setMedicalLiteracyLevel(v); setErrors((p) => ({ ...p, medicalLiteracyLevel: "" })); }}>
+                    <SelectTrigger data-testid="select-literacy" className="h-11">
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LITERACY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} data-testid={`option-literacy-${opt.value}`}>
+                          {opt.label} — {opt.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.medicalLiteracyLevel && <p className="text-sm text-destructive" data-testid="error-literacy">{errors.medicalLiteracyLevel}</p>}
+                </div>
+
+                <div className="border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-full justify-start px-0"
+                    onClick={() => setShowOptional(!showOptional)}
+                    data-testid="button-toggle-optional"
+                  >
+                    {showOptional ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    Additional Details (optional)
+                  </Button>
+
+                  <AnimatePresence>
+                    {showOptional && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-4 mt-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="bloodType">Blood Type</Label>
+                            <Select value={bloodType} onValueChange={setBloodType}>
+                              <SelectTrigger data-testid="select-blood-type" className="h-11">
+                                <SelectValue placeholder="Select blood type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {BLOOD_TYPE_OPTIONS.map((bt) => (
+                                  <SelectItem key={bt} value={bt} data-testid={`option-blood-${bt}`}>
+                                    {bt}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="height">Height (cm)</Label>
+                              <Input
+                                id="height"
+                                type="number"
+                                data-testid="input-height"
+                                placeholder="e.g. 170"
+                                value={heightCm}
+                                onChange={(e) => setHeightCm(e.target.value)}
+                                min="30"
+                                max="300"
+                                className="h-11"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="weight">Weight (kg)</Label>
+                              <Input
+                                id="weight"
+                                type="number"
+                                data-testid="input-weight"
+                                placeholder="e.g. 70"
+                                value={weightKg}
+                                onChange={(e) => setWeightKg(e.target.value)}
+                                min="1"
+                                max="500"
+                                className="h-11"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="city">City</Label>
+                            <Input
+                              id="city"
+                              data-testid="input-city"
+                              placeholder="e.g. Mumbai"
+                              value={city}
+                              onChange={(e) => setCity(e.target.value)}
+                              className="h-11"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 shadow-sm"
+                  disabled={loading}
+                  data-testid="button-submit-profile"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  {loading ? "Saving..." : "Complete Profile"}
+                </Button>
+              </form>
+            </FadeIn>
 
             <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-              data-testid="button-submit-profile"
+              variant="ghost"
+              onClick={handleSkip}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4"
+              data-testid="button-skip-onboarding"
             >
-              <UserCheck className="h-4 w-4 mr-2" />
-              {loading ? "Saving..." : "Complete Profile"}
+              Skip for now
             </Button>
-          </form>
-
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4"
-            data-testid="button-skip-onboarding"
-          >
-            Skip for now
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </ScaleIn>
     </div>
   );
 }

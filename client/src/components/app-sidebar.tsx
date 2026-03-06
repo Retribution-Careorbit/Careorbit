@@ -7,7 +7,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -46,54 +45,84 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <Link href="/" className="flex items-center gap-2" data-testid="link-home">
-          <Heart className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold">CareOrbit</span>
+      <SidebarHeader className="p-5 border-b border-sidebar-border">
+        <Link href="/" className="flex items-center gap-2.5 group" data-testid="link-home">
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+            <Heart className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-heading font-bold tracking-tight">CareOrbit</span>
         </Link>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.href}
-                    tooltip={item.label}
-                  >
-                    <Link href={item.href} data-testid={item.testId}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-1">
+              {navItems.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.label}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.href}
+                        data-testid={item.testId}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                        }`}
+                      >
+                        <item.icon className={`h-[18px] w-[18px] transition-colors ${isActive ? "text-primary" : ""}`} />
+                        <span>{item.label}</span>
+                        {isActive && (
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground truncate" data-testid="text-user-email">
-            {user?.email || "User"}
-          </span>
+      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-3">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-xs font-bold text-primary">
+              {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            {user?.name && (
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">
+                {user.name}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
+              {user?.email || "User"}
+            </p>
+          </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
+            className="h-8 w-8 shrink-0 rounded-lg hover:bg-accent"
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             data-testid="button-theme-toggle"
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
         <Button
-          variant="outline"
-          className="w-full"
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           onClick={logout}
           data-testid="button-logout"
         >

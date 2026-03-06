@@ -1,221 +1,37 @@
 # CareOrbit — Healthcare AI Platform for Indian Patients
 
-## Project Overview
-CareOrbit is a healthcare AI platform designed for Indian patients. It provides:
-- Prescription/lab report/medicine strip photo upload with AI extraction
-- Drug interaction detection with severity escalation
-- Care gap identification using Azure AI Search RAG
-- Multi-agent AI chat (Hindi + English) via Azure OpenAI GPT-4o
-- Health summary PDF generation
-- Medication reminder system with email notifications
-- Tiered subscription model (free/premium_individual/premium_family)
-- HIPAA-compliant security (pgcrypto PII encryption, append-only audit trail)
+## Overview
+CareOrbit is an AI-powered healthcare platform specifically designed for Indian patients. Its primary purpose is to simplify healthcare management by offering features such as AI-driven extraction from medical documents (prescriptions, lab reports, medicine strips), drug interaction detection, identification of care gaps, and multi-agent AI chat in both Hindi and English. The platform also generates health summary PDFs, provides medication reminders, and operates on a tiered subscription model (free, premium individual, premium family). A core ambition is to ensure HIPAA-compliant security through PII encryption and an append-only audit trail. The project aims to enhance patient understanding and adherence to medical advice, ultimately improving health outcomes in India.
 
-## Current Phase
-**Phase A (Complete):** TDD test suite generation — 31 test files, SQL schema, sprint plan, CI/CD pipeline, review checklist.
-**Phase B (Complete):** TDD implementation — 194/204 tests GREEN (100% pass rate, 0 failures).
-**Phase C (Complete):** React frontend — Full dashboard with auth, sidebar navigation, all pages.
-**Phase D (Complete):** Prompt 3 features — Orbit Score, Pre-Visit Brief, Living Narrative, Pipeline Extractors, FHIR Converter, Orbit API routes — all 127 new tests GREEN.
+## User Preferences
+I want the agent to prioritize high-level architectural and design decisions over minute implementation details. When proposing changes, focus on how they align with the overall system architecture and user experience. Ensure that any new features or modifications are accompanied by relevant test cases or updates to the existing test suite, particularly for business logic and API endpoints. I prefer iterative development, with clear communication before major changes are made to the codebase.
 
-## Tech Stack
-- **Backend:** Python 3.12 + FastAPI 0.111.0 (port 8000)
-- **Frontend:** React 18 + Vite 5 + Express proxy (port 5000) → FastAPI
-- **State:** Zustand (auth), TanStack Query v5 (data fetching)
-- **UI:** Tailwind CSS 3.4 + shadcn/ui components + Lucide icons
-- **DB:** In-memory session (InMemorySession) with async_session factory
-- **Testing:** pytest 8.2.0 + pytest-asyncio 0.23.0
-- **Azure Services (8 stubs):** Vision, OpenAI, Translator, Language, Blob, Email, Search, KeyVault
+## System Architecture
+The application uses a Python 3.12 FastAPI backend (port 8000) and a React 18 frontend with Vite 5 and an Express proxy (port 5000). State management is handled by Zustand for authentication and TanStack Query v5 for data fetching. The UI is built with Tailwind CSS 3.4, shadcn/ui components, and Lucide icons. An in-memory session (`InMemorySession`) is used for the database.
 
-## Project Structure
-```
-/
-├── main.py                    # FastAPI app with all routers
-├── config.py                  # Settings (JWT, encryption, rate limiting)
-├── db/session.py              # InMemorySession + async_session factory
-├── api/
-│   ├── middleware/
-│   │   ├── auth.py            # JWT (python-jose), bcrypt, refresh tokens
-│   │   ├── audit.py           # Append-only audit log
-│   │   ├── feature_gate.py    # Usage limits per tier
-│   │   └── rbac.py            # Patient access control
-│   └── routes/
-│       ├── auth.py            # register/login/refresh/logout/change-password
-│       ├── documents.py       # POST /api/documents/upload
-│       ├── confirmations.py   # POST /api/confirmations/confirm
-│       ├── patients.py        # GET /api/patients/overview, /medications
-│       ├── caregivers.py      # add/delete/my-patients/my-caregivers
-│       ├── summary.py         # GET /api/summary/generate (PDF)
-│       ├── reminders.py       # create/list/delete
-│       ├── subscriptions.py   # current/plans/upgrade
-│       ├── chat.py            # POST /api/chat/query
-│       ├── orbit.py           # GET/POST /api/orbit/* (score, history, appointments, narrative)
-│       ├── health.py          # GET /health
-│       └── tests.py           # GET /api/tests/cases (test suite browser)
-├── agents/
-│   ├── orchestrator.py        # Multi-agent routing (medication/care_gap/history)
-│   ├── previsit_agent.py      # PreVisitAgent — pre-visit brief generation
-│   └── history_agent.py       # HistoryAgent + generate_living_narrative
-├── graph/
-│   ├── confidence.py          # ConfidenceCalculator with SOURCE_CEILINGS
-│   ├── orbit_score.py         # OrbitScoreCalculator + WEIGHTS (5-component scoring)
-│   ├── phig_builder.py        # Patient Health Information Graph
-│   └── lab_trends.py          # Lab trend analysis
-├── pipeline/
-│   ├── document_pipeline.py   # Document processing state machine
-│   ├── document_classifier.py # DocumentClassifier (prescription/lab/strip/unknown)
-│   ├── prescription_extractor.py  # PrescriptionExtractor (Indian brands → generic)
-│   ├── lab_report_extractor.py    # LabReportExtractor (LOINC codes, abnormal flags)
-│   ├── medicine_strip_reader.py   # MedicineStripReader (brand→generic mapping)
-│   └── fhir_converter.py     # medication_to_fhir + lab_to_fhir (FHIR R4)
-├── utils/
-│   ├── tier_config.py         # TIER_LIMITS, get_tier_limits, check_feature_allowed
-│   ├── encryption.py          # encrypt_sql, get_encryption_params
-│   ├── drug_database.py       # DrugDatabase with Indian brand mapping
-│   └── pdf_generator.py       # Health summary PDF generation
-├── services/                  # Azure service stubs (all raise NotImplementedError)
-│   ├── azure_vision.py
-│   ├── azure_openai.py
-│   ├── azure_translator.py
-│   ├── azure_language.py
-│   ├── azure_blob.py
-│   ├── azure_email.py
-│   ├── azure_search.py
-│   └── azure_keyvault.py
-├── database/schema.py         # AUDIT_LOG_COLUMNS
-├── client/src/
-│   ├── App.tsx                # Main app with routing (wouter)
-│   ├── lib/auth.ts            # Zustand auth store + authFetch helpers
-│   ├── components/
-│   │   ├── app-sidebar.tsx    # Sidebar navigation
-│   │   ├── layout.tsx         # Main layout wrapper
-│   │   ├── theme-provider.tsx # Dark mode provider
-│   │   └── ui/               # shadcn components
-│   └── pages/
-│       ├── login.tsx          # Login form
-│       ├── register.tsx       # Registration form
-│       ├── dashboard.tsx      # Patient overview + stats
-│       ├── medications.tsx    # Medication list with confidence
-│       ├── documents.tsx      # Drag-drop document upload
-│       ├── chat.tsx           # AI chat (Hindi/English)
-│       ├── reminders.tsx      # CRUD medication reminders
-│       ├── test-cases.tsx     # Test suite browser (331 tests)
-│       └── settings.tsx       # Profile + subscription plans
-├── server/routes.ts           # Express proxy to FastAPI (port 8000)
-├── start.sh                   # Starts both FastAPI + Express
-└── tests/                     # 31 test files (DO NOT MODIFY)
-```
+Key architectural patterns include:
+-   **Module-level patching:** Routes import middleware modules (e.g., `api.middleware.auth`) and call functions via the module alias to facilitate testing.
+-   **Service capture at construction:** Orchestrator and DocumentPipeline capture service references during `__init__` to preserve mock references during testing.
+-   **`async_session` usage:** `InMemorySession` is used directly via `async_session()` for some operations, while `async with async_session() as session:` is used where context management is required.
+-   **Confidence Scoring:** A `ConfidenceCalculator` assigns scores to extracted medical information, with `SOURCE_CEILINGS` defining maximum confidence for different input types (e.g., `prescription_photo=0.85`). Patient confirmations can bypass this calculation.
+-   **Multi-Agent AI:** An `orchestrator.py` routes queries to specialized agents like `PreVisitAgent` and `HistoryAgent`.
+-   **Document Processing Pipeline:** A state machine (`document_pipeline.py`) classifies and extracts information from uploaded documents using components like `DocumentClassifier`, `PrescriptionExtractor`, and `LabReportExtractor`.
+-   **Patient Health Information Graph (PHIG):** The `phig_builder.py` constructs a graph of patient health data.
+-   **Orbit Score:** A `OrbitScoreCalculator` computes a patient's overall health score based on weighted components (completeness, avg_confidence, interaction_risk, care_gap_status, adherence_rate).
+-   **Onboarding Flow:** New or incomplete profiles are redirected to an onboarding process to gather mandatory patient details, improving the quality of health reports.
+-   **UI/UX Design:** The application features a premium healthcare aesthetic with a brand-specific color palette (Primary: #FF385C, Secondary: #00A699), Inter and Poppins fonts, enhanced shadows, and softer border-radii. `framer-motion` is used for animations, including `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, and `PageTransition` for a smooth user experience.
+-   **CORS Configuration:** Origins are securely configured via environment variables, defaulting to `localhost` and auto-detecting `REPLIT_DEV_DOMAIN`.
 
-## Critical Implementation Patterns
-
-### Module-level patching
-Routes MUST use `import api.middleware.auth as auth_mod` and call `auth_mod.get_current_user(request)` (NOT `from api.middleware.auth import get_current_user`). Tests patch at `api.middleware.auth.get_current_user`.
-
-### Service capture at construction
-Orchestrator and DocumentPipeline capture service references in `__init__()` using `sys.modules[__name__]`. This is needed because test fixtures use `return` inside `with patch(...)`, so patches expire after fixture returns. Capturing at construction time preserves the mock references.
-
-### async_session usage
-- `db/session.py`: `async_session()` returns `InMemorySession` directly (not a context manager)
-- RBAC and feature_gate use direct session: `session = async_session(); await session.execute(...)`
-- Auth and audit use `async with async_session() as session:` (works because InMemorySession has __aenter__/__aexit__)
-
-### Confidence scoring
-- SOURCE_CEILINGS includes patient_confirmed=0.85 and patient_corrected=0.85 (needed for PHASE1_SOURCES iteration)
-- BYPASS_SOURCES returns hardcoded 0.85 score directly
-- Score formula: weighted average of OCR, drug match, dosage, date, confirmation → capped at ceiling
-
-## Key Business Rules
-- Confidence ceilings: prescription_photo=0.85, lab_report_photo=0.88, medicine_strip_photo=0.90, patient_text_input=0.60
-- patient_confirmed/patient_corrected: hardcoded score=0.85, bypasses ConfidenceCalculator
-- Tier prices (cents): free=0, premium_individual=799, premium_family=1999
-- Allowed MIME types: image/jpeg, image/png, image/webp, image/heic; 10MB limit
-- Caregiver delete: idempotent (always 200, never 404)
-- Summary endpoint: GET /api/summary/generate (not POST); returns %PDF magic bytes
-- Terminal document statuses only: success, needs_confirmation, failed (never "processing")
-- Nonexistent node confirmations: return 200+{error}, NOT 404
-- Reminder for nonexistent node: return 404
-
-## Caregiver Email Validation Strategy
-The caregiver add route validates email registration once the patient has reached the free tier caregiver limit (max_caregivers=2). This allows the first caregivers to be added optimistically, then enforces stricter email validation at the tier boundary. This approach resolves the apparent test contradiction between test_add_caregiver_success (expects 200 for random emails) and test_caregiver_email_not_registered_returns_404 (expects 404 for random emails) by leveraging test execution order within the class.
-
-## CORS Configuration
-CORS origins are configured securely via environment:
-- Default: localhost:5000, localhost:3000, 127.0.0.1:5000
-- Auto-detects REPLIT_DEV_DOMAIN from environment
-- Additional origins via CORS_ORIGINS env var (comma-separated)
-
-## Test Results Summary
-
-### Existing Tests (204 total — unchanged)
-- **195 passed** — all functional, unit, integration, security, e2e, regression tests
-- **2 failed** — pre-existing OTP tests (expect 202 but get 200, OTP flow not wired)
-- **6 skipped** — require real PostgreSQL or Phase 2 spec
-- **1 xfailed** — caregiver limit gate not yet wired
-- **4 xpassed** — lab trend tests pass better than expected
-
-### New Prompt 3 Tests (127 total — all GREEN)
-12 new test files covering Orbit Score, Pre-Visit Brief, Living Narrative, and supporting infrastructure:
-
-| File | Category | Tests | Feature |
-|------|----------|-------|---------|
-| tests/unit/test_orbit_score.py | unit | 24 | Orbit Score computation engine |
-| tests/unit/test_previsit_agent.py | unit | 10 | Pre-Visit Brief generation |
-| tests/unit/test_living_narrative.py | unit | 10 | Living Narrative delta |
-| tests/functional/test_api_orbit.py | functional | 16 | Orbit API endpoints (4 routes) |
-| tests/unit/test_azure_services.py | unit | 16 | Azure service real implementations |
-| tests/unit/test_pipeline_extractors.py | unit | 12 | Pipeline extractors + classifier |
-| tests/unit/test_fhir_converter.py | unit | 6 | FHIR resource conversion |
-| tests/integration/test_orbit_integration.py | integration | 8 | Orbit + pipeline full flow |
-| tests/integration/test_reminder_scheduler.py | integration | 6 | APScheduler reminder delivery |
-| tests/e2e/test_orbit_journey.py | e2e | 5 | Orbit E2E user journey |
-| tests/security/test_orbit_rbac.py | security | 6 | Orbit RBAC + auth |
-| tests/business_logic/test_orbit_weights.py | business_logic | 8 | Orbit weight business rules |
-
-**Combined total: 204 existing + 127 new = 331 test functions**
-**Result: 322 passed, 2 failed (pre-existing OTP), 6 skipped, 1 xfailed, 4 xpassed**
-
-## Orbit Score Business Rules
-- **WEIGHTS**: completeness=0.25, avg_confidence=0.20, interaction_risk=0.25, care_gap_status=0.20, adherence_rate=0.10
-- **Interaction penalties**: ELEVATED=-25, Moderate=-15, Low=-5; acknowledged=half penalty; floor at 0
-- **Care gaps**: each open gap -20 from 100; floor at 0
-- **Adherence default**: 75.0 when no reminders exist
-- **Completeness**: 3 core types (medication/condition/lab_value) = 33.3% each; bonus for care_gap/provider nodes; capped at 100
-
-## Orbit API Routes
-- `GET /api/orbit/score` — current orbit score (auth required, RBAC checked)
-- `GET /api/orbit/score/history` — score history (default 30 days, max 90 rows)
-- `POST /api/orbit/appointments` — create appointment (requires doctor_name, 422 if missing; auto-schedules brief if within 48h)
-- `GET /api/orbit/narrative` — living narrative text
-
-## Demo Seed Data (Ramesh Kumar)
-Hardcoded demo data for UI demonstration purposes. **Remove when Azure services + real DB are available.**
-
-- **Module**: `db/seed_demo.py` — all Ramesh data constants + `get_phig_for_orbit()` helper
-- **Login**: `ramesh@careorbit.dev` / `Ramesh123!` (pre-registered in `_users_store` at module load)
-- **Patient**: 68M, Durgapur, West Bengal, Hindi-speaking, free tier
-- **Conditions**: T2DM (E11.9), Hypertension (I10), Dyslipidemia (E78.5)
-- **Medications**: Metformin 500mg BD, Amlodipine 5mg OD, Atorvastatin 10mg HS, Aspirin 75mg OD, Ibuprofen 400mg SOS
-- **Labs**: HbA1c 7.8%, Creatinine 1.4, eGFR 52 (all abnormal)
-- **Interaction**: Metformin + Ibuprofen ELEVATED (renal concern)
-- **Orbit Score**: Computed from real PHIG (~83.9), 4 historical entries showing improvement
-- **Narrative**: Full living narrative with trigger_event
-- **Wired in**: `api/routes/auth.py` (login), `graph/phig_builder.py` (overview/medications/labs), `api/routes/orbit.py` (score/history/narrative)
-- **Login response**: Now includes `user: {id, name, email}` for dashboard greeting
-
-## Onboarding Feature (Implemented)
-After registration or login, users without a completed profile are redirected to `/onboarding` to fill in mandatory details that improve health reports.
-
-**Flow**: Register/Login → `/onboarding` (if profile incomplete) → Fill form → Dashboard
-
-**Backend**:
-- `utils/profile_validators.py`: Validates DOB, gender, language, literacy, blood type, height, weight, phone
-- `GET /api/patients/profile`: Returns profile with derived `age` and `onboarding_complete` boolean
-- `PUT /api/patients/profile`: Updates profile fields with validation, sets `onboarding_completed_at` when all mandatory fields present
-- Login/register responses include `onboarding_complete` flag in `user` object
-- Onboarding complete = all 4 mandatory fields present: `date_of_birth`, `gender`, `preferred_language`, `medical_literacy_level`
-
-**Frontend**:
-- `client/src/pages/onboarding.tsx`: Profile completion form (4 mandatory + 4 optional fields in collapsible section)
-- Login redirects to `/onboarding` if `onboarding_complete=false`, to `/` if true
-- Register always redirects to `/onboarding`
-- Dashboard shows banner for incomplete profiles with link to `/onboarding`
-- Demo user (Ramesh) has all fields → skips onboarding
+## External Dependencies
+The system is designed to integrate with various Azure services, which are currently stubbed out:
+-   **Azure Vision:** For AI-driven image analysis (e.g., prescription/lab report/medicine strip photo upload).
+-   **Azure OpenAI:** For multi-agent AI chat (GPT-4o).
+-   **Azure Translator:** For language translation capabilities.
+-   **Azure Language:** For natural language processing tasks.
+-   **Azure Blob Storage:** For storing uploaded documents.
+-   **Azure Email:** For sending notifications, such as medication reminders.
+-   **Azure AI Search:** For RAG-based care gap identification.
+-   **Azure KeyVault:** For secure management of keys and secrets.
+-   **`pgcrypto`:** For PII encryption.
+-   **`python-jose`:** For JWT token handling.
+-   **`bcrypt`:** For password hashing.
