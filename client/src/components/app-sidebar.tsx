@@ -25,14 +25,20 @@ import {
   LogOut,
   Moon,
   Sun,
+  Target,
+  Calendar,
+  TrendingUp,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard" },
+  { href: "/orbit-score", label: "Orbit Score", icon: Target, testId: "nav-orbit-score" },
   { href: "/medications", label: "Medications", icon: Pill, testId: "nav-medications" },
   { href: "/documents", label: "Documents", icon: FileUp, testId: "nav-documents" },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, testId: "nav-ai-chat" },
   { href: "/reminders", label: "Reminders", icon: Bell, testId: "nav-reminders" },
+  { href: "/appointments", label: "Appointments", icon: Calendar, testId: "nav-appointments" },
+  { href: "/health-insights", label: "Health Insights", icon: TrendingUp, testId: "nav-health-insights" },
   { href: "/test-cases", label: "Test Cases", icon: FlaskConical, testId: "nav-test-cases" },
   { href: "/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
 ];
@@ -47,7 +53,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-5 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-2.5 group" data-testid="link-home">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow neon-glow">
             <Heart className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="text-xl font-heading font-bold tracking-tight">CareOrbit</span>
@@ -80,7 +86,7 @@ export function AppSidebar() {
                         <item.icon className={`h-[18px] w-[18px] transition-colors ${isActive ? "text-primary" : ""}`} />
                         <span>{item.label}</span>
                         {isActive && (
-                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary pulse-dot" />
                         )}
                       </Link>
                     </SidebarMenuButton>

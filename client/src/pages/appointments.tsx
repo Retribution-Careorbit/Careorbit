@@ -1,0 +1,262 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Layout } from "@/components/layout";
+import { FadeIn, StaggerContainer, StaggerItem, HoverCard } from "@/components/animations";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope } from "lucide-react";
+
+export default function AppointmentsPage() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [doctorName, setDoctorName] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [datetime, setDatetime] = useState("");
+  const [clinicName, setClinicName] = useState("");
+
+  const { data: appointments = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/orbit/appointments"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/orbit/appointments", {
+        doctor_name: doctorName,
+        specialization,
+        appointment_datetime: datetime,
+        clinic_name: clinicName,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/appointments"] });
+      toast({ title: "Appointment Created", description: "Your appointment has been scheduled." });
+      setOpen(false);
+      setDoctorName("");
+      setSpecialization("");
+      setDatetime("");
+      setClinicName("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const upcoming = Array.isArray(appointments) ? appointments.filter((a: any) => a.status === "upcoming") : [];
+  const past = Array.isArray(appointments) ? appointments.filter((a: any) => a.status === "completed") : [];
+
+  const formatDate = (dt: string) => {
+    try {
+      return new Date(dt).toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dt;
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-8">
+        <FadeIn>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-appointments-title">
+                Appointments
+              </h1>
+              <p className="text-muted-foreground mt-1.5 text-base">
+                Manage your doctor appointments
+              </p>
+            </div>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="shadow-sm" data-testid="button-new-appointment">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Appointment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-strong">
+                <DialogHeader>
+                  <DialogTitle className="font-heading">Schedule Appointment</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    createMutation.mutate();
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="doctor">Doctor Name</Label>
+                    <Input
+                      id="doctor"
+                      data-testid="input-doctor-name"
+                      placeholder="Dr. Smith"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="spec">Specialization</Label>
+                    <Input
+                      id="spec"
+                      data-testid="input-specialization"
+                      placeholder="Cardiologist, General Physician..."
+                      value={specialization}
+                      onChange={(e) => setSpecialization(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="datetime">Date & Time</Label>
+                    <Input
+                      id="datetime"
+                      type="datetime-local"
+                      data-testid="input-appointment-datetime"
+                      value={datetime}
+                      onChange={(e) => setDatetime(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="clinic">Clinic Name</Label>
+                    <Input
+                      id="clinic"
+                      data-testid="input-clinic-name"
+                      placeholder="Apollo Hospital..."
+                      value={clinicName}
+                      onChange={(e) => setClinicName(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-appointment">
+                    {createMutation.isPending ? "Scheduling..." : "Schedule Appointment"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </FadeIn>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+            ))}
+          </div>
+        ) : (
+          <>
+            <FadeIn delay={0.1}>
+              <h2 className="text-lg font-heading font-semibold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Upcoming ({upcoming.length})
+              </h2>
+            </FadeIn>
+
+            {upcoming.length === 0 ? (
+              <FadeIn delay={0.15}>
+                <Card className="glass">
+                  <CardContent className="p-8 text-center">
+                    <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-muted-foreground" data-testid="text-no-upcoming">No upcoming appointments</p>
+                  </CardContent>
+                </Card>
+              </FadeIn>
+            ) : (
+              <StaggerContainer className="space-y-3">
+                {upcoming.map((appt: any, i: number) => (
+                  <StaggerItem key={appt.appointment_id || i}>
+                    <HoverCard>
+                      <Card className="glass border-l-4 border-l-primary" data-testid={`card-appointment-${i}`}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-primary" />
+                                <span className="font-medium">{appt.doctor_name}</span>
+                                {appt.specialization && (
+                                  <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {formatDate(appt.appointment_datetime)}
+                                </span>
+                                {appt.clinic_name && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {appt.clinic_name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {appt.brief_scheduled && (
+                                <Badge className="bg-secondary/10 text-secondary border-secondary/30 text-xs">
+                                  Pre-visit Brief
+                                </Badge>
+                              )}
+                              <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
+                                <Video className="h-3.5 w-3.5 mr-1" />
+                                Video Call
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </HoverCard>
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            )}
+
+            {past.length > 0 && (
+              <>
+                <FadeIn delay={0.2}>
+                  <h2 className="text-lg font-heading font-semibold flex items-center gap-2 mt-6">
+                    <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                    Past ({past.length})
+                  </h2>
+                </FadeIn>
+                <StaggerContainer className="space-y-3">
+                  {past.map((appt: any, i: number) => (
+                    <StaggerItem key={appt.appointment_id || `past-${i}`}>
+                      <Card className="opacity-70" data-testid={`card-past-appointment-${i}`}>
+                        <CardContent className="p-5">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{appt.doctor_name}</span>
+                                {appt.specialization && (
+                                  <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{formatDate(appt.appointment_datetime)}</p>
+                            </div>
+                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </StaggerItem>
+                  ))}
+                </StaggerContainer>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </Layout>
+  );
+}

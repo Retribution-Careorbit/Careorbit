@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+    <div className="min-h-screen flex items-center justify-center aurora-bg-strong p-4">
       <ScaleIn>
         <Card className="w-full max-w-md shadow-xl border-border/50">
           <CardHeader className="text-center pb-2">

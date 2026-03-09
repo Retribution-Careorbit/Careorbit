@@ -7,36 +7,44 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp, HoverCard } from "@/components/animations";
-import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight } from "lucide-react";
+import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
+import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp } from "lucide-react";
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 const STAT_CONFIGS = [
   {
     title: "Health Records",
     icon: Activity,
-    gradient: "from-blue-500/10 to-blue-600/5",
-    iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    borderAccent: "border-l-blue-500",
+    gradient: "from-cyan-500/10 to-cyan-600/5",
+    iconBg: "bg-cyan-500/10 text-cyan-500",
+    borderAccent: "border-l-cyan-500",
   },
   {
     title: "Medications",
     icon: Pill,
-    gradient: "from-teal-500/10 to-teal-600/5",
-    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-    borderAccent: "border-l-teal-500",
+    gradient: "from-purple-500/10 to-purple-600/5",
+    iconBg: "bg-purple-500/10 text-purple-500",
+    borderAccent: "border-l-purple-500",
   },
   {
     title: "Reminders",
     icon: Bell,
     gradient: "from-amber-500/10 to-amber-600/5",
-    iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-500/10 text-amber-500",
     borderAccent: "border-l-amber-500",
   },
   {
     title: "Subscription",
     icon: Shield,
-    gradient: "from-purple-500/10 to-purple-600/5",
-    iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-    borderAccent: "border-l-purple-500",
+    gradient: "from-green-500/10 to-green-600/5",
+    iconBg: "bg-green-500/10 text-green-500",
+    borderAccent: "border-l-green-500",
   },
 ];
 
@@ -55,6 +63,18 @@ export default function DashboardPage() {
     queryKey: ["/api/reminders/list"],
   });
 
+  const { data: orbitScore } = useQuery<any>({
+    queryKey: ["/api/orbit/score"],
+  });
+
+  const { data: vitalsData } = useQuery<any>({
+    queryKey: ["/api/patients/vitals"],
+  });
+
+  const { data: appointments = [] } = useQuery<any[]>({
+    queryKey: ["/api/orbit/appointments"],
+  });
+
   const loading = overviewLoading || subLoading || remLoading;
   const totalNodes = overview?.summary?.total_nodes || 0;
   const reminderList = Array.isArray(reminders) ? reminders : [];
@@ -66,13 +86,36 @@ export default function DashboardPage() {
     { ...STAT_CONFIGS[3], value: subscription?.tier || "free", description: subscription?.features?.shows_ads ? "With ads" : "Ad-free", isNumeric: false },
   ];
 
+  const vitals = vitalsData?.vitals || [];
+  const bpChartData = vitals
+    .filter((v: any) => v.type === "blood_pressure")
+    .map((v: any) => ({
+      date: new Date(v.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+      value: v.heart_rate,
+    }));
+
+  const upcomingAppts = Array.isArray(appointments) ? appointments.filter((a: any) => a.status === "upcoming").slice(0, 2) : [];
+
+  const recentEvents = [
+    ...(overview?.medications || []).slice(0, 2).map((m: any) => ({
+      label: `${m.name} tracked`,
+      icon: Pill,
+      color: "text-purple-400",
+    })),
+    ...(overview?.interactions || []).slice(0, 1).map((ix: any) => ({
+      label: `Interaction: ${ix.drug_pair}`,
+      icon: AlertCircle,
+      color: "text-red-400",
+    })),
+  ];
+
   return (
     <Layout>
       <div className="space-y-8">
         <FadeIn>
           <div>
             <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-dashboard-title">
-              Welcome back{user?.name ? `, ${user.name}` : ""}
+              {getGreeting()}{user?.name ? `, ${user.name}` : ""}
             </h1>
             <p className="text-muted-foreground mt-1.5 text-base">
               Your healthcare overview at a glance
@@ -110,7 +153,7 @@ export default function DashboardPage() {
           {statValues.map((stat) => (
             <StaggerItem key={stat.title}>
               <HoverCard>
-                <Card className={`border-l-4 ${stat.borderAccent} overflow-hidden`}>
+                <Card className={`glass border-l-4 ${stat.borderAccent} overflow-hidden`}>
                   <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} pointer-events-none`} />
                   <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
                     <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
@@ -142,11 +185,51 @@ export default function DashboardPage() {
           ))}
         </StaggerContainer>
 
-        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {orbitScore && (
+            <FadeIn delay={0.1}>
+              <Card className="glass" data-testid="card-orbit-mini">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 font-heading text-base">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Orbit Score
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center pb-4">
+                  <OrbitScoreRadial score={orbitScore.total_score || 0} size={160} />
+                  <Link href="/orbit-score">
+                    <Button variant="ghost" size="sm" className="mt-2 text-xs" data-testid="link-view-orbit">
+                      View Details
+                      <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </FadeIn>
+          )}
+
+          {bpChartData.length > 0 && (
+            <FadeIn delay={0.15} className="lg:col-span-2">
+              <Card className="glass" data-testid="card-vitals-chart">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 font-heading text-base">
+                    <Heart className="h-5 w-5 text-cyan-400" />
+                    Heart Rate Trend
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <HealthMetricsChart data={bpChartData} label="Heart Rate" color="#00d9ff" height={200} />
+                </CardContent>
+              </Card>
+            </FadeIn>
+          )}
+        </div>
+
+        <StaggerContainer className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <StaggerItem>
-            <Card>
+            <Card className="glass">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading">
+                <CardTitle className="flex items-center gap-2 font-heading text-base">
                   <Heart className="h-5 w-5 text-primary" />
                   Quick Actions
                 </CardTitle>
@@ -154,8 +237,8 @@ export default function DashboardPage() {
               <CardContent className="space-y-3">
                 <Link href="/documents" data-testid="link-quick-upload">
                   <div className="flex items-center gap-3 p-3.5 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 cursor-pointer group">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:bg-blue-500/20 transition-colors">
-                      <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/20 transition-colors">
+                      <FileText className="h-5 w-5 text-cyan-500" />
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-sm">Upload Document</p>
@@ -166,8 +249,8 @@ export default function DashboardPage() {
                 </Link>
                 <Link href="/chat" data-testid="link-quick-chat">
                   <div className="flex items-center gap-3 p-3.5 rounded-lg border border-border/50 hover:border-secondary/30 hover:bg-secondary/5 transition-all duration-200 cursor-pointer group mt-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 group-hover:bg-teal-500/20 transition-colors">
-                      <Activity className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 group-hover:bg-purple-500/20 transition-colors">
+                      <Activity className="h-5 w-5 text-purple-500" />
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-sm">Ask AI Assistant</p>
@@ -181,9 +264,9 @@ export default function DashboardPage() {
           </StaggerItem>
 
           <StaggerItem>
-            <Card>
+            <Card className="glass">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading">
+                <CardTitle className="flex items-center gap-2 font-heading text-base">
                   <Bell className="h-5 w-5 text-amber-500" />
                   Upcoming Reminders
                 </CardTitle>
@@ -216,7 +299,69 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </StaggerItem>
+
+          <StaggerItem>
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-heading text-base">
+                  <Calendar className="h-5 w-5 text-green-500" />
+                  Appointments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {upcomingAppts.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-appointments">
+                      No upcoming appointments
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {upcomingAppts.map((appt: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors">
+                        <p className="text-sm font-medium">{appt.doctor_name}</p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {new Date(appt.appointment_datetime).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                        </div>
+                      </div>
+                    ))}
+                    <Link href="/appointments">
+                      <Button variant="ghost" size="sm" className="w-full mt-1 text-xs" data-testid="link-view-appointments">
+                        View All <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </StaggerItem>
         </StaggerContainer>
+
+        {recentEvents.length > 0 && (
+          <FadeIn delay={0.2}>
+            <Card className="glass" data-testid="card-activity-timeline">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 font-heading text-base">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {recentEvents.map((event, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                      <event.icon className={`h-4 w-4 ${event.color} shrink-0`} />
+                      <span className="text-sm">{event.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </FadeIn>
+        )}
       </div>
     </Layout>
   );

@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/animations";
+import { SOSButton } from "@/components/emergency";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </PageTransition>
           </div>
         </main>
+        <SOSButton />
       </div>
     </SidebarProvider>
   );

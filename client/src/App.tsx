@@ -16,6 +16,9 @@ import RemindersPage from "@/pages/reminders";
 import SettingsPage from "@/pages/settings";
 import TestCasesPage from "@/pages/test-cases";
 import OnboardingPage from "@/pages/onboarding";
+import OrbitScorePage from "@/pages/orbit-score";
+import AppointmentsPage from "@/pages/appointments";
+import HealthInsightsPage from "@/pages/health-insights";
 
 function AuthenticatedRoutes() {
   return (
@@ -28,6 +31,9 @@ function AuthenticatedRoutes() {
       <Route path="/reminders" component={RemindersPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/test-cases" component={TestCasesPage} />
+      <Route path="/orbit-score" component={OrbitScorePage} />
+      <Route path="/appointments" component={AppointmentsPage} />
+      <Route path="/health-insights" component={HealthInsightsPage} />
       <Route component={NotFound} />
     </Switch>
   );

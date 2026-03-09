@@ -59,6 +59,63 @@ RAMESH_ORBIT_HISTORY = [
     {"total_score": 61.8, "computed_at": "2026-02-15T09:00:00+00:00", "delta": 6.6},
 ]
 
+RAMESH_VITALS = [
+    {"date": "2026-01-10", "type": "blood_pressure", "systolic": 148, "diastolic": 92, "heart_rate": 78},
+    {"date": "2026-01-17", "type": "blood_pressure", "systolic": 142, "diastolic": 88, "heart_rate": 76},
+    {"date": "2026-01-24", "type": "blood_pressure", "systolic": 138, "diastolic": 86, "heart_rate": 74},
+    {"date": "2026-02-01", "type": "blood_pressure", "systolic": 135, "diastolic": 84, "heart_rate": 72},
+    {"date": "2026-02-08", "type": "blood_pressure", "systolic": 132, "diastolic": 82, "heart_rate": 73},
+    {"date": "2026-02-15", "type": "blood_pressure", "systolic": 130, "diastolic": 80, "heart_rate": 71},
+    {"date": "2026-02-22", "type": "blood_pressure", "systolic": 128, "diastolic": 79, "heart_rate": 70},
+    {"date": "2026-01-10", "type": "glucose", "fasting": 165, "post_meal": 220},
+    {"date": "2026-01-24", "type": "glucose", "fasting": 155, "post_meal": 210},
+    {"date": "2026-02-08", "type": "glucose", "fasting": 142, "post_meal": 195},
+    {"date": "2026-02-22", "type": "glucose", "fasting": 138, "post_meal": 185},
+    {"date": "2026-01-10", "type": "weight", "value": 82.5, "unit": "kg"},
+    {"date": "2026-01-24", "type": "weight", "value": 81.8, "unit": "kg"},
+    {"date": "2026-02-08", "type": "weight", "value": 81.2, "unit": "kg"},
+    {"date": "2026-02-22", "type": "weight", "value": 80.5, "unit": "kg"},
+    {"date": "2026-01-10", "type": "temperature", "value": 98.4, "unit": "F"},
+    {"date": "2026-02-01", "type": "temperature", "value": 98.6, "unit": "F"},
+    {"date": "2026-02-15", "type": "temperature", "value": 98.2, "unit": "F"},
+]
+
+RAMESH_APPOINTMENTS = [
+    {
+        "appointment_id": "appt-001",
+        "doctor_name": "Dr. Anjali Sharma",
+        "specialization": "Endocrinologist",
+        "appointment_datetime": "2026-03-15T10:30:00+05:30",
+        "clinic_name": "Apollo Clinic, Durgapur",
+        "status": "upcoming",
+        "brief_scheduled": True,
+    },
+    {
+        "appointment_id": "appt-002",
+        "doctor_name": "Dr. Rajesh Mehta",
+        "specialization": "Nephrologist",
+        "appointment_datetime": "2026-03-22T14:00:00+05:30",
+        "clinic_name": "AMRI Hospital, Kolkata",
+        "status": "upcoming",
+        "brief_scheduled": False,
+    },
+    {
+        "appointment_id": "appt-003",
+        "doctor_name": "Dr. Priya Gupta",
+        "specialization": "General Physician",
+        "appointment_datetime": "2026-02-10T09:00:00+05:30",
+        "clinic_name": "City Health Center",
+        "status": "completed",
+        "brief_scheduled": False,
+    },
+]
+
+RAMESH_EMERGENCY_CONTACTS = [
+    {"name": "Sunita Kumar", "relation": "Wife", "phone": "+919876543211"},
+    {"name": "Amit Kumar", "relation": "Son", "phone": "+919876543212"},
+    {"name": "Emergency Ambulance", "relation": "Emergency", "phone": "108"},
+]
+
 RAMESH_NARRATIVE = (
     "Ramesh Kumar is a 68-year-old male from Durgapur, West Bengal, "
     "managing Type 2 Diabetes Mellitus, Essential Hypertension, and Dyslipidemia. "

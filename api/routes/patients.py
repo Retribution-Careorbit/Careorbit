@@ -5,6 +5,7 @@ from typing import Optional
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
+from db.seed_demo import DEMO_USER_ID, RAMESH_VITALS, RAMESH_EMERGENCY_CONTACTS
 from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
 from utils.profile_validators import (
@@ -193,3 +194,23 @@ async def get_medications(request: Request):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     meds = await phig_builder.get_medication_subgraph(patient_id)
     return meds
+
+
+@router.get("/vitals")
+async def get_vitals(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+    if patient_id == DEMO_USER_ID:
+        return {"vitals": RAMESH_VITALS}
+    return {"vitals": []}
+
+
+@router.get("/emergency-contacts")
+async def get_emergency_contacts(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+    if patient_id == DEMO_USER_ID:
+        return {"contacts": RAMESH_EMERGENCY_CONTACTS}
+    return {"contacts": []}

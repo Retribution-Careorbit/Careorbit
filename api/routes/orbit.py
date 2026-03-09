@@ -7,7 +7,7 @@ import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.seed_demo import (
     DEMO_USER_ID, RAMESH_ORBIT_HISTORY, RAMESH_NARRATIVE,
-    get_phig_for_orbit,
+    RAMESH_APPOINTMENTS, get_phig_for_orbit,
 )
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
@@ -81,6 +81,7 @@ async def schedule_previsit_brief(appointment_id: str, patient_id: str) -> bool:
 class AppointmentCreate(BaseModel):
     doctor_name: str = Field(...)
     appointment_datetime: str = Field(...)
+    specialization: Optional[str] = None
     clinic_name: Optional[str] = None
 
 
@@ -109,7 +110,30 @@ async def post_appointment(request: Request, body: AppointmentCreate):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     await rbac_mod.require_permission(current_user["id"], patient_id, "edit")
     result = await create_appointment(patient_id, body.model_dump())
+    appt_entry = {
+        "appointment_id": result["appointment_id"],
+        "doctor_name": body.doctor_name,
+        "specialization": body.specialization or "",
+        "appointment_datetime": body.appointment_datetime,
+        "clinic_name": body.clinic_name or "",
+        "status": "upcoming",
+        "brief_scheduled": result["brief_scheduled"],
+    }
+    if patient_id not in _appointments_store:
+        _appointments_store[patient_id] = []
+    _appointments_store[patient_id].append(appt_entry)
     return result
+
+
+_appointments_store: dict[str, list] = {DEMO_USER_ID: list(RAMESH_APPOINTMENTS)}
+
+
+@router.get("/appointments")
+async def list_appointments(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+    return _appointments_store.get(patient_id, [])
 
 
 @router.get("/narrative")
