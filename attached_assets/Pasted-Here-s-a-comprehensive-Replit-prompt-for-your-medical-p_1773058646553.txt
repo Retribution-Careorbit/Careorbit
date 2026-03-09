@@ -1,0 +1,214 @@
+Here's a comprehensive Replit prompt for your medical platform:
+
+REPLIT PROMPT:
+Create a modern, techy medical healthcare platform called "CareOrbit" with the following specifications:
+TECH STACK:
+React + Vite
+Tailwind CSS
+Framer Motion (animations)
+Lucide React (icons)
+Recharts (data visualization)
+React Router (navigation)
+DESIGN AESTHETIC:
+Futuristic medical tech theme with glassmorphism
+Dark mode primary with smooth light mode toggle
+Neon accent colors (cyan/teal for health, purple for premium, orange/amber for alerts)
+Fluid animations and micro-interactions
+3D card effects with depth
+Gradient overlays and aurora backgrounds
+Clean, minimal, Apple-inspired UI with medical precision
+CORE FEATURES TO IMPLEMENT:
+Dashboard (Home)
+
+
+Personalized greeting with time-based messages
+4 stat cards: Health Records, Medications, Reminders, Subscription
+Animated counter numbers
+Health metrics chart (heart rate, blood pressure trends)
+Activity timeline
+Quick actions with hover effects
+Upcoming appointments calendar view
+Medications Management
+
+
+Add/edit/delete medications
+Medication schedule with time slots
+Dosage tracker with visual pills
+Refill reminders with countdown
+Drug interaction checker (mock)
+Medication adherence score with circular progress
+Search and filter medications
+Health Records
+
+
+Upload documents (prescriptions, lab reports)
+Document viewer with zoom
+Categorized records (Lab Reports, Prescriptions, Imaging, etc.)
+Health graph/timeline visualization
+Vital signs tracker (BP, glucose, weight, temperature)
+Export reports as PDF
+AI Health Assistant
+
+
+Chat interface with typing indicators
+Medical Q&A (disclaimer: not real medical advice)
+Symptom checker with visual body map
+Health tips and recommendations
+Voice input option (UI only)
+Multi-language support toggle
+Reminders & Notifications
+
+
+Create medication reminders
+Appointment reminders
+Custom health reminders
+Push notification UI
+Reminder history
+Snooze and mark complete functionality
+Test Cases / Lab Results
+
+
+Upload lab reports
+Visual representation of test values with normal ranges
+Trend charts over time
+Color-coded indicators (normal/warning/critical)
+Comparison with previous results
+User Profile & Settings
+
+
+Profile information with avatar
+Medical history form
+Emergency contacts
+Privacy settings
+Theme toggle (dark/light)
+Notification preferences
+Data export option
+ADDITIONAL ADVANCED FEATURES:
+Health Score Dashboard
+
+
+Overall health score calculation (0-100)
+Category breakdowns (fitness, nutrition, sleep, medication adherence)
+Gamification badges/achievements
+Progress streaks
+Appointment Booking
+
+
+Doctor search with specialization filters
+Calendar booking interface
+Video consultation UI (mock)
+Appointment history
+Medicine Scanner (UI Mock)
+
+
+Camera interface to scan medicine
+Barcode/text recognition UI
+Auto-fill medication details
+Health Insights
+
+
+Weekly/monthly health reports
+AI-generated insights cards
+Recommendations based on data
+Shareable health summary
+Emergency Features
+
+
+SOS button (prominent placement)
+Emergency contacts quick dial
+Medical ID card with QR code
+Location sharing UI
+UI COMPONENTS TO BUILD:
+Animated sidebar navigation with icons
+Glassmorphic cards with hover effects
+Custom charts (line, bar, donut, radial)
+Modal dialogs with blur backdrop
+Toast notifications
+Skeleton loaders
+Progress bars and circular progress
+Custom date/time picker
+Search bar with autocomplete
+File upload with drag-drop
+Tabs and accordions
+Toggle switches
+Pill badges
+Avatar with status indicator
+Floating action button
+ANIMATIONS & INTERACTIONS:
+Page transitions with fade/slide
+Card hover lift with shadow
+Button ripple effects
+Loading spinners with pulse
+Smooth scroll behavior
+Staggered list animations
+Number counter animations
+Progress bar fills
+Skeleton shimmer effect
+Modal entrance/exit animations
+COLOR PALETTE:
+Dark Mode:
+Background: #0a0e27, #141b34
+Cards: #1a2238 with opacity
+Primary accent: #00d9ff (cyan)
+Secondary: #7c3aed (purple)
+Warning: #fb923c (orange)
+Success: #10b981 (green)
+Error: #ef4444 (red)
+Text: #e5e7eb, #9ca3af
+Light Mode:
+Background: #f8fafc, #ffffff
+Cards: white with subtle shadows
+Same accent colors with adjusted opacity
+MOCK DATA TO INCLUDE:
+Sample medications (5-10 items)
+Health records (mock PDFs/images)
+Lab results with values
+Appointment history
+Chat messages with AI
+Notification examples
+Health metrics data points
+RESPONSIVE DESIGN:
+Mobile-first approach
+Collapsible sidebar on mobile
+Bottom navigation for mobile
+Touch-friendly buttons (min 44px)
+Adaptive grid layouts
+ACCESSIBILITY:
+ARIA labels
+Keyboard navigation
+Focus indicators
+High contrast mode support
+Screen reader friendly
+BONUS FEATURES:
+Health journal/diary
+Medication interaction checker
+Pill identifier
+Family member profiles
+Doctor consultation notes
+Insurance card storage
+Prescription refill requests
+Pharmacy locator map
+Health goals tracker
+Water intake tracker
+Step counter integration UI
+Sleep tracker
+Mood tracker with emoji selector
+FILE STRUCTURE:
+src/
+├── components/
+│   ├── common/
+│   ├── dashboard/
+│   ├── medications/
+│   ├── health-records/
+│   └── ai-assistant/
+├── pages/
+├── hooks/
+├── utils/
+├── context/
+└── assets/
+
+DEPLOYMENT:
+Make it production-ready
+Optimized bundle size
+Fast load times
+Create a fully functional, beautiful, and modern medical platform that feels like a premium health tech product. Focus on smooth UX, delightful animations, and professional medical aesthetics.
