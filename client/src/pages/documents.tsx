@@ -1,9 +1,8 @@
 import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
@@ -79,9 +78,9 @@ export default function DocumentsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "success": return <CheckCircle className="h-5 w-5 text-emerald-600" />;
-      case "needs_confirmation": return <AlertTriangle className="h-5 w-5 text-amber-600" />;
-      case "failed": return <XCircle className="h-5 w-5 text-red-600" />;
+      case "success": return <CheckCircle className="h-5 w-5" style={{ color: "var(--accent-emerald)" }} />;
+      case "needs_confirmation": return <AlertTriangle className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />;
+      case "failed": return <XCircle className="h-5 w-5" style={{ color: "var(--accent-rose)" }} />;
       default: return null;
     }
   };
@@ -91,106 +90,88 @@ export default function DocumentsPage() {
       <div className="space-y-6">
         <FadeIn>
           <div>
-            <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-documents-title">Documents</h1>
-            <p className="text-muted-foreground mt-1.5">
+            <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-documents-title">
+              Documents
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               Upload prescriptions, lab reports, or medicine strip photos for AI extraction
             </p>
           </div>
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <Card className="overflow-hidden">
-            <CardContent className="p-8">
-              <div
-                role="button"
-                tabIndex={0}
-                aria-label="Upload document. Drop a file here or press Enter to browse"
-                className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer
-                  ${dragOver
-                    ? "border-primary bg-primary/5 shadow-inner"
-                    : "border-muted-foreground/20 hover:border-primary/40 hover:bg-accent/50"
-                  }`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
-                data-testid="dropzone-upload"
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  data-testid="input-file"
-                />
-                {uploadMutation.isPending ? (
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                      <Loader2 className="h-8 w-8 text-primary animate-spin" data-testid="spinner-processing" />
-                    </div>
-                    <p className="text-lg font-heading font-medium">Processing document...</p>
-                    <p className="text-sm text-muted-foreground">AI is extracting health data</p>
+          <div className="rounded-xl p-8" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Upload document. Drop a file here or press Enter to browse"
+              className="border-2 border-dashed rounded-xl p-12 text-center cursor-pointer"
+              style={{
+                borderColor: dragOver ? "var(--accent-cyan)" : "var(--border-default)",
+                background: dragOver ? "var(--accent-cyan-dim)" : "transparent",
+                transition: "all 200ms ease",
+              }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+              data-testid="dropzone-upload"
+            >
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" onChange={handleFileChange} className="hidden" data-testid="input-file" />
+              {uploadMutation.isPending ? (
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "var(--accent-cyan-dim)" }}>
+                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--accent-cyan)" }} data-testid="spinner-processing" />
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                      <Upload className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-lg font-heading font-medium">Drop your document here</p>
-                    <p className="text-sm text-muted-foreground">
-                      JPEG, PNG, WebP, or HEIC up to 10MB
-                    </p>
-                    <Button variant="outline" className="shadow-sm" data-testid="button-browse">
-                      <FileUp className="h-4 w-4 mr-2" />
-                      Browse Files
-                    </Button>
+                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Processing document...</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>AI is extracting health data</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "var(--bg-elevated)" }}>
+                    <Upload className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Drop your document here</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, or HEIC up to 10MB</p>
+                  <Button variant="outline" data-testid="button-browse">
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Browse Files
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </FadeIn>
 
         {results.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-heading font-semibold">Upload Results</h2>
+            <p className="section-header">Upload Results</p>
             <StaggerContainer className="space-y-3">
               {results.map((result, i) => (
                 <StaggerItem key={i}>
-                  <Card data-testid={`card-result-${i}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2 font-heading">
-                          {getStatusIcon(result.status)}
-                          {result.document_type || "Document"}
-                        </CardTitle>
-                        <Badge variant={result.status === "success" ? "default" : "outline"}>
-                          {result.status}
-                        </Badge>
+                  <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }} data-testid={`card-result-${i}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(result.status)}
+                        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{result.document_type || "Document"}</span>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm space-y-1.5">
-                        <p><span className="text-muted-foreground">Nodes created:</span> <span className="font-medium">{result.nodes_created}</span></p>
-                        {result.interaction_alerts?.length > 0 && (
-                          <div className="mt-2 p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-sm">
-                            <p className="font-medium text-destructive">
-                              {result.interaction_alerts.length} interaction alert(s)
-                            </p>
-                          </div>
-                        )}
-                        {result.confirmation_needed?.length > 0 && (
-                          <div className="mt-2 p-3 rounded-lg bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm">
-                            <p className="font-medium text-amber-800 dark:text-amber-200">
-                              {result.confirmation_needed.length} item(s) need confirmation
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <Badge variant={result.status === "success" ? "default" : "outline"}>{result.status}</Badge>
+                    </div>
+                    <div className="text-sm space-y-1.5">
+                      <p>
+                        <span style={{ color: "var(--text-muted)" }}>Nodes created:</span>{" "}
+                        <span className="font-mono font-medium" style={{ color: "var(--text-primary)" }}>{result.nodes_created}</span>
+                      </p>
+                      {result.interaction_alerts?.length > 0 && (
+                        <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>
+                          <p className="font-medium text-sm" style={{ color: "var(--accent-rose)" }}>
+                            {result.interaction_alerts.length} interaction alert(s)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </StaggerItem>
               ))}
             </StaggerContainer>

@@ -1,45 +1,40 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
-import { FadeIn, StaggerContainer, StaggerItem, HoverCard } from "@/components/animations";
+import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { HealthMetricsChart, Sparkline } from "@/components/charts";
-import { Heart, Droplets, Weight, Thermometer, TrendingDown, TrendingUp, AlertCircle, Download, Lightbulb } from "lucide-react";
+import { Heart, Droplets, Weight, Thermometer, TrendingDown, AlertCircle, Download, Lightbulb } from "lucide-react";
 
 const INSIGHTS = [
   {
     title: "Blood Pressure Improving",
     description: "Your systolic BP has decreased from 148 to 128 mmHg over the past 6 weeks. Keep up the good work with your Amlodipine regimen.",
     icon: TrendingDown,
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
+    color: "var(--accent-emerald)",
     type: "positive",
   },
   {
     title: "HbA1c Above Target",
     description: "Your HbA1c is 7.8%, above the recommended <5.7%. Discuss with your doctor about adjusting your Metformin dosage or diet plan.",
     icon: AlertCircle,
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
+    color: "var(--accent-amber)",
     type: "warning",
   },
   {
     title: "Weight Loss Progress",
     description: "You've lost 2kg in the past month (82.5 → 80.5 kg). Steady weight loss supports your diabetes and BP management.",
     icon: TrendingDown,
-    color: "text-cyan-400",
-    bgColor: "bg-cyan-400/10",
+    color: "var(--accent-cyan)",
     type: "positive",
   },
   {
     title: "Kidney Function Alert",
     description: "Your eGFR is 52 mL/min (Stage 3a CKD). Avoid NSAIDs like Ibuprofen and ensure regular monitoring.",
     icon: AlertCircle,
-    color: "text-red-500",
-    bgColor: "bg-red-500/10",
+    color: "var(--accent-rose)",
     type: "critical",
   },
 ];
@@ -100,7 +95,7 @@ export default function HealthInsightsPage() {
       value: latestBP ? `${latestBP.systolic}/${latestBP.diastolic}` : "—",
       unit: "mmHg",
       icon: Heart,
-      color: "#00d9ff",
+      color: "#00D4FF",
       sparkData: hrData,
       status: latestBP && latestBP.systolic < 140 ? "normal" : "warning",
     },
@@ -109,7 +104,7 @@ export default function HealthInsightsPage() {
       value: latestGlucose ? `${latestGlucose.fasting}` : "—",
       unit: "mg/dL (fasting)",
       icon: Droplets,
-      color: "#7c3aed",
+      color: "#7C3AED",
       sparkData: glucoseSparkline,
       status: latestGlucose && latestGlucose.fasting < 140 ? "normal" : "warning",
     },
@@ -118,7 +113,7 @@ export default function HealthInsightsPage() {
       value: latestWeight ? `${latestWeight.value}` : "—",
       unit: "kg",
       icon: Weight,
-      color: "#10b981",
+      color: "#10B981",
       sparkData: weightData,
       status: "normal",
     },
@@ -127,7 +122,7 @@ export default function HealthInsightsPage() {
       value: latestTemp ? `${latestTemp.value}` : "—",
       unit: "°F",
       icon: Thermometer,
-      color: "#fb923c",
+      color: "#F59E0B",
       sparkData: tempData,
       status: latestTemp && latestTemp.value <= 99.5 ? "normal" : "warning",
     },
@@ -135,14 +130,14 @@ export default function HealthInsightsPage() {
 
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <FadeIn>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-insights-title">
+              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-insights-title">
                 Health Insights
               </h1>
-              <p className="text-muted-foreground mt-1.5 text-base">
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
                 Vital signs trends and AI-powered health recommendations
               </p>
             </div>
@@ -176,131 +171,127 @@ export default function HealthInsightsPage() {
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {vitalCards.map((card) => (
             <StaggerItem key={card.title}>
-              <HoverCard>
-                <Card className="glass" data-testid={`card-vital-${card.title.toLowerCase().replace(/\s/g, "-")}`}>
-                  <CardContent className="p-5">
-                    {isLoading ? (
-                      <Skeleton className="h-20 w-full" />
-                    ) : (
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${card.color}15` }}>
-                              <card.icon className="h-4 w-4" style={{ color: card.color }} />
-                            </div>
-                            <span className="text-sm text-muted-foreground">{card.title}</span>
-                          </div>
-                          <p className="text-2xl font-heading font-bold">{card.value}</p>
-                          <p className="text-xs text-muted-foreground">{card.unit}</p>
-                          <Badge
-                            className={`mt-2 text-xs ${
-                              card.status === "normal"
-                                ? "bg-green-500/10 text-green-500 border-green-500/30"
-                                : "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                            }`}
-                          >
-                            {card.status === "normal" ? "Normal" : "Monitor"}
-                          </Badge>
+              <div
+                className="rounded-xl p-5"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                data-testid={`card-vital-${card.title.toLowerCase().replace(/\s/g, "-")}`}
+              >
+                {isLoading ? (
+                  <Skeleton className="h-20 w-full" />
+                ) : (
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: `${card.color}15` }}
+                        >
+                          <card.icon className="h-4 w-4" style={{ color: card.color }} />
                         </div>
-                        {card.sparkData.length > 1 && (
-                          <Sparkline data={card.sparkData} color={card.color} />
-                        )}
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>{card.title}</span>
                       </div>
+                      <p className="text-2xl font-mono font-bold" style={{ color: "var(--text-primary)" }}>{card.value}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{card.unit}</p>
+                      <Badge
+                        className="mt-2 text-xs border"
+                        style={{
+                          background: card.status === "normal" ? "var(--accent-emerald-dim)" : "var(--accent-amber-dim)",
+                          color: card.status === "normal" ? "var(--accent-emerald)" : "var(--accent-amber)",
+                          borderColor: card.status === "normal"
+                            ? "color-mix(in srgb, var(--accent-emerald) 30%, transparent)"
+                            : "color-mix(in srgb, var(--accent-amber) 30%, transparent)",
+                        }}
+                      >
+                        {card.status === "normal" ? "Normal" : "Monitor"}
+                      </Badge>
+                    </div>
+                    {card.sparkData.length > 1 && (
+                      <Sparkline data={card.sparkData} color={card.color} />
                     )}
-                  </CardContent>
-                </Card>
-              </HoverCard>
+                  </div>
+                )}
+              </div>
             </StaggerItem>
           ))}
         </StaggerContainer>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <FadeIn delay={0.15}>
-            <Card className="glass" data-testid="card-bp-chart">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-base">
-                  <Heart className="h-5 w-5 text-cyan-400" />
-                  Blood Pressure Trends
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-[250px] w-full" />
-                ) : bpData.length > 0 ? (
-                  <HealthMetricsChart
-                    data={bpData}
-                    label="Systolic"
-                    label2="Diastolic"
-                    color="#00d9ff"
-                    color2="#7c3aed"
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-12">No BP data available</p>
-                )}
-              </CardContent>
-            </Card>
+            <div
+              className="rounded-xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              data-testid="card-bp-chart"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Heart className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Blood Pressure Trends</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-[250px] w-full" />
+              ) : bpData.length > 0 ? (
+                <HealthMetricsChart data={bpData} label="Systolic" label2="Diastolic" color="#00D4FF" color2="#7C3AED" />
+              ) : (
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No BP data available</p>
+              )}
+            </div>
           </FadeIn>
 
           <FadeIn delay={0.2}>
-            <Card className="glass" data-testid="card-glucose-chart">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-heading text-base">
-                  <Droplets className="h-5 w-5 text-purple-400" />
-                  Blood Glucose Trends
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-[250px] w-full" />
-                ) : glucoseData.length > 0 ? (
-                  <HealthMetricsChart
-                    data={glucoseData}
-                    label="Fasting"
-                    label2="Post-meal"
-                    color="#10b981"
-                    color2="#fb923c"
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-12">No glucose data available</p>
-                )}
-              </CardContent>
-            </Card>
+            <div
+              className="rounded-xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              data-testid="card-glucose-chart"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Droplets className="h-5 w-5" style={{ color: "var(--accent-violet)" }} />
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Blood Glucose Trends</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-[250px] w-full" />
+              ) : glucoseData.length > 0 ? (
+                <HealthMetricsChart data={glucoseData} label="Fasting" label2="Post-meal" color="#10B981" color2="#F59E0B" />
+              ) : (
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No glucose data available</p>
+              )}
+            </div>
           </FadeIn>
         </div>
 
         <FadeIn delay={0.25}>
-          <Card className="glass" data-testid="card-ai-insights">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading">
-                <Lightbulb className="h-5 w-5 text-amber-400" />
-                AI Health Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {INSIGHTS.map((insight, i) => (
-                  <StaggerItem key={i}>
-                    <HoverCard>
+          <div
+            className="rounded-xl p-6"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            data-testid="card-ai-insights"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>AI Health Insights</span>
+            </div>
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {INSIGHTS.map((insight, i) => (
+                <StaggerItem key={i}>
+                  <div
+                    className="p-4 rounded-xl"
+                    style={{ border: "1px solid var(--border-subtle)" }}
+                    data-testid={`card-insight-${i}`}
+                  >
+                    <div className="flex items-start gap-3">
                       <div
-                        className={`p-4 rounded-xl border border-border/50 hover:border-primary/20 transition-colors`}
-                        data-testid={`card-insight-${i}`}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `color-mix(in srgb, ${insight.color} 12%, transparent)` }}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-9 h-9 rounded-lg ${insight.bgColor} flex items-center justify-center shrink-0`}>
-                            <insight.icon className={`h-4 w-4 ${insight.color}`} />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{insight.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{insight.description}</p>
-                          </div>
-                        </div>
+                        <insight.icon className="h-4 w-4" style={{ color: insight.color }} />
                       </div>
-                    </HoverCard>
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </CardContent>
-          </Card>
+                      <div>
+                        <p className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>{insight.title}</p>
+                        <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>{insight.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+          </div>
         </FadeIn>
       </div>
     </Layout>

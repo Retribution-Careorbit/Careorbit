@@ -21,12 +21,23 @@ Key architectural patterns include:
 -   **Onboarding Flow:** New or incomplete profiles are redirected to an onboarding process to gather mandatory patient details, improving the quality of health reports.
 -   **CORS Configuration:** Origins are securely configured via environment variables, defaulting to `localhost` and auto-detecting `REPLIT_DEV_DOMAIN`.
 
-## UI/UX Design System
--   **Color Palette (Dark-First Neon):** Primary cyan (#00d9ff), Secondary purple (#7c3aed), Warning orange (#fb923c), Success green (#10b981), Error red (#ef4444). Dark mode backgrounds use deep navy (#0a0e27 / #141b34 family), cards are glassmorphic with backdrop-blur.
--   **Typography:** Inter (body/sans), Poppins (headings), JetBrains Mono (code).
--   **Glassmorphism:** `.glass` and `.glass-strong` CSS classes for card transparency + blur. `.aurora-bg` / `.aurora-bg-strong` for gradient backgrounds.
--   **Animations:** `framer-motion` with `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, `PageTransition`, `CountUp`, `HoverCard`. All respect `prefers-reduced-motion`.
--   **Charts:** Recharts library — `HealthMetricsChart` (line/area), `OrbitScoreRadial` (radial gauge), `AdherenceDonut` (pie), `CategoryBreakdownBar` (horizontal bar), `Sparkline` (mini trend).
+## UI/UX Design System (Bloomberg-Health-SaaS Redesign)
+-   **Typography:** DM Sans (body/headings, `font-sans`), Space Mono (numbers/scores/timestamps/monospace, `font-mono`).
+-   **Color Tokens (CSS Custom Properties):**
+    - Backgrounds: `--bg-base`, `--bg-surface`, `--bg-elevated`, `--bg-card`, `--bg-hover`
+    - Borders: `--border-subtle`, `--border-default`, `--border-strong`
+    - Text: `--text-primary`, `--text-secondary`, `--text-muted`
+    - Accents: `--accent-cyan` (#00D4FF), `--accent-violet` (#7C3AED), `--accent-amber` (#F59E0B), `--accent-emerald` (#10B981), `--accent-rose` (#F43F5E) — each with `-dim` variant at 12% opacity
+    - Glows: `--glow-cyan`, `--glow-violet`
+-   **Dark Theme (primary):** bg-base `#0A0C10`, bg-surface `#0F1117`, bg-elevated `#161B25`, bg-card `#1A2030`
+-   **Light Theme:** bg-base `#F0F2F7`, bg-surface `#FFFFFF`, bg-card `#FFFFFF`
+-   **StatCard System:** CSS class `.stat-card` + `data-accent="cyan|violet|amber|emerald"` for radial gradient corner + top border + hover glow
+-   **Sidebar:** 260px, `--bg-surface`, nav group labels (MAIN/DATA/SYSTEM), violet active state (2px left border + `--accent-violet-dim` bg), gradient avatar
+-   **Header:** 56px sticky, 280px search bar, notification bell+red dot, theme toggle
+-   **OrbitScoreFloater:** Dashboard-only widget, fixed bottom-left, collapsed (220×56) / expanded (260×172), spring bounce animation, score color logic (rose/amber/cyan/emerald)
+-   **SOS Button:** 48px circle, rose gradient, pulse-ring animation
+-   **Animations:** `framer-motion` with `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, `PageTransition`, `CountUp`, `HoverCard`. All respect `prefers-reduced-motion`. CSS: `.page-content` fadeSlideIn, `.stat-card` hover lift, `.animate-floater-entrance`, `.animate-border-pulse`
+-   **Charts:** Recharts library — `HealthMetricsChart` (line/area), `OrbitScoreRadial` (radial gauge), `AdherenceDonut` (pie), `CategoryBreakdownBar` (horizontal bar), `Sparkline` (mini trend). All charts use `useId()` for unique SVG gradient IDs.
 
 ## Pages & Routes
 

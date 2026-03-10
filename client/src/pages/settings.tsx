@@ -1,13 +1,12 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/components/theme-provider";
-import { FadeIn, StaggerContainer, StaggerItem, HoverCard } from "@/components/animations";
+import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { Shield, Crown, Check, Moon, Sun, User, LogOut } from "lucide-react";
 
 interface Plan {
@@ -60,132 +59,129 @@ export default function SettingsPage() {
       <div className="space-y-6 max-w-3xl">
         <FadeIn>
           <div>
-            <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-settings-title">Settings</h1>
-            <p className="text-muted-foreground mt-1.5">
+            <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-settings-title">
+              Settings
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               Manage your account and subscription
             </p>
           </div>
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Email</span>
-                <span className="text-sm font-medium" data-testid="text-profile-email">
+          <div className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-cyan-dim)" }}>
+                <User className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+              </div>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>Profile</span>
+            </div>
+            <div className="space-y-0">
+              <div className="flex items-center justify-between h-[52px]" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>Email</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-profile-email">
                   {user?.email || "N/A"}
                 </span>
               </div>
               {user?.name && (
-                <div className="flex items-center justify-between py-2 border-t">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="text-sm font-medium" data-testid="text-profile-name">
+                <div className="flex items-center justify-between h-[52px]" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>Name</span>
+                  <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-profile-name">
                     {user.name}
                   </span>
                 </div>
               )}
-              <div className="flex items-center justify-between py-2 border-t">
-                <span className="text-sm text-muted-foreground">Theme</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleTheme}
-                  className="shadow-sm"
-                  data-testid="button-theme"
-                >
+              <div className="flex items-center justify-between h-[52px]">
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>Theme</span>
+                <Button variant="outline" size="sm" onClick={toggleTheme} data-testid="button-theme">
                   {theme === "dark" ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
                   {theme === "dark" ? "Light Mode" : "Dark Mode"}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </FadeIn>
 
         <FadeIn delay={0.2}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-heading">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                Subscription
-              </CardTitle>
-              <CardDescription>
-                Current plan: <Badge className="ml-1" data-testid="text-current-tier">{subscription?.tier || "free"}</Badge>
-                {subscription?.features?.shows_ads && (
-                  <span className="text-xs text-muted-foreground ml-2">(with ads)</span>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {plans.map((plan) => {
-                  const isCurrent = subscription?.tier === plan.tier;
-                  const isPremium = plan.tier.includes("premium");
-                  return (
-                    <StaggerItem key={plan.tier}>
-                      <HoverCard>
-                        <Card
-                          className={`relative overflow-hidden ${isCurrent ? "border-primary ring-1 ring-primary/20" : "border-border/50"}`}
-                          data-testid={`card-plan-${plan.tier}`}
+          <div className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-violet-dim)" }}>
+                <Shield className="h-4 w-4" style={{ color: "var(--accent-violet)" }} />
+              </div>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>Subscription</span>
+            </div>
+            <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+              Current plan: <Badge className="ml-1" data-testid="text-current-tier">{subscription?.tier || "free"}</Badge>
+              {subscription?.features?.shows_ads && (
+                <span className="text-xs ml-2">(with ads)</span>
+              )}
+            </p>
+
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {plans.map((plan) => {
+                const isCurrent = subscription?.tier === plan.tier;
+                const isPremium = plan.tier.includes("premium");
+                return (
+                  <StaggerItem key={plan.tier}>
+                    <div
+                      className="rounded-xl p-5 pt-7 text-center relative overflow-hidden"
+                      style={{
+                        background: "var(--bg-elevated)",
+                        border: isCurrent
+                          ? "1px solid var(--accent-cyan)"
+                          : "1px solid var(--border-subtle)",
+                        boxShadow: isCurrent ? "var(--glow-cyan)" : undefined,
+                      }}
+                      data-testid={`card-plan-${plan.tier}`}
+                    >
+                      {isCurrent && (
+                        <Badge className="absolute -top-0 left-4 rounded-t-none">Current</Badge>
+                      )}
+                      <div
+                        className="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-3"
+                        style={{
+                          background: isPremium ? "var(--accent-amber-dim)" : "var(--bg-hover)",
+                        }}
+                      >
+                        <Crown className="h-6 w-6" style={{ color: isPremium ? "var(--accent-amber)" : "var(--text-muted)" }} />
+                      </div>
+                      <p className="font-bold capitalize" style={{ color: "var(--text-primary)" }}>{plan.tier.replace("_", " ")}</p>
+                      <p className="text-2xl font-mono font-bold mt-1" style={{ color: "var(--text-primary)" }}>{formatPrice(plan.price_monthly_cents)}</p>
+                      {isCurrent ? (
+                        <Button variant="outline" disabled className="w-full mt-4">
+                          <Check className="h-4 w-4 mr-2" />
+                          Current Plan
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full mt-4"
+                          onClick={() => upgradeMutation.mutate(plan.tier)}
+                          disabled={upgradeMutation.isPending}
+                          data-testid={`button-upgrade-${plan.tier}`}
                         >
-                          {isCurrent && (
-                            <Badge className="absolute -top-0 left-4 rounded-t-none">Current</Badge>
-                          )}
-                          <CardContent className="p-5 pt-7 text-center space-y-3">
-                            <div className={`w-12 h-12 rounded-full mx-auto flex items-center justify-center ${isPremium ? "bg-amber-500/10" : "bg-muted"}`}>
-                              <Crown className={`h-6 w-6 ${isPremium ? "text-amber-500" : "text-muted-foreground"}`} />
-                            </div>
-                            <p className="font-heading font-bold capitalize">{plan.tier.replace("_", " ")}</p>
-                            <p className="text-2xl font-heading font-bold">{formatPrice(plan.price_monthly_cents)}</p>
-                            {isCurrent ? (
-                              <Button variant="outline" disabled className="w-full">
-                                <Check className="h-4 w-4 mr-2" />
-                                Current Plan
-                              </Button>
-                            ) : (
-                              <Button
-                                className="w-full shadow-sm"
-                                onClick={() => upgradeMutation.mutate(plan.tier)}
-                                disabled={upgradeMutation.isPending}
-                                data-testid={`button-upgrade-${plan.tier}`}
-                              >
-                                {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
-                              </Button>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </HoverCard>
-                    </StaggerItem>
-                  );
-                })}
-              </StaggerContainer>
-            </CardContent>
-          </Card>
+                          {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
+                        </Button>
+                      )}
+                    </div>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerContainer>
+          </div>
         </FadeIn>
 
         <FadeIn delay={0.3}>
-          <Card className="border-destructive/20">
-            <CardContent className="p-4">
-              <Button
-                variant="ghost"
-                onClick={logout}
-                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors"
-                data-testid="button-sign-out"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl p-4" style={{ border: "1px solid rgba(244,63,94,0.20)" }}>
+            <Button
+              variant="ghost"
+              onClick={logout}
+              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+              data-testid="button-sign-out"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </FadeIn>
       </div>
     </Layout>

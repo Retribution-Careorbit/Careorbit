@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
-import { FadeIn, StaggerContainer, StaggerItem, HoverCard } from "@/components/animations";
+import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope } from "lucide-react";
@@ -68,76 +67,44 @@ export default function AppointmentsPage() {
 
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <FadeIn>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-heading font-bold tracking-tight" data-testid="text-appointments-title">
+              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-appointments-title">
                 Appointments
               </h1>
-              <p className="text-muted-foreground mt-1.5 text-base">
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
                 Manage your doctor appointments
               </p>
             </div>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button className="shadow-sm" data-testid="button-new-appointment">
+                <Button data-testid="button-new-appointment">
                   <Plus className="h-4 w-4 mr-2" />
                   New Appointment
                 </Button>
               </DialogTrigger>
-              <DialogContent className="glass-strong">
+              <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
                 <DialogHeader>
-                  <DialogTitle className="font-heading">Schedule Appointment</DialogTitle>
+                  <DialogTitle>Schedule Appointment</DialogTitle>
                 </DialogHeader>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    createMutation.mutate();
-                  }}
-                  className="space-y-4"
-                >
+                <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="doctor">Doctor Name</Label>
-                    <Input
-                      id="doctor"
-                      data-testid="input-doctor-name"
-                      placeholder="Dr. Smith"
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
-                      required
-                    />
+                    <Input id="doctor" data-testid="input-doctor-name" placeholder="Dr. Smith" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="spec">Specialization</Label>
-                    <Input
-                      id="spec"
-                      data-testid="input-specialization"
-                      placeholder="Cardiologist, General Physician..."
-                      value={specialization}
-                      onChange={(e) => setSpecialization(e.target.value)}
-                    />
+                    <Input id="spec" data-testid="input-specialization" placeholder="Cardiologist, General Physician..." value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="datetime">Date & Time</Label>
-                    <Input
-                      id="datetime"
-                      type="datetime-local"
-                      data-testid="input-appointment-datetime"
-                      value={datetime}
-                      onChange={(e) => setDatetime(e.target.value)}
-                      required
-                    />
+                    <Input id="datetime" type="datetime-local" data-testid="input-appointment-datetime" value={datetime} onChange={(e) => setDatetime(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="clinic">Clinic Name</Label>
-                    <Input
-                      id="clinic"
-                      data-testid="input-clinic-name"
-                      placeholder="Apollo Hospital..."
-                      value={clinicName}
-                      onChange={(e) => setClinicName(e.target.value)}
-                    />
+                    <Input id="clinic" data-testid="input-clinic-name" placeholder="Apollo Hospital..." value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
                   </div>
                   <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-appointment">
                     {createMutation.isPending ? "Scheduling..." : "Schedule Appointment"}
@@ -151,71 +118,75 @@ export default function AppointmentsPage() {
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <Card key={i}><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+              <div key={i} className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+                <Skeleton className="h-20 w-full" />
+              </div>
             ))}
           </div>
         ) : (
           <>
             <FadeIn delay={0.1}>
-              <h2 className="text-lg font-heading font-semibold flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
+              <p className="section-header flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
                 Upcoming ({upcoming.length})
-              </h2>
+              </p>
             </FadeIn>
 
             {upcoming.length === 0 ? (
               <FadeIn delay={0.15}>
-                <Card className="glass">
-                  <CardContent className="p-8 text-center">
-                    <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground" data-testid="text-no-upcoming">No upcoming appointments</p>
-                  </CardContent>
-                </Card>
+                <div className="rounded-xl p-8 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+                  <Calendar className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
+                  <p style={{ color: "var(--text-secondary)" }} data-testid="text-no-upcoming">No upcoming appointments</p>
+                </div>
               </FadeIn>
             ) : (
               <StaggerContainer className="space-y-3">
                 {upcoming.map((appt: any, i: number) => (
                   <StaggerItem key={appt.appointment_id || i}>
-                    <HoverCard>
-                      <Card className="glass border-l-4 border-l-primary" data-testid={`card-appointment-${i}`}>
-                        <CardContent className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-primary" />
-                                <span className="font-medium">{appt.doctor_name}</span>
-                                {appt.specialization && (
-                                  <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {formatDate(appt.appointment_datetime)}
-                                </span>
-                                {appt.clinic_name && (
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="h-3.5 w-3.5" />
-                                    {appt.clinic_name}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {appt.brief_scheduled && (
-                                <Badge className="bg-secondary/10 text-secondary border-secondary/30 text-xs">
-                                  Pre-visit Brief
-                                </Badge>
-                              )}
-                              <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
-                                <Video className="h-3.5 w-3.5 mr-1" />
-                                Video Call
-                              </Button>
-                            </div>
+                    <div
+                      className="rounded-xl p-5"
+                      style={{
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-subtle)",
+                        borderLeft: "3px solid var(--accent-cyan)",
+                      }}
+                      data-testid={`card-appointment-${i}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+                            <span className="font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</span>
+                            {appt.specialization && (
+                              <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    </HoverCard>
+                          <div className="flex items-center gap-4 text-sm" style={{ color: "var(--text-muted)" }}>
+                            <span className="flex items-center gap-1 font-mono text-xs">
+                              <Clock className="h-3.5 w-3.5" />
+                              {formatDate(appt.appointment_datetime)}
+                            </span>
+                            {appt.clinic_name && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {appt.clinic_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {appt.brief_scheduled && (
+                            <Badge className="text-xs" style={{ background: "var(--accent-violet-dim)", color: "var(--accent-violet)", border: "1px solid color-mix(in srgb, var(--accent-violet) 30%, transparent)" }}>
+                              Pre-visit Brief
+                            </Badge>
+                          )}
+                          <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
+                            <Video className="h-3.5 w-3.5 mr-1" />
+                            Video Call
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </StaggerItem>
                 ))}
               </StaggerContainer>
@@ -224,31 +195,31 @@ export default function AppointmentsPage() {
             {past.length > 0 && (
               <>
                 <FadeIn delay={0.2}>
-                  <h2 className="text-lg font-heading font-semibold flex items-center gap-2 mt-6">
-                    <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                  <p className="section-header flex items-center gap-2 mt-4">
+                    <Stethoscope className="h-4 w-4" />
                     Past ({past.length})
-                  </h2>
+                  </p>
                 </FadeIn>
                 <StaggerContainer className="space-y-3">
                   {past.map((appt: any, i: number) => (
                     <StaggerItem key={appt.appointment_id || `past-${i}`}>
-                      <Card className="opacity-70" data-testid={`card-past-appointment-${i}`}>
-                        <CardContent className="p-5">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{appt.doctor_name}</span>
-                                {appt.specialization && (
-                                  <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">{formatDate(appt.appointment_datetime)}</p>
+                      <div
+                        className="rounded-xl p-5 opacity-70"
+                        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                        data-testid={`card-past-appointment-${i}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
+                              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</span>
+                              {appt.specialization && <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>}
                             </div>
-                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                            <p className="text-sm font-mono text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(appt.appointment_datetime)}</p>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <Badge variant="secondary" className="text-xs">Completed</Badge>
+                        </div>
+                      </div>
                     </StaggerItem>
                   ))}
                 </StaggerContainer>
