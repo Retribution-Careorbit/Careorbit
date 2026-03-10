@@ -292,7 +292,7 @@ export default function DashboardPage() {
               <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
                 <Link href="/documents" data-testid="link-quick-upload">
                   <div
-                    className="flex items-center gap-3 h-14 px-3 cursor-pointer group"
+                    className="flex items-center gap-3 py-3 px-3 cursor-pointer group"
                     style={{ borderBottom: "1px solid var(--border-subtle)" }}
                   >
                     <div
@@ -301,24 +301,24 @@ export default function DashboardPage() {
                     >
                       <FileText className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Upload Document</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Prescription, lab, medicine strip</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>Upload Document</p>
+                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Prescription, lab report</p>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: "var(--text-muted)" }} />
                   </div>
                 </Link>
                 <Link href="/chat" data-testid="link-quick-chat">
-                  <div className="flex items-center gap-3 h-14 px-3 cursor-pointer group">
+                  <div className="flex items-center gap-3 py-3 px-3 cursor-pointer group">
                     <div
                       className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                       style={{ background: "var(--accent-violet-dim)" }}
                     >
                       <Activity className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Ask AI Assistant</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Health insights in Hindi or English</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>Ask AI Assistant</p>
+                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Hindi or English</p>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: "var(--text-muted)" }} />
                   </div>
