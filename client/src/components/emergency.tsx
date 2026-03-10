@@ -16,7 +16,7 @@ export function SOSButton() {
   return (
     <>
       <motion.button
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full text-white flex items-center justify-center relative sos-pulse-ring"
+        className="fixed bottom-4 right-6 z-50 w-12 h-12 rounded-full text-white flex items-center justify-center relative sos-pulse-ring"
         style={{
           background: "linear-gradient(135deg, #F43F5E, #E11D48)",
           boxShadow: "0 4px 16px rgba(244, 63, 94, 0.40)",
