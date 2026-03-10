@@ -7,28 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
 import { Phone, AlertTriangle, CreditCard, User, Heart, Pill, QrCode } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
 
 export function SOSButton() {
   const [open, setOpen] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
 
   return (
     <>
-      <motion.button
-        className="fixed bottom-4 right-6 z-50 w-12 h-12 rounded-full text-white flex items-center justify-center relative sos-pulse-ring"
-        style={{
-          background: "linear-gradient(135deg, #F43F5E, #E11D48)",
-          boxShadow: "0 4px 16px rgba(244, 63, 94, 0.40)",
-        }}
-        whileHover={prefersReducedMotion ? {} : { scale: 1.08 }}
-        whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
-        onClick={() => setOpen(true)}
-        aria-label="Emergency SOS"
-        data-testid="button-sos"
-      >
-        <AlertTriangle className="h-5 w-5" strokeWidth={2} />
-      </motion.button>
+      {!open && (
+        <button
+          className="w-12 h-12 rounded-full text-white flex items-center justify-center sos-pulse-ring"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: 24,
+            zIndex: 9999,
+            background: "linear-gradient(135deg, #F43F5E, #E11D48)",
+            boxShadow: "0 4px 16px rgba(244, 63, 94, 0.40)",
+          }}
+          onClick={() => setOpen(true)}
+          aria-label="Emergency SOS"
+          data-testid="button-sos"
+        >
+          <AlertTriangle className="h-5 w-5" strokeWidth={2} />
+        </button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>

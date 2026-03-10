@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuthStore } from "@/lib/auth";
+import { SOSButton } from "@/components/emergency";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -51,7 +52,14 @@ function UnauthenticatedRoutes() {
 
 function Router() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <AuthenticatedRoutes /> : <UnauthenticatedRoutes />;
+  return isAuthenticated ? (
+    <>
+      <AuthenticatedRoutes />
+      <SOSButton />
+    </>
+  ) : (
+    <UnauthenticatedRoutes />
+  );
 }
 
 function App() {
