@@ -82,9 +82,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </PageTransition>
           </div>
         </main>
-        <SOSButton />
-        <OrbitScoreFloater />
       </div>
+      <SOSButton />
+      <OrbitScoreFloater />
     </SidebarProvider>
   );
 }
