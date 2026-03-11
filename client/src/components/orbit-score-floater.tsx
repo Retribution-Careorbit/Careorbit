@@ -47,9 +47,7 @@ export function OrbitScoreBadge() {
   });
 
   const score = Math.round(scoreData?.total_score || 0);
-  const color = getScoreColor(score);
-
-  if (!scoreData) return null;
+  const color = scoreData ? getScoreColor(score) : "var(--text-muted)";
 
   return (
     <Link href="/orbit-score" data-testid="link-orbit-score-badge">
