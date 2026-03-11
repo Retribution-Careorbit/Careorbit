@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FlaskConical, Search, ListChecks, Sparkles, Archive, Filter, X } from "lucide-react";
+import {
+  FlaskConical, Search, ListChecks, Sparkles, Archive,
+  Filter, X, SlidersHorizontal, Type, Layers, FolderOpen, ToggleLeft, ChevronRight,
+} from "lucide-react";
 
 interface TestCase {
   name: string;
@@ -46,21 +49,382 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 };
 
 function formatTestName(name: string): string {
-  return name
-    .replace(/^test_/, "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return name.replace(/^test_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatCategory(cat: string): string {
   return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function FilterPanel({
+  open,
+  onClose,
+  search, setSearch,
+  nameFilter, setNameFilter,
+  filePathFilter, setFilePathFilter,
+  selectedCategory, setSelectedCategory,
+  selectedFeature, setSelectedFeature,
+  showNewOnly, setShowNewOnly,
+  showExistingOnly, setShowExistingOnly,
+  categories,
+  featureAreas,
+  summary,
+  activeFilterCount,
+  clearAllFilters,
+}: {
+  open: boolean;
+  onClose: () => void;
+  search: string; setSearch: (v: string) => void;
+  nameFilter: string; setNameFilter: (v: string) => void;
+  filePathFilter: string; setFilePathFilter: (v: string) => void;
+  selectedCategory: string; setSelectedCategory: (v: string) => void;
+  selectedFeature: string; setSelectedFeature: (v: string) => void;
+  showNewOnly: boolean; setShowNewOnly: (v: boolean) => void;
+  showExistingOnly: boolean; setShowExistingOnly: (v: boolean) => void;
+  categories: string[];
+  featureAreas: string[];
+  summary: TestSummary | undefined;
+  activeFilterCount: number;
+  clearAllFilters: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open, onClose]);
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.4)",
+          backdropFilter: "blur(4px)",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+        }}
+        onClick={onClose}
+        data-testid="filter-overlay"
+      />
+
+      <div
+        ref={panelRef}
+        className="fixed top-0 right-0 z-50 h-full flex flex-col transition-transform duration-300 ease-out"
+        style={{
+          width: "min(480px, 50vw)",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+          background: "var(--bg-surface)",
+          borderLeft: "1px solid var(--border-subtle)",
+          boxShadow: open ? "-8px 0 40px rgba(0,0,0,0.3)" : "none",
+        }}
+        data-testid="filter-panel"
+      >
+        <div
+          className="flex items-center justify-between px-6 h-[64px] shrink-0"
+          style={{ borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: "var(--accent-cyan-dim)" }}
+            >
+              <SlidersHorizontal className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+            </div>
+            <span className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Filters</span>
+            {activeFilterCount > 0 && (
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: "var(--accent-cyan)", color: "#fff" }}
+                data-testid="badge-active-filters"
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+                style={{ color: "var(--accent-rose)", background: "var(--accent-rose-dim)" }}
+                data-testid="button-clear-filters"
+              >
+                <X className="h-3 w-3" />
+                Reset
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
+              data-testid="button-close-filters"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Type className="h-3.5 w-3.5" style={{ color: "var(--accent-cyan)" }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                String Filters
+              </span>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-secondary)" }}>
+                  Search All Fields
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--text-muted)" }} />
+                  <Input
+                    placeholder="Search by name, feature, path..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: `1px solid ${search ? "var(--accent-cyan)" : "var(--border-default)"}`,
+                      color: "var(--text-primary)",
+                    }}
+                    data-testid="input-search-tests"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-secondary)" }}>
+                  Test Name Contains
+                </label>
+                <Input
+                  placeholder="e.g. login, validation, orbit..."
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="h-9 text-sm"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: `1px solid ${nameFilter ? "var(--accent-cyan)" : "var(--border-default)"}`,
+                    color: "var(--text-primary)",
+                  }}
+                  data-testid="input-name-filter"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-secondary)" }}>
+                  File Path Contains
+                </label>
+                <Input
+                  placeholder="e.g. unit, integration, api..."
+                  value={filePathFilter}
+                  onChange={(e) => setFilePathFilter(e.target.value)}
+                  className="h-9 text-sm"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    border: `1px solid ${filePathFilter ? "var(--accent-cyan)" : "var(--border-default)"}`,
+                    color: "var(--text-primary)",
+                  }}
+                  data-testid="input-filepath-filter"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 24 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Layers className="h-3.5 w-3.5" style={{ color: "var(--accent-violet)" }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Dropdown Filters
+              </span>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-secondary)" }}>
+                  Category
+                </label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger
+                    className="h-9 text-sm w-full"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: `1px solid ${selectedCategory !== "all" ? "var(--accent-violet)" : "var(--border-default)"}`,
+                      color: "var(--text-primary)",
+                    }}
+                    data-testid="select-category"
+                  >
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+                  >
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: CATEGORY_COLORS[cat]?.text || "var(--text-muted)" }}
+                          />
+                          {formatCategory(cat)}
+                          {summary?.by_category?.[cat] ? ` (${summary.by_category[cat]})` : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-secondary)" }}>
+                  Feature Area
+                </label>
+                <Select value={selectedFeature} onValueChange={setSelectedFeature}>
+                  <SelectTrigger
+                    className="h-9 text-sm w-full"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: `1px solid ${selectedFeature !== "all" ? "var(--accent-cyan)" : "var(--border-default)"}`,
+                      color: "var(--text-primary)",
+                    }}
+                    data-testid="select-feature"
+                  >
+                    <SelectValue placeholder="All Features" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[280px]"
+                    style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+                  >
+                    <SelectItem value="all">All Features</SelectItem>
+                    {featureAreas.map((feat) => (
+                      <SelectItem key={feat} value={feat}>
+                        <span className="flex items-center gap-2">
+                          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: "var(--text-muted)" }} />
+                          {feat}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 24 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <ToggleLeft className="h-3.5 w-3.5" style={{ color: "var(--accent-emerald)" }} />
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Toggle Filters
+              </span>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => { setShowNewOnly(!showNewOnly); if (!showNewOnly) setShowExistingOnly(false); }}
+                className="w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200"
+                style={{
+                  background: showNewOnly ? "var(--accent-emerald-dim)" : "var(--bg-elevated)",
+                  border: `1px solid ${showNewOnly ? "var(--accent-emerald)" : "var(--border-default)"}`,
+                }}
+                data-testid="toggle-new-only"
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-4 w-4" style={{ color: showNewOnly ? "var(--accent-emerald)" : "var(--text-muted)" }} />
+                  <div className="text-left">
+                    <span className="text-sm font-medium block" style={{ color: showNewOnly ? "var(--accent-emerald)" : "var(--text-primary)" }}>
+                      New Tests Only
+                    </span>
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Show only recently added tests
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="w-10 h-5 rounded-full relative transition-colors duration-200"
+                  style={{ background: showNewOnly ? "var(--accent-emerald)" : "var(--border-default)" }}
+                >
+                  <div
+                    className="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200"
+                    style={{
+                      background: "#fff",
+                      left: showNewOnly ? 22 : 2,
+                    }}
+                  />
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setShowExistingOnly(!showExistingOnly); if (!showExistingOnly) setShowNewOnly(false); }}
+                className="w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200"
+                style={{
+                  background: showExistingOnly ? "var(--accent-amber-dim)" : "var(--bg-elevated)",
+                  border: `1px solid ${showExistingOnly ? "var(--accent-amber)" : "var(--border-default)"}`,
+                }}
+                data-testid="toggle-existing-only"
+              >
+                <div className="flex items-center gap-3">
+                  <Archive className="h-4 w-4" style={{ color: showExistingOnly ? "var(--accent-amber)" : "var(--text-muted)" }} />
+                  <div className="text-left">
+                    <span className="text-sm font-medium block" style={{ color: showExistingOnly ? "var(--accent-amber)" : "var(--text-primary)" }}>
+                      Existing Tests Only
+                    </span>
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Show only phase 1 & 2 tests
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="w-10 h-5 rounded-full relative transition-colors duration-200"
+                  style={{ background: showExistingOnly ? "var(--accent-amber)" : "var(--border-default)" }}
+                >
+                  <div
+                    className="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200"
+                    style={{
+                      background: "#fff",
+                      left: showExistingOnly ? 22 : 2,
+                    }}
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="shrink-0 px-6 py-4 flex items-center justify-between"
+          style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
+        >
+          <button
+            onClick={clearAllFilters}
+            className="text-xs font-medium px-3 py-2 rounded-lg transition-colors"
+            style={{ color: "var(--text-secondary)", background: "var(--bg-surface)" }}
+            data-testid="button-clear-filters-bottom"
+          >
+            Clear All
+          </button>
+          <button
+            onClick={onClose}
+            className="text-xs font-semibold px-5 py-2 rounded-lg transition-colors"
+            style={{ background: "var(--accent-cyan)", color: "#fff" }}
+            data-testid="button-apply-filters"
+          >
+            Apply Filters
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function TestCasesPage() {
   const [search, setSearch] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [filePathFilter, setFilePathFilter] = useState("");
   const [showNewOnly, setShowNewOnly] = useState(false);
+  const [showExistingOnly, setShowExistingOnly] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedFeature, setSelectedFeature] = useState("all");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const { data, isLoading } = useQuery<TestCasesResponse>({
     queryKey: ["/api/tests/cases"],
@@ -68,43 +432,66 @@ export default function TestCasesPage() {
 
   const categories = useMemo(() => {
     if (!data) return [];
-    const cats = [...new Set(data.tests.map((t) => t.category))].sort();
-    return cats;
+    return [...new Set(data.tests.map((t) => t.category))].sort();
   }, [data]);
 
   const featureAreas = useMemo(() => {
     if (!data) return [];
-    const feats = [...new Set(data.tests.map((t) => t.feature_area))].sort();
-    return feats;
+    return [...new Set(data.tests.map((t) => t.feature_area))].sort();
   }, [data]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.tests.filter((t) => {
       if (showNewOnly && !t.is_new) return false;
+      if (showExistingOnly && t.is_new) return false;
       if (selectedCategory !== "all" && t.category !== selectedCategory) return false;
       if (selectedFeature !== "all" && t.feature_area !== selectedFeature) return false;
-      if (search && !t.name.toLowerCase().includes(search.toLowerCase()) &&
-          !t.feature_area.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        if (!t.name.toLowerCase().includes(s) &&
+            !t.feature_area.toLowerCase().includes(s) &&
+            !t.file_path.toLowerCase().includes(s)) return false;
+      }
+      if (nameFilter && !t.name.toLowerCase().includes(nameFilter.toLowerCase())) return false;
+      if (filePathFilter && !t.file_path.toLowerCase().includes(filePathFilter.toLowerCase())) return false;
       return true;
     });
-  }, [data, showNewOnly, search, selectedCategory, selectedFeature]);
+  }, [data, showNewOnly, showExistingOnly, search, nameFilter, filePathFilter, selectedCategory, selectedFeature]);
 
   const activeFilterCount = [
     showNewOnly,
+    showExistingOnly,
     selectedCategory !== "all",
     selectedFeature !== "all",
     search.length > 0,
+    nameFilter.length > 0,
+    filePathFilter.length > 0,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
     setSearch("");
+    setNameFilter("");
+    setFilePathFilter("");
     setShowNewOnly(false);
+    setShowExistingOnly(false);
     setSelectedCategory("all");
     setSelectedFeature("all");
   };
 
   const summary = data?.summary;
+
+  const activeChips = useMemo(() => {
+    const chips: { label: string; clear: () => void }[] = [];
+    if (search) chips.push({ label: `Search: "${search}"`, clear: () => setSearch("") });
+    if (nameFilter) chips.push({ label: `Name: "${nameFilter}"`, clear: () => setNameFilter("") });
+    if (filePathFilter) chips.push({ label: `Path: "${filePathFilter}"`, clear: () => setFilePathFilter("") });
+    if (selectedCategory !== "all") chips.push({ label: formatCategory(selectedCategory), clear: () => setSelectedCategory("all") });
+    if (selectedFeature !== "all") chips.push({ label: selectedFeature, clear: () => setSelectedFeature("all") });
+    if (showNewOnly) chips.push({ label: "New Only", clear: () => setShowNewOnly(false) });
+    if (showExistingOnly) chips.push({ label: "Existing Only", clear: () => setShowExistingOnly(false) });
+    return chips;
+  }, [search, nameFilter, filePathFilter, selectedCategory, selectedFeature, showNewOnly, showExistingOnly]);
 
   return (
     <Layout>
@@ -119,6 +506,28 @@ export default function TestCasesPage() {
               Complete test suite coverage for CareOrbit platform
             </p>
           </div>
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shrink-0"
+            style={{
+              background: activeFilterCount > 0 ? "var(--accent-cyan-dim)" : "var(--bg-elevated)",
+              border: `1px solid ${activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--border-default)"}`,
+              color: activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--text-secondary)",
+            }}
+            data-testid="button-open-filters"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span
+                className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ background: "var(--accent-cyan)", color: "#fff" }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {isLoading ? (
@@ -159,143 +568,40 @@ export default function TestCasesPage() {
           </div>
         ) : null}
 
-        <div className="page-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
-            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Filters</span>
-            {activeFilterCount > 0 && (
-              <Badge
-                className="text-[10px] px-1.5 py-0 cursor-pointer"
-                style={{ background: "var(--accent-cyan-dim)", color: "var(--accent-cyan)", border: "none" }}
-                data-testid="badge-active-filters"
-              >
-                {activeFilterCount} active
-              </Badge>
-            )}
-            {activeFilterCount > 0 && (
+        {activeChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active:</span>
+            {activeChips.map((chip, i) => (
               <button
-                onClick={clearAllFilters}
-                className="ml-auto flex items-center gap-1 text-xs font-medium rounded-md px-2 py-1 hover:opacity-80 transition-opacity"
-                style={{ color: "var(--accent-rose)", background: "var(--accent-rose-dim)" }}
-                data-testid="button-clear-filters"
+                key={i}
+                onClick={chip.clear}
+                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition-colors group"
+                style={{
+                  background: "var(--accent-cyan-dim)",
+                  color: "var(--accent-cyan)",
+                  border: "1px solid transparent",
+                }}
+                data-testid={`chip-filter-${i}`}
               >
-                <X className="h-3 w-3" />
-                Clear all
+                {chip.label}
+                <X className="h-3 w-3 opacity-60 group-hover:opacity-100" />
               </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--text-muted)" }} />
-              <Input
-                placeholder="Search by name or feature..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9 text-sm font-mono"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-primary)",
-                }}
-                data-testid="input-search-tests"
-              />
-            </div>
-
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger
-                className="h-9 text-sm"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: `1px solid ${selectedCategory !== "all" ? "var(--accent-violet)" : "var(--border-default)"}`,
-                  color: "var(--text-primary)",
-                }}
-                data-testid="select-category"
-              >
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-default)",
-                }}
-              >
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {formatCategory(cat)} {summary?.by_category?.[cat] ? `(${summary.by_category[cat]})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedFeature} onValueChange={setSelectedFeature}>
-              <SelectTrigger
-                className="h-9 text-sm"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: `1px solid ${selectedFeature !== "all" ? "var(--accent-cyan)" : "var(--border-default)"}`,
-                  color: "var(--text-primary)",
-                }}
-                data-testid="select-feature"
-              >
-                <SelectValue placeholder="All Features" />
-              </SelectTrigger>
-              <SelectContent
-                className="max-h-[300px]"
-                style={{
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-default)",
-                }}
-              >
-                <SelectItem value="all">All Features</SelectItem>
-                {featureAreas.map((feat) => (
-                  <SelectItem key={feat} value={feat}>
-                    {feat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <label
-              className="flex items-center gap-2 cursor-pointer select-none h-9 px-3 rounded-md"
-              style={{
-                background: showNewOnly ? "var(--accent-emerald-dim)" : "var(--bg-elevated)",
-                border: `1px solid ${showNewOnly ? "var(--accent-emerald)" : "var(--border-default)"}`,
-              }}
-              data-testid="toggle-new-only"
+            ))}
+            <button
+              onClick={clearAllFilters}
+              className="text-xs underline ml-1"
+              style={{ color: "var(--accent-rose)" }}
+              data-testid="button-clear-all-chips"
             >
-              <input
-                type="checkbox"
-                checked={showNewOnly}
-                onChange={(e) => setShowNewOnly(e.target.checked)}
-                className="rounded"
-                style={{ accentColor: "var(--accent-emerald)" }}
-                data-testid="input-new-only"
-              />
-              <span className="text-sm font-medium" style={{ color: showNewOnly ? "var(--accent-emerald)" : "var(--text-secondary)" }}>
-                New only
-              </span>
-            </label>
+              Clear all
+            </button>
           </div>
-        </div>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }} data-testid="text-filtered-count">
             Showing {filtered.length} of {summary?.total || 0} tests
           </span>
-          {selectedCategory !== "all" && (
-            <Badge
-              className="text-xs"
-              style={{
-                background: CATEGORY_COLORS[selectedCategory]?.bg || "var(--border-subtle)",
-                color: CATEGORY_COLORS[selectedCategory]?.text || "var(--text-muted)",
-                border: "none",
-              }}
-            >
-              {formatCategory(selectedCategory)}
-            </Badge>
-          )}
         </div>
 
         {isLoading ? (
@@ -384,6 +690,23 @@ export default function TestCasesPage() {
           </div>
         )}
       </div>
+
+      <FilterPanel
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        search={search} setSearch={setSearch}
+        nameFilter={nameFilter} setNameFilter={setNameFilter}
+        filePathFilter={filePathFilter} setFilePathFilter={setFilePathFilter}
+        selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory}
+        selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature}
+        showNewOnly={showNewOnly} setShowNewOnly={setShowNewOnly}
+        showExistingOnly={showExistingOnly} setShowExistingOnly={setShowExistingOnly}
+        categories={categories}
+        featureAreas={featureAreas}
+        summary={summary}
+        activeFilterCount={activeFilterCount}
+        clearAllFilters={clearAllFilters}
+      />
     </Layout>
   );
 }
