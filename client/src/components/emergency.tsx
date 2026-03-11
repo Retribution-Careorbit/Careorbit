@@ -19,7 +19,7 @@ export function SOSButton() {
           style={{
             position: "fixed",
             bottom: 24,
-            left: 24,
+            right: 24,
             zIndex: 9999,
             background: "linear-gradient(135deg, #F43F5E, #E11D48)",
             boxShadow: "0 4px 16px rgba(244, 63, 94, 0.40)",
