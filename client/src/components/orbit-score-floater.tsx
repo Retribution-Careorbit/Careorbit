@@ -54,28 +54,20 @@ export function OrbitScoreBadge() {
   return (
     <Link href="/orbit-score" data-testid="link-orbit-score-badge">
       <div
-        className="relative w-9 h-9 rounded-full flex items-center justify-center cursor-pointer shrink-0 group"
+        className="orbit-score-badge relative rounded-full flex items-center justify-center cursor-pointer shrink-0"
         style={{
           background: "var(--bg-elevated)",
           border: "2px solid var(--border-default)",
-          transition: "border-color 200ms, box-shadow 200ms",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = color;
-          e.currentTarget.style.boxShadow = `0 0 8px ${color}40`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = "var(--border-default)";
-          e.currentTarget.style.boxShadow = "none";
         }}
         data-testid="widget-orbit-floater"
         title={`Orbit Score: ${score}`}
+        data-color={color}
       >
-        <div className="absolute inset-0">
-          <MiniRing score={score} size={36} />
+        <div className="absolute inset-0 flex items-center justify-center orbit-score-ring">
+          <MiniRing score={score} size={28} />
         </div>
         <span
-          className="font-mono text-[11px] font-bold leading-none z-10"
+          className="font-mono text-[10px] font-bold leading-none z-10"
           style={{ color }}
         >
           {score}

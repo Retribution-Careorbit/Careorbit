@@ -296,6 +296,24 @@
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
   }
 
+  .orbit-score-badge {
+    width: 32px;
+    height: 32px;
+    transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                border-color 200ms ease,
+                box-shadow 200ms ease;
+  }
+
+  .orbit-score-badge:hover {
+    transform: scale(1.35);
+    border-color: currentColor;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+  }
+
+  .orbit-score-badge .orbit-score-ring {
+    transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
   .page-card {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);

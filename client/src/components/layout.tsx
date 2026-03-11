@@ -2,11 +2,10 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/animations";
 import { OrbitScoreBadge } from "@/components/orbit-score-floater";
-import { Bell, Search, Heart } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
-import { Link } from "wouter";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
@@ -21,22 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-5 w-5" style={{ color: "var(--text-secondary)" }} />
 
-            <Link href="/" className="flex items-center gap-2 ml-2" data-testid="link-home-header">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent-cyan), color-mix(in srgb, var(--accent-cyan) 80%, var(--accent-violet)))",
-                  boxShadow: "0 2px 6px rgba(0, 212, 255, 0.2)",
-                }}
-              >
-                <Heart className="h-4 w-4 text-white" />
-              </div>
-              <span className="text-base font-mono font-bold tracking-tight hidden sm:inline" style={{ color: "var(--text-primary)" }}>
-                CareOrbit
-              </span>
-            </Link>
-
-            <div className="ml-3">
+            <div className="ml-1">
               <OrbitScoreBadge />
             </div>
 
