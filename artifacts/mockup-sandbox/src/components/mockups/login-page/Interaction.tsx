@@ -101,8 +101,8 @@ export function Interaction() {
             height: Math.random() * 6 + 2 + 'px',
             left: Math.random() * 100 + '%',
             top: Math.random() * 100 + '%',
-            animationDelay: \`\${Math.random() * 5}s\`,
-            animationDuration: \`\${Math.random() * 10 + 10}s\`
+            animationDelay: `${Math.random() * 5}s`,
+            animationDuration: `${Math.random() * 10 + 10}s`
           }} />
         ))}
         

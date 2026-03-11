@@ -40,7 +40,7 @@ Key architectural patterns include:
     - `.login-panel`: dark aurora gradient background with animated floating shapes. Used on login/register left panel.
     - `.login-floating-shape`: animated floating circles for login/register branding panel.
 -   **StatCard System:** CSS class `.stat-card` + `data-accent="cyan|violet|amber|emerald"` for radial gradient corner + top border + hover glow
--   **Login/Register:** Split-screen layout. Left: dark branded panel (`.login-panel`) with floating shapes, feature bullets (Shield/Activity/FileText icons), CareOrbit branding. Right: card form with aurora background. Mobile: card-only layout with inline branding.
+-   **Login/Register:** WCAG AAA accessible split-screen layout. Left: dark branded panel with 2px borders, feature list with descriptions (Shield/Activity/FileText icons), CareOrbit branding. Right: accessible form card with 2px borders, large 14px+ inputs, cyan focus rings (4px), show/hide password toggle, inline error messages with AlertCircle icons, skip-to-sign-in link for keyboard users. Mobile: card-only layout with inline branding.
 -   **Sidebar:** 260px, `--bg-surface`, gradient header (`.sidebar-header-gradient`), rounded logo with gradient+shadow, nav group labels (MAIN/DATA/SYSTEM), violet active state (2px left border + `--accent-violet-dim` bg), gradient avatar in footer
 -   **Header:** 60px sticky (`.header-bar`), 280px rounded search pill, notification bell+red dot, theme toggle — all with ghost button styling
 -   **Dashboard:** Hero greeting card with gradient background (cyan+violet), Sparkles icon label, stat cards grid, orbit score mini-widget, heart rate chart, quick actions, reminders, appointments, activity timeline — all using `.page-card` + `.page-card-header`
