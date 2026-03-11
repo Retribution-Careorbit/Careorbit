@@ -122,9 +122,9 @@ export default function SettingsPage() {
                 const isCurrent = subscription?.tier === plan.tier;
                 const isPremium = plan.tier.includes("premium");
                 return (
-                  <StaggerItem key={plan.tier}>
+                  <StaggerItem key={plan.tier} className="h-full">
                     <div
-                      className="rounded-xl p-5 pt-7 text-center relative overflow-hidden"
+                      className="rounded-xl p-5 pt-7 text-center relative overflow-hidden flex flex-col h-full"
                       style={{
                         background: "var(--bg-elevated)",
                         border: isCurrent
@@ -147,21 +147,23 @@ export default function SettingsPage() {
                       </div>
                       <p className="font-bold capitalize" style={{ color: "var(--text-primary)" }}>{plan.tier.replace("_", " ")}</p>
                       <p className="text-2xl font-mono font-bold mt-1" style={{ color: "var(--text-primary)" }}>{formatPrice(plan.price_monthly_cents)}</p>
-                      {isCurrent ? (
-                        <Button variant="outline" disabled className="w-full mt-4">
-                          <Check className="h-4 w-4 mr-2" />
-                          Current Plan
-                        </Button>
-                      ) : (
-                        <Button
-                          className="w-full mt-4"
-                          onClick={() => upgradeMutation.mutate(plan.tier)}
-                          disabled={upgradeMutation.isPending}
-                          data-testid={`button-upgrade-${plan.tier}`}
-                        >
-                          {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
-                        </Button>
-                      )}
+                      <div className="mt-auto pt-4">
+                        {isCurrent ? (
+                          <Button variant="outline" disabled className="w-full">
+                            <Check className="h-4 w-4 mr-2" />
+                            Current Plan
+                          </Button>
+                        ) : (
+                          <Button
+                            className="w-full"
+                            onClick={() => upgradeMutation.mutate(plan.tier)}
+                            disabled={upgradeMutation.isPending}
+                            data-testid={`button-upgrade-${plan.tier}`}
+                          >
+                            {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </StaggerItem>
                 );
