@@ -77,7 +77,7 @@ function StatCard({
       {loading ? (
         <Skeleton className="h-10 w-24" />
       ) : (
-        <>
+        <div className="flex flex-col flex-1">
           <div className="flex items-end justify-between">
             <span
               className="font-mono text-4xl font-bold leading-none"
@@ -99,17 +99,19 @@ function StatCard({
             {description}
           </p>
           {isSubscription && String(value).toLowerCase() === "free" && (
-            <Link href="/settings">
-              <button
-                className="mt-3 px-3 py-1 rounded-md text-[10px] font-medium text-white"
-                style={{ background: "var(--accent-violet)", borderRadius: 6 }}
-                data-testid="button-upgrade"
-              >
-                UPGRADE
-              </button>
-            </Link>
+            <div className="mt-auto pt-3">
+              <Link href="/settings">
+                <button
+                  className="px-3 py-1 rounded-md text-[10px] font-medium text-white"
+                  style={{ background: "var(--accent-violet)", borderRadius: 6 }}
+                  data-testid="button-upgrade"
+                >
+                  UPGRADE
+                </button>
+              </Link>
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -231,7 +233,7 @@ export default function DashboardPage() {
 
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {statValues.map((stat) => (
-            <StaggerItem key={stat.title}>
+            <StaggerItem key={stat.title} className="h-full">
               <StatCard {...stat} loading={loading} />
             </StaggerItem>
           ))}
