@@ -296,16 +296,16 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_1fr] gap-5">
-          <FadeIn delay={0.1}>
-            <div className="page-card p-6 min-h-[280px]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <FadeIn delay={0.1} className="h-full">
+            <div className="page-card p-6 h-full flex flex-col">
               <div className="page-card-header">
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <Sparkles className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Quick Actions</span>
               </div>
-              <div>
+              <div className="flex-1 flex flex-col justify-center">
                 <Link href="/documents" data-testid="link-quick-upload">
                   <div
                     className="flex items-center gap-3 py-3 px-2 cursor-pointer group rounded-lg hover:bg-[var(--bg-hover)]"
@@ -343,8 +343,8 @@ export default function DashboardPage() {
             </div>
           </FadeIn>
 
-          <FadeIn delay={0.15}>
-            <div className="page-card p-6 min-h-[280px]">
+          <FadeIn delay={0.15} className="h-full">
+            <div className="page-card p-6 h-full flex flex-col">
               <div className="page-card-header">
                 <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
                   <Bell className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
@@ -352,12 +352,12 @@ export default function DashboardPage() {
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Upcoming Reminders</span>
               </div>
               {loading ? (
-                <div className="space-y-3">
+                <div className="space-y-3 flex-1">
                   <Skeleton className="h-12 w-full rounded-lg" />
                   <Skeleton className="h-12 w-full rounded-lg" />
                 </div>
               ) : reminderList.length === 0 ? (
-                <div className="text-center py-8">
+                <div className="text-center py-8 flex-1 flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-amber-dim)" }}>
                     <Bell className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-amber)", opacity: 0.5 }} />
                   </div>
@@ -387,8 +387,8 @@ export default function DashboardPage() {
             </div>
           </FadeIn>
 
-          <FadeIn delay={0.2}>
-            <div className="page-card p-6 min-h-[280px]">
+          <FadeIn delay={0.2} className="h-full">
+            <div className="page-card p-6 h-full flex flex-col">
               <div className="page-card-header">
                 <div className="card-icon" style={{ background: "var(--accent-emerald-dim)" }}>
                   <Calendar className="h-[18px] w-[18px]" style={{ color: "var(--accent-emerald)" }} />
@@ -396,7 +396,7 @@ export default function DashboardPage() {
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Appointments</span>
               </div>
               {upcomingAppts.length === 0 ? (
-                <div className="text-center py-8">
+                <div className="text-center py-8 flex-1 flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-emerald-dim)" }}>
                     <Calendar className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-emerald)", opacity: 0.5 }} />
                   </div>
