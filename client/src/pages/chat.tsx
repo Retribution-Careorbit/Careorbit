@@ -79,12 +79,12 @@ export default function ChatPage() {
     <Layout>
       <div className="flex flex-col h-[calc(100vh-8rem)]">
         <FadeIn>
-          <div className="flex items-center justify-between mb-4">
+          <div className="page-title-bar">
             <div>
-              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-chat-title">
+              <h1 data-testid="text-chat-title">
                 AI Health Assistant
               </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <p>
                 Ask about medications, screenings, or your health history
               </p>
             </div>
@@ -100,16 +100,18 @@ export default function ChatPage() {
         </FadeIn>
 
         <div
-          className="flex-1 overflow-hidden flex flex-col rounded-xl"
-          style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+          className="flex-1 overflow-hidden flex flex-col page-card mt-2"
         >
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full text-center">
                 <div className="space-y-4">
                   <div
-                    className="w-20 h-20 rounded-full flex items-center justify-center mx-auto"
-                    style={{ background: "var(--accent-cyan-dim)" }}
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto"
+                    style={{
+                      background: "linear-gradient(135deg, var(--accent-cyan-dim), var(--accent-violet-dim))",
+                      border: "1px solid var(--border-subtle)",
+                    }}
                   >
                     <Bot className="h-10 w-10" style={{ color: "var(--accent-cyan)", opacity: 0.6 }} />
                   </div>
@@ -123,7 +125,7 @@ export default function ChatPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => setInput(q)}
-                        className="text-xs"
+                        className="text-xs rounded-full"
                         data-testid={`button-suggestion-${q.slice(0, 10).replace(/\s/g, "-")}`}
                       >
                         {q}
@@ -147,17 +149,21 @@ export default function ChatPage() {
                   {msg.role === "assistant" && (
                     <div
                       className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ background: "var(--accent-cyan-dim)" }}
+                      style={{
+                        background: "linear-gradient(135deg, var(--accent-cyan-dim), var(--accent-violet-dim))",
+                      }}
                     >
                       <Bot className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
                     </div>
                   )}
                   <div className="max-w-[75%]">
                     <div
-                      className="p-3 px-4"
+                      className="p-3.5 px-4"
                       style={{
-                        borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                        background: msg.role === "user" ? "var(--accent-violet-dim)" : "var(--bg-elevated)",
+                        borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                        background: msg.role === "user"
+                          ? "linear-gradient(135deg, var(--accent-violet-dim), color-mix(in srgb, var(--accent-violet-dim) 80%, var(--accent-cyan-dim)))"
+                          : "var(--bg-elevated)",
                         border: msg.role === "user"
                           ? "1px solid rgba(124, 58, 237, 0.20)"
                           : "1px solid var(--border-subtle)",
@@ -198,7 +204,7 @@ export default function ChatPage() {
                   {msg.role === "user" && (
                     <div
                       className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ background: "var(--bg-elevated)" }}
+                      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}
                     >
                       <User className="h-4 w-4" style={{ color: "var(--text-secondary)" }} />
                     </div>
@@ -222,7 +228,7 @@ export default function ChatPage() {
           </div>
 
           <div
-            className="px-6 py-4"
+            className="px-5 py-4"
             style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-surface)" }}
           >
             <div className="flex gap-2">
@@ -244,7 +250,11 @@ export default function ChatPage() {
                 onClick={sendMessage}
                 disabled={!input.trim() || chatMutation.isPending}
                 className="h-11 w-11 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
-                style={{ background: "var(--accent-cyan)", color: "white" }}
+                style={{
+                  background: "linear-gradient(135deg, var(--accent-cyan), color-mix(in srgb, var(--accent-cyan) 80%, var(--accent-violet)))",
+                  color: "white",
+                  boxShadow: "0 2px 8px rgba(0, 212, 255, 0.3)",
+                }}
                 aria-label="Send message"
                 data-testid="button-send"
               >

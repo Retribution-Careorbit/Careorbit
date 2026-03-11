@@ -69,12 +69,12 @@ export default function AppointmentsPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div className="flex items-center justify-between">
+          <div className="page-title-bar">
             <div>
-              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-appointments-title">
+              <h1 data-testid="text-appointments-title">
                 Appointments
               </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <p>
                 Manage your doctor appointments
               </p>
             </div>
@@ -118,7 +118,7 @@ export default function AppointmentsPage() {
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+              <div key={i} className="page-card p-6">
                 <Skeleton className="h-20 w-full" />
               </div>
             ))}
@@ -134,9 +134,11 @@ export default function AppointmentsPage() {
 
             {upcoming.length === 0 ? (
               <FadeIn delay={0.15}>
-                <div className="rounded-xl p-8 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-                  <Calendar className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
-                  <p style={{ color: "var(--text-secondary)" }} data-testid="text-no-upcoming">No upcoming appointments</p>
+                <div className="page-card p-8 text-center">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-cyan-dim)" }}>
+                    <Calendar className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-cyan)", opacity: 0.5 }} />
+                  </div>
+                  <p className="font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-upcoming">No upcoming appointments</p>
                 </div>
               </FadeIn>
             ) : (
@@ -144,10 +146,8 @@ export default function AppointmentsPage() {
                 {upcoming.map((appt: any, i: number) => (
                   <StaggerItem key={appt.appointment_id || i}>
                     <div
-                      className="rounded-xl p-5"
+                      className="page-card p-5"
                       style={{
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border-subtle)",
                         borderLeft: "3px solid var(--accent-cyan)",
                       }}
                       data-testid={`card-appointment-${i}`}
@@ -204,8 +204,7 @@ export default function AppointmentsPage() {
                   {past.map((appt: any, i: number) => (
                     <StaggerItem key={appt.appointment_id || `past-${i}`}>
                       <div
-                        className="rounded-xl p-5 opacity-70"
-                        style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                        className="page-card p-5 opacity-70"
                         data-testid={`card-past-appointment-${i}`}
                       >
                         <div className="flex items-center justify-between">

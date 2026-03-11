@@ -50,12 +50,12 @@ export default function MedicationsPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div className="flex items-start justify-between">
+          <div className="page-title-bar">
             <div>
-              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-medications-title">
+              <h1 data-testid="text-medications-title">
                 Medications
               </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <p>
                 Your current medications with confidence scores and interaction alerts
               </p>
             </div>
@@ -111,7 +111,7 @@ export default function MedicationsPage() {
           <div className="space-y-5">
             <FadeIn delay={0.05}>
               <div
-                className="flex items-center gap-2 rounded-lg px-3 h-10"
+                className="flex items-center gap-2 rounded-full px-4 h-11"
                 style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
               >
                 <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
@@ -130,7 +130,7 @@ export default function MedicationsPage() {
             {isLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+                  <div key={i} className="page-card p-5">
                     <Skeleton className="h-6 w-32 mb-3" />
                     <Skeleton className="h-4 w-48" />
                   </div>
@@ -138,8 +138,10 @@ export default function MedicationsPage() {
               </div>
             ) : filteredMeds.length === 0 ? (
               <FadeIn delay={0.1}>
-                <div className="rounded-xl p-12 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-                  <Pill className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
+                <div className="page-card p-12 text-center">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-violet-dim)" }}>
+                    <Pill className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-violet)", opacity: 0.5 }} />
+                  </div>
                   <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-medications">
                     {search ? "No medications match your search" : "No medications found"}
                   </p>
@@ -155,10 +157,8 @@ export default function MedicationsPage() {
                   return (
                     <StaggerItem key={i}>
                       <div
-                        className="rounded-xl overflow-hidden"
+                        className="page-card overflow-hidden"
                         style={{
-                          background: "var(--bg-card)",
-                          border: "1px solid var(--border-subtle)",
                           borderLeft: conf ? `3px solid ${conf.border}` : undefined,
                         }}
                         data-testid={`card-medication-${i}`}
@@ -166,7 +166,7 @@ export default function MedicationsPage() {
                         <div className="p-5">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-violet-dim)" }}>
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-violet-dim)" }}>
                                 <Pill className="h-4 w-4" style={{ color: "var(--accent-violet)" }} />
                               </div>
                               <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.name}</span>
@@ -239,12 +239,11 @@ export default function MedicationsPage() {
 
           <FadeIn delay={0.05}>
             <div
-              className="rounded-xl p-5 flex flex-col items-center sticky top-24"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-5 flex flex-col items-center sticky top-24"
               data-testid="card-adherence"
             >
               <AdherenceDonut percentage={clampedAdherence} size={120} />
-              <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Medication Adherence</p>
+              <p className="text-xs mt-2 font-medium" style={{ color: "var(--text-muted)" }}>Medication Adherence</p>
             </div>
           </FadeIn>
         </div>

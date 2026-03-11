@@ -7,7 +7,7 @@ import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
-import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight } from "lucide-react";
+import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles } from "lucide-react";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -64,12 +64,12 @@ function StatCard({
     <div className="stat-card" data-accent={accent} data-testid={`card-stat-${title.toLowerCase().replace(/\s/g, "-")}`}>
       <div className="flex items-center justify-between mb-4">
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{ background: `color-mix(in srgb, ${color} 12%, transparent)` }}
         >
           <Icon className="h-5 w-5" style={{ color }} />
         </div>
-        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
           {title}
         </span>
       </div>
@@ -102,8 +102,11 @@ function StatCard({
             <div className="mt-auto pt-3">
               <Link href="/settings">
                 <button
-                  className="px-3 py-1 rounded-md text-[10px] font-medium text-white"
-                  style={{ background: "var(--accent-violet)", borderRadius: 6 }}
+                  className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white tracking-wide"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent-violet), color-mix(in srgb, var(--accent-violet) 80%, var(--accent-cyan)))",
+                    boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+                  }}
                   data-testid="button-upgrade"
                 >
                   UPGRADE
@@ -184,31 +187,41 @@ export default function DashboardPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1
-                className="text-[32px] font-semibold leading-tight"
-                style={{ color: "var(--text-primary)" }}
-                data-testid="text-dashboard-title"
-              >
-                {getGreeting()}{firstName ? `, ${firstName}` : ""}
-              </h1>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                Your healthcare overview at a glance
-              </p>
+          <div
+            className="rounded-2xl p-6 relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, color-mix(in srgb, var(--accent-cyan) 6%, var(--bg-card)), color-mix(in srgb, var(--accent-violet) 4%, var(--bg-card)))",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <div className="flex items-start justify-between relative z-10">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Dashboard</span>
+                </div>
+                <h1
+                  className="text-[32px] font-semibold leading-tight"
+                  style={{ color: "var(--text-primary)" }}
+                  data-testid="text-dashboard-title"
+                >
+                  {getGreeting()}{firstName ? `, ${firstName}` : ""}
+                </h1>
+                <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Your healthcare overview at a glance
+                </p>
+              </div>
+              <span className="font-mono text-xs hidden md:block mt-2" style={{ color: "var(--text-muted)" }}>
+                {formatDate()}
+              </span>
             </div>
-            <span className="font-mono text-xs hidden md:block" style={{ color: "var(--text-muted)" }}>
-              {formatDate()}
-            </span>
           </div>
-          <div className="mt-6 mb-2" style={{ borderBottom: "1px solid var(--border-subtle)" }} />
         </FadeIn>
 
         {user?.onboardingComplete === false && (
           <FadeIn delay={0.1}>
             <div
-              className="flex items-center gap-3 p-4 rounded-xl"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="flex items-center gap-3 p-4 rounded-xl page-card"
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--accent-cyan-dim)" }}>
                 <AlertCircle className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
@@ -243,12 +256,13 @@ export default function DashboardPage() {
           {orbitScore && (
             <FadeIn delay={0.1}>
               <div
-                className="rounded-xl p-6"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                className="page-card p-6"
                 data-testid="card-orbit-mini"
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+                <div className="page-card-header">
+                  <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                    <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                  </div>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Orbit Score</span>
                 </div>
                 <div className="flex flex-col items-center">
@@ -267,12 +281,13 @@ export default function DashboardPage() {
           {bpChartData.length > 0 && (
             <FadeIn delay={0.15} className="lg:col-span-2">
               <div
-                className="rounded-xl p-6"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                className="page-card p-6"
                 data-testid="card-vitals-chart"
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <Heart className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+                <div className="page-card-header">
+                  <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                    <Heart className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                  </div>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Heart Rate Trend</span>
                 </div>
                 <HealthMetricsChart data={bpChartData} label="Heart Rate" color="#00D4FF" height={200} />
@@ -283,22 +298,21 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_1fr] gap-5">
           <FadeIn delay={0.1}>
-            <div
-              className="rounded-xl p-6 min-h-[280px]"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Heart className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+            <div className="page-card p-6 min-h-[280px]">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <Sparkles className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Quick Actions</span>
               </div>
-              <div style={{ borderTop: "1px solid var(--border-subtle)" }}>
+              <div>
                 <Link href="/documents" data-testid="link-quick-upload">
                   <div
-                    className="flex items-center gap-3 py-3 px-3 cursor-pointer group"
+                    className="flex items-center gap-3 py-3 px-2 cursor-pointer group rounded-lg hover:bg-[var(--bg-hover)]"
                     style={{ borderBottom: "1px solid var(--border-subtle)" }}
                   >
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: "var(--accent-cyan-dim)" }}
                     >
                       <FileText className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
@@ -311,9 +325,9 @@ export default function DashboardPage() {
                   </div>
                 </Link>
                 <Link href="/chat" data-testid="link-quick-chat">
-                  <div className="flex items-center gap-3 py-3 px-3 cursor-pointer group">
+                  <div className="flex items-center gap-3 py-3 px-2 cursor-pointer group rounded-lg hover:bg-[var(--bg-hover)]">
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: "var(--accent-violet-dim)" }}
                     >
                       <Activity className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
@@ -330,12 +344,11 @@ export default function DashboardPage() {
           </FadeIn>
 
           <FadeIn delay={0.15}>
-            <div
-              className="rounded-xl p-6 min-h-[280px]"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Bell className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />
+            <div className="page-card p-6 min-h-[280px]">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
+                  <Bell className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Upcoming Reminders</span>
               </div>
               {loading ? (
@@ -345,8 +358,10 @@ export default function DashboardPage() {
                 </div>
               ) : reminderList.length === 0 ? (
                 <div className="text-center py-8">
-                  <Bell className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }} data-testid="text-no-reminders">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-amber-dim)" }}>
+                    <Bell className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-amber)", opacity: 0.5 }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-reminders">
                     No reminders set
                   </p>
                   <Link href="/reminders">
@@ -358,8 +373,8 @@ export default function DashboardPage() {
                   {reminderList.slice(0, 3).map((r: any, i: number) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between p-3 rounded-lg"
-                      style={{ border: "1px solid var(--border-subtle)" }}
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
                     >
                       <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid={`text-reminder-${i}`}>
                         {r.medication_node_id || "Medication"}
@@ -373,18 +388,19 @@ export default function DashboardPage() {
           </FadeIn>
 
           <FadeIn delay={0.2}>
-            <div
-              className="rounded-xl p-6 min-h-[280px]"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="h-5 w-5" style={{ color: "var(--accent-emerald)" }} />
+            <div className="page-card p-6 min-h-[280px]">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-emerald-dim)" }}>
+                  <Calendar className="h-[18px] w-[18px]" style={{ color: "var(--accent-emerald)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Appointments</span>
               </div>
               {upcomingAppts.length === 0 ? (
                 <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }} data-testid="text-no-appointments">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-emerald-dim)" }}>
+                    <Calendar className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-emerald)", opacity: 0.5 }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-appointments">
                     No upcoming appointments
                   </p>
                   <Link href="/appointments">
@@ -396,8 +412,8 @@ export default function DashboardPage() {
                   {upcomingAppts.map((appt: any, i: number) => (
                     <div
                       key={i}
-                      className="p-3 rounded-lg"
-                      style={{ border: "1px solid var(--border-subtle)" }}
+                      className="p-3 rounded-xl"
+                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
                     >
                       <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</p>
                       <div className="flex items-center gap-1 mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -420,18 +436,19 @@ export default function DashboardPage() {
         {recentEvents.length > 0 && (
           <FadeIn delay={0.25}>
             <div
-              className="rounded-xl p-6"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-6"
               data-testid="card-activity-timeline"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <Activity className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Recent Activity</span>
               </div>
               <div className="space-y-3">
                 {recentEvents.map((event, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--accent-cyan)" }} />
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--bg-hover)]">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: event.color }} />
                     <event.icon className="h-4 w-4 shrink-0" style={{ color: event.color }} />
                     <span className="text-sm" style={{ color: "var(--text-primary)" }}>{event.label}</span>
                   </div>

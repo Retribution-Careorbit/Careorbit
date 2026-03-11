@@ -16,22 +16,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <main className="flex-1 overflow-auto">
           <div
-            className="flex items-center gap-3 px-6 sticky top-0 z-10"
-            style={{
-              height: 56,
-              background: "var(--bg-surface)",
-              borderBottom: "1px solid var(--border-subtle)",
-            }}
+            className="flex items-center gap-3 px-6 sticky top-0 z-10 header-bar"
           >
             <SidebarTrigger data-testid="button-sidebar-toggle" className="h-5 w-5" style={{ color: "var(--text-secondary)" }} />
 
             <div className="flex-1" />
 
             <div
-              className="flex items-center gap-2 rounded-lg px-3"
+              className="flex items-center gap-2 rounded-full px-4"
               style={{
                 width: 280,
-                height: 36,
+                height: 38,
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--border-default)",
               }}
@@ -49,7 +44,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
-              className="relative h-8 w-8 rounded-lg"
+              className="relative h-9 w-9 rounded-full"
               data-testid="button-notifications"
             >
               <Bell className="h-[18px] w-[18px]" style={{ color: "var(--text-secondary)" }} />
@@ -63,7 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="h-8 w-8 rounded-lg"
+              className="h-9 w-9 rounded-full"
               aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               data-testid="button-theme"
             >

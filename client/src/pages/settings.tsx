@@ -58,21 +58,23 @@ export default function SettingsPage() {
     <Layout>
       <div className="space-y-6 max-w-3xl">
         <FadeIn>
-          <div>
-            <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-settings-title">
-              Settings
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Manage your account and subscription
-            </p>
+          <div className="page-title-bar">
+            <div>
+              <h1 data-testid="text-settings-title">
+                Settings
+              </h1>
+              <p>
+                Manage your account and subscription
+              </p>
+            </div>
           </div>
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <div className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-cyan-dim)" }}>
-                <User className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+          <div className="page-card p-6">
+            <div className="page-card-header">
+              <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                <User className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
               </div>
               <span className="font-medium" style={{ color: "var(--text-primary)" }}>Profile</span>
             </div>
@@ -103,10 +105,10 @@ export default function SettingsPage() {
         </FadeIn>
 
         <FadeIn delay={0.2}>
-          <div className="rounded-xl p-6" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-violet-dim)" }}>
-                <Shield className="h-4 w-4" style={{ color: "var(--accent-violet)" }} />
+          <div className="page-card p-6">
+            <div className="page-card-header">
+              <div className="card-icon" style={{ background: "var(--accent-violet-dim)" }}>
+                <Shield className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
               </div>
               <span className="font-medium" style={{ color: "var(--text-primary)" }}>Subscription</span>
             </div>
@@ -126,7 +128,9 @@ export default function SettingsPage() {
                     <div
                       className="rounded-xl p-5 pt-7 text-center relative overflow-hidden flex flex-col h-full"
                       style={{
-                        background: "var(--bg-elevated)",
+                        background: isPremium
+                          ? "linear-gradient(180deg, color-mix(in srgb, var(--accent-amber) 5%, var(--bg-elevated)), var(--bg-elevated))"
+                          : "var(--bg-elevated)",
                         border: isCurrent
                           ? "1px solid var(--accent-cyan)"
                           : "1px solid var(--border-subtle)",
@@ -173,7 +177,7 @@ export default function SettingsPage() {
         </FadeIn>
 
         <FadeIn delay={0.3}>
-          <div className="rounded-xl p-4" style={{ border: "1px solid rgba(244,63,94,0.20)" }}>
+          <div className="page-card p-4">
             <Button
               variant="ghost"
               onClick={logout}

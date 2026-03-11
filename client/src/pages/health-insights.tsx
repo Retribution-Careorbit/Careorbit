@@ -132,12 +132,12 @@ export default function HealthInsightsPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div className="flex items-center justify-between">
+          <div className="page-title-bar">
             <div>
-              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-insights-title">
+              <h1 data-testid="text-insights-title">
                 Health Insights
               </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <p>
                 Vital signs trends and AI-powered health recommendations
               </p>
             </div>
@@ -172,8 +172,7 @@ export default function HealthInsightsPage() {
           {vitalCards.map((card) => (
             <StaggerItem key={card.title}>
               <div
-                className="rounded-xl p-5"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                className="page-card p-5"
                 data-testid={`card-vital-${card.title.toLowerCase().replace(/\s/g, "-")}`}
               >
                 {isLoading ? (
@@ -183,7 +182,7 @@ export default function HealthInsightsPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center"
                           style={{ backgroundColor: `${card.color}15` }}
                         >
                           <card.icon className="h-4 w-4" style={{ color: card.color }} />
@@ -218,12 +217,13 @@ export default function HealthInsightsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <FadeIn delay={0.15}>
             <div
-              className="rounded-xl p-6"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-6"
               data-testid="card-bp-chart"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Heart className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <Heart className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Blood Pressure Trends</span>
               </div>
               {isLoading ? (
@@ -238,12 +238,13 @@ export default function HealthInsightsPage() {
 
           <FadeIn delay={0.2}>
             <div
-              className="rounded-xl p-6"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-6"
               data-testid="card-glucose-chart"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Droplets className="h-5 w-5" style={{ color: "var(--accent-violet)" }} />
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-violet-dim)" }}>
+                  <Droplets className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Blood Glucose Trends</span>
               </div>
               {isLoading ? (
@@ -259,25 +260,26 @@ export default function HealthInsightsPage() {
 
         <FadeIn delay={0.25}>
           <div
-            className="rounded-xl p-6"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            className="page-card p-6"
             data-testid="card-ai-insights"
           >
-            <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />
+            <div className="page-card-header">
+              <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
+                <Lightbulb className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
+              </div>
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>AI Health Insights</span>
             </div>
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {INSIGHTS.map((insight, i) => (
                 <StaggerItem key={i}>
                   <div
-                    className="p-4 rounded-xl"
+                    className="p-4 rounded-xl hover:bg-[var(--bg-hover)]"
                     style={{ border: "1px solid var(--border-subtle)" }}
                     data-testid={`card-insight-${i}`}
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                         style={{ background: `color-mix(in srgb, ${insight.color} 12%, transparent)` }}
                       >
                         <insight.icon className="h-4 w-4" style={{ color: insight.color }} />

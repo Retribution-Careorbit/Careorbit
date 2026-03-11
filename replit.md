@@ -31,9 +31,19 @@ Key architectural patterns include:
     - Glows: `--glow-cyan`, `--glow-violet`
 -   **Dark Theme (primary):** bg-base `#0A0C10`, bg-surface `#0F1117`, bg-elevated `#161B25`, bg-card `#1A2030`
 -   **Light Theme:** bg-base `#F0F2F7`, bg-surface `#FFFFFF`, bg-card `#FFFFFF`
+-   **Design System CSS Classes:**
+    - `.page-card`: bg-card, 16px radius, subtle border, hover border+shadow transition. Used for all content cards across pages.
+    - `.page-card-header`: flex row with 36px icon container + title text, bottom border separator. Used inside `.page-card` elements.
+    - `.page-title-bar`: page-level title area with gradient accent line (cyan→violet→transparent `::after` pseudo-element). Contains h1 + subtitle p. Used on all inner pages.
+    - `.header-bar`: 60px height, gradient bg (surface→base), 1px bottom border, backdrop blur. Used in Layout component.
+    - `.sidebar-header-gradient`: subtle cyan gradient in sidebar header area.
+    - `.login-panel`: dark aurora gradient background with animated floating shapes. Used on login/register left panel.
+    - `.login-floating-shape`: animated floating circles for login/register branding panel.
 -   **StatCard System:** CSS class `.stat-card` + `data-accent="cyan|violet|amber|emerald"` for radial gradient corner + top border + hover glow
--   **Sidebar:** 260px, `--bg-surface`, nav group labels (MAIN/DATA/SYSTEM), violet active state (2px left border + `--accent-violet-dim` bg), gradient avatar
--   **Header:** 56px sticky, 280px search bar, notification bell+red dot, theme toggle
+-   **Login/Register:** Split-screen layout. Left: dark branded panel (`.login-panel`) with floating shapes, feature bullets (Shield/Activity/FileText icons), CareOrbit branding. Right: card form with aurora background. Mobile: card-only layout with inline branding.
+-   **Sidebar:** 260px, `--bg-surface`, gradient header (`.sidebar-header-gradient`), rounded logo with gradient+shadow, nav group labels (MAIN/DATA/SYSTEM), violet active state (2px left border + `--accent-violet-dim` bg), gradient avatar in footer
+-   **Header:** 60px sticky (`.header-bar`), 280px rounded search pill, notification bell+red dot, theme toggle — all with ghost button styling
+-   **Dashboard:** Hero greeting card with gradient background (cyan+violet), Sparkles icon label, stat cards grid, orbit score mini-widget, heart rate chart, quick actions, reminders, appointments, activity timeline — all using `.page-card` + `.page-card-header`
 -   **OrbitScoreFloater:** Dashboard-only widget, fixed bottom-left, collapsed (220×56) / expanded (260×172), spring bounce animation, score color logic (rose/amber/cyan/emerald)
 -   **SOS Button:** 48px circle, rose gradient, pulse-ring animation
 -   **Animations:** `framer-motion` with `FadeIn`, `ScaleIn`, `SlideIn`, `StaggerContainer`, `PageTransition`, `CountUp`, `HoverCard`. All respect `prefers-reduced-motion`. CSS: `.page-content` fadeSlideIn, `.stat-card` hover lift, `.animate-floater-entrance`, `.animate-border-pulse`

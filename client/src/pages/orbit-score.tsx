@@ -53,25 +53,28 @@ export default function OrbitScorePage() {
     <Layout>
       <div className="space-y-8">
         <FadeIn>
-          <div>
-            <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-orbit-title">
-              Orbit Score
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Your comprehensive health score and progress
-            </p>
+          <div className="page-title-bar">
+            <div>
+              <h1 data-testid="text-orbit-title">
+                Orbit Score
+              </h1>
+              <p>
+                Your comprehensive health score and progress
+              </p>
+            </div>
           </div>
         </FadeIn>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <FadeIn delay={0.1}>
             <div
-              className="rounded-xl p-6 lg:row-span-2 flex flex-col items-center"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-6 lg:row-span-2 flex flex-col items-center"
               data-testid="card-orbit-main"
             >
-              <div className="flex items-center gap-2 self-start mb-6">
-                <Target className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+              <div className="page-card-header self-stretch">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <Target className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Health Score</span>
               </div>
 
@@ -133,12 +136,13 @@ export default function OrbitScorePage() {
 
           <FadeIn delay={0.15} className="lg:col-span-2">
             <div
-              className="rounded-xl p-6"
-              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+              className="page-card p-6"
               data-testid="card-score-history"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Score History</span>
               </div>
               {loading ? (
@@ -154,12 +158,13 @@ export default function OrbitScorePage() {
           {breakdown && (
             <FadeIn delay={0.2} className="lg:col-span-2">
               <div
-                className="rounded-xl p-6"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                className="page-card p-6"
                 data-testid="card-score-breakdown"
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <Trophy className="h-5 w-5" style={{ color: "var(--accent-violet)" }} />
+                <div className="page-card-header">
+                  <div className="card-icon" style={{ background: "var(--accent-violet-dim)" }}>
+                    <Trophy className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
+                  </div>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Score Breakdown</span>
                 </div>
                 <CategoryBreakdownBar data={breakdownData} height={180} />
@@ -170,12 +175,13 @@ export default function OrbitScorePage() {
           {scoreData?.premium_required_for_breakdown && (
             <FadeIn delay={0.2} className="lg:col-span-2">
               <div
-                className="rounded-xl p-6 text-center"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                className="page-card p-8 text-center"
                 data-testid="card-premium-upsell"
               >
-                <Shield className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--accent-violet)" }} />
-                <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Upgrade to Premium</p>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-violet-dim)" }}>
+                  <Shield className="h-7 w-7" style={{ color: "var(--accent-violet)" }} />
+                </div>
+                <p className="font-semibold text-lg" style={{ color: "var(--text-primary)" }}>Upgrade to Premium</p>
                 <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
                   Get detailed score breakdowns, category insights, and personalized recommendations
                 </p>
@@ -186,12 +192,13 @@ export default function OrbitScorePage() {
 
         <FadeIn delay={0.25}>
           <div
-            className="rounded-xl p-6"
-            style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            className="page-card p-6"
             data-testid="card-badges"
           >
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />
+            <div className="page-card-header">
+              <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
+                <Star className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
+              </div>
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Achievements</span>
             </div>
             <StaggerContainer className="grid grid-cols-2 md:grid-cols-4 gap-4">

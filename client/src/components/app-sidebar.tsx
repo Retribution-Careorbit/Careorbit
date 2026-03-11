@@ -57,7 +57,7 @@ function NavItem({ item, isActive }: { item: typeof mainNav[0]; isActive: boolea
         <Link
           href={item.href}
           data-testid={item.testId}
-          className={`flex items-center gap-3 px-3 h-[44px] rounded-lg text-sm font-medium relative ${
+          className={`flex items-center gap-3 px-3 h-[44px] rounded-xl text-sm font-medium relative ${
             isActive
               ? "nav-active-indicator text-[var(--text-primary)]"
               : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -83,9 +83,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="scanline-overlay" style={{ background: "var(--bg-surface)", borderRight: "1px solid var(--border-subtle)" }}>
-      <SidebarHeader className="h-[72px] flex items-center px-5" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+      <SidebarHeader className="h-[72px] flex items-center px-5 sidebar-header-gradient" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <Link href="/" className="flex items-center gap-2.5 group" data-testid="link-home">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-cyan)" }}>
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, var(--accent-cyan), color-mix(in srgb, var(--accent-cyan) 80%, var(--accent-violet)))",
+              boxShadow: "0 2px 8px rgba(0, 212, 255, 0.25)",
+            }}
+          >
             <Heart className="h-5 w-5 text-white" />
           </div>
           <span className="text-lg font-mono font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -128,8 +134,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="h-[72px] px-4 flex flex-row items-center gap-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, var(--accent-violet), var(--accent-cyan))" }}>
+      <SidebarFooter className="px-4 py-3 flex flex-row items-center gap-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+          style={{
+            background: "linear-gradient(135deg, var(--accent-violet), var(--accent-cyan))",
+            boxShadow: "0 2px 8px rgba(124, 58, 237, 0.2)",
+          }}
+        >
           <span className="text-xs font-mono font-bold text-white">
             {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
           </span>
@@ -148,7 +160,7 @@ export function AppSidebar() {
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="h-8 w-8 shrink-0 rounded-lg"
+          className="h-8 w-8 shrink-0 rounded-full"
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           data-testid="button-theme-toggle"
         >
@@ -158,7 +170,7 @@ export function AppSidebar() {
           variant="ghost"
           size="icon"
           onClick={logout}
-          className="h-8 w-8 shrink-0 rounded-lg hover:text-destructive"
+          className="h-8 w-8 shrink-0 rounded-full hover:text-destructive"
           aria-label="Sign out"
           data-testid="button-sign-out-sidebar"
         >

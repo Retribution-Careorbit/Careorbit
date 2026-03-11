@@ -89,26 +89,30 @@ export default function DocumentsPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div>
-            <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-documents-title">
-              Documents
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Upload prescriptions, lab reports, or medicine strip photos for AI extraction
-            </p>
+          <div className="page-title-bar">
+            <div>
+              <h1 data-testid="text-documents-title">
+                Documents
+              </h1>
+              <p>
+                Upload prescriptions, lab reports, or medicine strip photos for AI extraction
+              </p>
+            </div>
           </div>
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <div className="rounded-xl p-8" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+          <div className="page-card p-8">
             <div
               role="button"
               tabIndex={0}
               aria-label="Upload document. Drop a file here or press Enter to browse"
-              className="border-2 border-dashed rounded-xl p-12 text-center cursor-pointer"
+              className="border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer"
               style={{
                 borderColor: dragOver ? "var(--accent-cyan)" : "var(--border-default)",
-                background: dragOver ? "var(--accent-cyan-dim)" : "transparent",
+                background: dragOver
+                  ? "linear-gradient(135deg, var(--accent-cyan-dim), color-mix(in srgb, var(--accent-violet-dim) 50%, transparent))"
+                  : "transparent",
                 transition: "all 200ms ease",
               }}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -121,7 +125,10 @@ export default function DocumentsPage() {
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" onChange={handleFileChange} className="hidden" data-testid="input-file" />
               {uploadMutation.isPending ? (
                 <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+                    style={{ background: "linear-gradient(135deg, var(--accent-cyan-dim), var(--accent-violet-dim))" }}
+                  >
                     <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--accent-cyan)" }} data-testid="spinner-processing" />
                   </div>
                   <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Processing document...</p>
@@ -129,12 +136,15 @@ export default function DocumentsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "var(--bg-elevated)" }}>
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+                    style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}
+                  >
                     <Upload className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
                   </div>
                   <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Drop your document here</p>
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, or HEIC up to 10MB</p>
-                  <Button variant="outline" data-testid="button-browse">
+                  <Button variant="outline" className="rounded-full" data-testid="button-browse">
                     <FileUp className="h-4 w-4 mr-2" />
                     Browse Files
                   </Button>
@@ -150,7 +160,7 @@ export default function DocumentsPage() {
             <StaggerContainer className="space-y-3">
               {results.map((result, i) => (
                 <StaggerItem key={i}>
-                  <div className="rounded-xl p-5" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }} data-testid={`card-result-${i}`}>
+                  <div className="page-card p-5" data-testid={`card-result-${i}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(result.status)}

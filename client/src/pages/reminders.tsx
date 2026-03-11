@@ -94,12 +94,12 @@ export default function RemindersPage() {
     <Layout>
       <div className="space-y-6">
         <FadeIn>
-          <div className="flex items-center justify-between">
+          <div className="page-title-bar">
             <div>
-              <h1 className="text-[28px] font-semibold" style={{ color: "var(--text-primary)" }} data-testid="text-reminders-title">
+              <h1 data-testid="text-reminders-title">
                 Reminders
               </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              <p>
                 Manage your medication reminder schedule
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function RemindersPage() {
                       {DAYS.map((day) => (
                         <label
                           key={day.value}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer text-sm font-medium"
                           style={{
                             border: selectedDays.includes(day.value)
                               ? "1px solid var(--accent-cyan)"
@@ -145,7 +145,7 @@ export default function RemindersPage() {
                             className="sr-only"
                             aria-label={`Select ${day.label}`}
                           />
-                          <span className="text-sm font-medium">{day.label}</span>
+                          <span>{day.label}</span>
                         </label>
                       ))}
                     </div>
@@ -163,13 +163,15 @@ export default function RemindersPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl p-5 h-16 animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }} />
+              <div key={i} className="page-card p-5 h-16 animate-pulse" />
             ))}
           </div>
         ) : reminderList.length === 0 ? (
           <FadeIn delay={0.1}>
-            <div className="rounded-xl p-12 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-              <Bell className="h-12 w-12 mx-auto mb-3" strokeWidth={1} style={{ color: "var(--text-muted)" }} />
+            <div className="page-card p-12 text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-amber-dim)" }}>
+                <Bell className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-amber)", opacity: 0.5 }} />
+              </div>
               <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-reminders">No reminders set</p>
               <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
                 Create a reminder to stay on track with your medications
@@ -181,13 +183,12 @@ export default function RemindersPage() {
             {reminderList.map((reminder, i) => (
               <StaggerItem key={reminder.reminder_id || i}>
                 <div
-                  className="rounded-xl p-4"
-                  style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                  className="page-card p-4"
                   data-testid={`card-reminder-${i}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-amber-dim)" }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-amber-dim)" }}>
                         <Clock className="h-5 w-5" style={{ color: "var(--accent-amber)" }} />
                       </div>
                       <div>
@@ -211,7 +212,7 @@ export default function RemindersPage() {
                       size="icon"
                       onClick={() => deleteMutation.mutate(reminder.reminder_id)}
                       disabled={deleteMutation.isPending}
-                      className="h-9 w-9 hover:text-destructive"
+                      className="h-9 w-9 rounded-full hover:text-destructive"
                       aria-label={`Delete reminder for ${reminder.medication_node_id}`}
                       data-testid={`button-delete-reminder-${i}`}
                     >
