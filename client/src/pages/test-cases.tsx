@@ -162,7 +162,7 @@ function AccessibleFilterPanel({
         </button>
 
         <header
-          className="flex items-center justify-between px-6 py-5 shrink-0"
+          className="flex items-center justify-between px-5 py-3 shrink-0"
           style={{ borderBottom: "1px solid var(--border-strong)", background: "var(--bg-elevated)" }}
         >
           <div className="flex items-center gap-3">
@@ -207,34 +207,29 @@ function AccessibleFilterPanel({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <div className="flex-1 px-5 py-4 space-y-5 overflow-hidden">
           <section aria-labelledby="section-text-filters">
-            <div className="mb-4 pb-2" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <h3 id="section-text-filters" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Text Search Filters
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 id="section-text-filters" className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Text Search
               </h3>
-              <p className="text-sm mt-1" style={{ color: "var(--text-primary)" }}>
-                Search for specific test cases using text matching.
-              </p>
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Match by name, path, or keyword</span>
             </div>
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <label htmlFor="filter-search-all" className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                    Search All Fields
-                  </label>
-                  <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }} aria-hidden="true">Optional</span>
-                </div>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="filter-search-all" className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-primary)" }}>
+                  Search All Fields
+                </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Search className="w-4.5 h-4.5" style={{ color: "var(--text-primary)" }} aria-hidden="true" />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} aria-hidden="true" />
                   </div>
                   <input
                     type="text"
                     id="filter-search-all"
                     value={draft.search}
                     onChange={(e) => setDraft((p) => ({ ...p, search: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-3 text-sm rounded-lg bg-transparent transition-shadow"
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-transparent transition-shadow"
                     style={{ border: "2px solid var(--border-strong)", color: "var(--text-primary)" }}
                     onFocus={(e) => inputFocusStyle(e.currentTarget)}
                     onBlur={(e) => inputBlurStyle(e.currentTarget)}
@@ -244,80 +239,72 @@ function AccessibleFilterPanel({
                   />
                 </div>
                 {draft.search.length > 0 && draft.search.length < 3 && (
-                  <p id="search-hint" className="mt-1.5 text-sm font-medium flex items-center gap-1.5" style={{ color: "var(--accent-amber)" }}>
-                    <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <p id="search-hint" className="mt-1 text-xs font-medium flex items-center gap-1" style={{ color: "var(--accent-amber)" }}>
+                    <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
                     Enter at least 3 characters for better results.
                   </p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <label htmlFor="filter-test-name" className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                    Test Name Contains
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="filter-test-name" className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-primary)" }}>
+                    Test Name
                   </label>
-                  <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }} aria-hidden="true">Optional</span>
+                  <input
+                    type="text"
+                    id="filter-test-name"
+                    value={draft.nameFilter}
+                    onChange={(e) => setDraft((p) => ({ ...p, nameFilter: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm rounded-lg bg-transparent font-mono transition-shadow"
+                    style={{ border: "2px solid var(--border-strong)", color: "var(--text-primary)" }}
+                    onFocus={(e) => inputFocusStyle(e.currentTarget)}
+                    onBlur={(e) => inputBlurStyle(e.currentTarget)}
+                    placeholder="e.g. login"
+                    data-testid="input-name-filter"
+                  />
                 </div>
-                <input
-                  type="text"
-                  id="filter-test-name"
-                  value={draft.nameFilter}
-                  onChange={(e) => setDraft((p) => ({ ...p, nameFilter: e.target.value }))}
-                  className="w-full px-4 py-3 text-sm rounded-lg bg-transparent font-mono transition-shadow"
-                  style={{ border: "2px solid var(--border-strong)", color: "var(--text-primary)" }}
-                  onFocus={(e) => inputFocusStyle(e.currentTarget)}
-                  onBlur={(e) => inputBlurStyle(e.currentTarget)}
-                  placeholder="e.g. test_login_flow"
-                  data-testid="input-name-filter"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <label htmlFor="filter-file-path" className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                    File Path Contains
+                <div>
+                  <label htmlFor="filter-file-path" className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-primary)" }}>
+                    File Path
                   </label>
-                  <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }} aria-hidden="true">Optional</span>
+                  <input
+                    type="text"
+                    id="filter-file-path"
+                    value={draft.filePathFilter}
+                    onChange={(e) => setDraft((p) => ({ ...p, filePathFilter: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm rounded-lg bg-transparent font-mono transition-shadow"
+                    style={{ border: "2px solid var(--border-strong)", color: "var(--text-primary)" }}
+                    onFocus={(e) => inputFocusStyle(e.currentTarget)}
+                    onBlur={(e) => inputBlurStyle(e.currentTarget)}
+                    placeholder="e.g. src/auth/"
+                    data-testid="input-filepath-filter"
+                  />
                 </div>
-                <input
-                  type="text"
-                  id="filter-file-path"
-                  value={draft.filePathFilter}
-                  onChange={(e) => setDraft((p) => ({ ...p, filePathFilter: e.target.value }))}
-                  className="w-full px-4 py-3 text-sm rounded-lg bg-transparent font-mono transition-shadow"
-                  style={{ border: "2px solid var(--border-strong)", color: "var(--text-primary)" }}
-                  onFocus={(e) => inputFocusStyle(e.currentTarget)}
-                  onBlur={(e) => inputBlurStyle(e.currentTarget)}
-                  placeholder="e.g. src/auth/"
-                  data-testid="input-filepath-filter"
-                />
               </div>
             </div>
           </section>
 
+          <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+
           <section aria-labelledby="section-categorization-filters">
-            <div className="mb-4 pb-2" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <h3 id="section-categorization-filters" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Categorization Filters
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 id="section-categorization-filters" className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Categorization
               </h3>
-              <p className="text-sm mt-1" style={{ color: "var(--text-primary)" }}>
-                Filter tests by their defined category or specific feature area.
-              </p>
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Filter by category or feature</span>
             </div>
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <label htmlFor="filter-category" className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                    Category
-                  </label>
-                  <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }} aria-hidden="true">Optional</span>
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="filter-category" className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-primary)" }}>
+                  Category
+                </label>
                 <div className="relative">
                   <select
                     id="filter-category"
                     value={draft.selectedCategory}
                     onChange={(e) => setDraft((p) => ({ ...p, selectedCategory: e.target.value }))}
-                    className="w-full px-4 py-3 text-sm rounded-lg appearance-none transition-shadow"
+                    className="w-full px-3 py-2 text-sm rounded-lg appearance-none transition-shadow"
                     style={{
                       border: `2px solid ${draft.selectedCategory !== "all" ? "var(--accent-violet)" : "var(--border-strong)"}`,
                       backgroundColor: "var(--bg-card)",
@@ -327,34 +314,31 @@ function AccessibleFilterPanel({
                     onBlur={(e) => { e.currentTarget.style.borderColor = draft.selectedCategory !== "all" ? "var(--accent-violet)" : "var(--border-strong)"; e.currentTarget.style.boxShadow = "none"; }}
                     data-testid="select-category"
                   >
-                    <option value="all">All Categories</option>
+                    <option value="all">All</option>
                     {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {formatCategory(cat)} {summary?.by_category?.[cat] ? `(${summary.by_category[cat]})` : ""}
                       </option>
                     ))}
                   </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20" style={{ color: "var(--text-primary)" }} aria-hidden="true">
+                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20" style={{ color: "var(--text-primary)" }} aria-hidden="true">
                       <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-baseline">
-                  <label htmlFor="filter-feature" className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-                    Feature Area
-                  </label>
-                  <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }} aria-hidden="true">Optional</span>
-                </div>
+              <div>
+                <label htmlFor="filter-feature" className="text-xs font-semibold mb-1 block" style={{ color: "var(--text-primary)" }}>
+                  Feature Area
+                </label>
                 <div className="relative">
                   <select
                     id="filter-feature"
                     value={draft.selectedFeature}
                     onChange={(e) => setDraft((p) => ({ ...p, selectedFeature: e.target.value }))}
-                    className="w-full px-4 py-3 text-sm rounded-lg appearance-none transition-shadow"
+                    className="w-full px-3 py-2 text-sm rounded-lg appearance-none transition-shadow"
                     style={{
                       border: `2px solid ${draft.selectedFeature !== "all" ? "var(--accent-cyan)" : "var(--border-strong)"}`,
                       backgroundColor: "var(--bg-card)",
@@ -364,13 +348,13 @@ function AccessibleFilterPanel({
                     onBlur={(e) => { e.currentTarget.style.borderColor = draft.selectedFeature !== "all" ? "var(--accent-cyan)" : "var(--border-strong)"; e.currentTarget.style.boxShadow = "none"; }}
                     data-testid="select-feature"
                   >
-                    <option value="all">All Feature Areas</option>
+                    <option value="all">All</option>
                     {featureAreas.map((feat) => (
                       <option key={feat} value={feat}>{feat}</option>
                     ))}
                   </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20" style={{ color: "var(--text-primary)" }} aria-hidden="true">
+                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20" style={{ color: "var(--text-primary)" }} aria-hidden="true">
                       <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                     </svg>
                   </div>
@@ -379,33 +363,31 @@ function AccessibleFilterPanel({
             </div>
           </section>
 
+          <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+
           <section aria-labelledby="section-status-filters">
-            <div className="mb-4 pb-2" style={{ borderBottom: "1px solid var(--border-default)" }}>
-              <h3 id="section-status-filters" className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                Status Filters
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 id="section-status-filters" className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                Status
               </h3>
-              <p className="text-sm mt-1" style={{ color: "var(--text-primary)" }}>
-                Filter by test age. These options are mutually exclusive.
-              </p>
+              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Mutually exclusive</span>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div
-                className="flex items-center justify-between p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
                 style={{
                   border: `2px solid ${draft.showNewOnly ? "var(--accent-emerald)" : "var(--border-strong)"}`,
                   background: draft.showNewOnly ? "var(--accent-emerald-dim)" : "var(--bg-card)",
                 }}
               >
-                <div>
-                  <label htmlFor="toggle-new" className="text-base font-bold block cursor-pointer" style={{ color: "var(--text-primary)" }}>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: draft.showNewOnly ? "var(--accent-emerald)" : "var(--text-muted)" }} aria-hidden="true" />
+                  <label htmlFor="toggle-new" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--text-primary)" }}>
                     New Tests Only
                   </label>
-                  <span className="text-sm mt-0.5 block" style={{ color: "var(--text-secondary)" }}>
-                    Show only recently added tests
-                  </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold" aria-hidden="true" style={{ color: draft.showNewOnly ? "var(--accent-emerald)" : "var(--text-muted)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold" aria-hidden="true" style={{ color: draft.showNewOnly ? "var(--accent-emerald)" : "var(--text-muted)" }}>
                     {draft.showNewOnly ? "ON" : "OFF"}
                   </span>
                   <button
@@ -413,7 +395,7 @@ function AccessibleFilterPanel({
                     role="switch"
                     aria-checked={draft.showNewOnly}
                     onClick={() => setDraft((p) => ({ ...p, showNewOnly: !p.showNewOnly, showExistingOnly: !p.showNewOnly ? false : p.showExistingOnly }))}
-                    className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors"
+                    className="relative inline-flex h-6 w-10 items-center rounded-full transition-colors shrink-0"
                     style={{
                       backgroundColor: draft.showNewOnly ? "var(--accent-emerald)" : "var(--border-default)",
                       border: "2px solid transparent",
@@ -424,30 +406,28 @@ function AccessibleFilterPanel({
                   >
                     <span className="sr-only">Toggle New Tests Only</span>
                     <span
-                      className="inline-block h-5 w-5 rounded-full bg-white transition-transform duration-200"
-                      style={{ transform: draft.showNewOnly ? "translateX(22px)" : "translateX(2px)" }}
+                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200"
+                      style={{ transform: draft.showNewOnly ? "translateX(18px)" : "translateX(2px)" }}
                     />
                   </button>
                 </div>
               </div>
 
               <div
-                className="flex items-center justify-between p-4 rounded-xl transition-colors"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
                 style={{
                   border: `2px solid ${draft.showExistingOnly ? "var(--accent-amber)" : "var(--border-strong)"}`,
                   background: draft.showExistingOnly ? "var(--accent-amber-dim)" : "var(--bg-card)",
                 }}
               >
-                <div>
-                  <label htmlFor="toggle-existing" className="text-base font-bold block cursor-pointer" style={{ color: "var(--text-primary)" }}>
+                <div className="flex items-center gap-2">
+                  <Archive className="w-3.5 h-3.5 shrink-0" style={{ color: draft.showExistingOnly ? "var(--accent-amber)" : "var(--text-muted)" }} aria-hidden="true" />
+                  <label htmlFor="toggle-existing" className="text-sm font-semibold cursor-pointer" style={{ color: "var(--text-primary)" }}>
                     Existing Tests Only
                   </label>
-                  <span className="text-sm mt-0.5 block" style={{ color: "var(--text-secondary)" }}>
-                    Show only phase 1 & 2 tests
-                  </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold" aria-hidden="true" style={{ color: draft.showExistingOnly ? "var(--accent-amber)" : "var(--text-muted)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold" aria-hidden="true" style={{ color: draft.showExistingOnly ? "var(--accent-amber)" : "var(--text-muted)" }}>
                     {draft.showExistingOnly ? "ON" : "OFF"}
                   </span>
                   <button
@@ -455,7 +435,7 @@ function AccessibleFilterPanel({
                     role="switch"
                     aria-checked={draft.showExistingOnly}
                     onClick={() => setDraft((p) => ({ ...p, showExistingOnly: !p.showExistingOnly, showNewOnly: !p.showExistingOnly ? false : p.showNewOnly }))}
-                    className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors"
+                    className="relative inline-flex h-6 w-10 items-center rounded-full transition-colors shrink-0"
                     style={{
                       backgroundColor: draft.showExistingOnly ? "var(--accent-amber)" : "var(--border-default)",
                       border: "2px solid transparent",
@@ -466,8 +446,8 @@ function AccessibleFilterPanel({
                   >
                     <span className="sr-only">Toggle Existing Tests Only</span>
                     <span
-                      className="inline-block h-5 w-5 rounded-full bg-white transition-transform duration-200"
-                      style={{ transform: draft.showExistingOnly ? "translateX(22px)" : "translateX(2px)" }}
+                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200"
+                      style={{ transform: draft.showExistingOnly ? "translateX(18px)" : "translateX(2px)" }}
                     />
                   </button>
                 </div>
@@ -477,12 +457,12 @@ function AccessibleFilterPanel({
         </div>
 
         <footer
-          className="shrink-0 px-6 py-4 flex items-center justify-between gap-4"
+          className="shrink-0 px-5 py-3 flex items-center justify-between gap-3"
           style={{ borderTop: "1px solid var(--border-strong)", background: "var(--bg-elevated)" }}
         >
           <button
             onClick={onReset}
-            className="px-5 py-3 text-sm font-bold rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-bold rounded-lg transition-colors"
             style={{
               color: "var(--text-primary)",
               background: "transparent",
@@ -498,7 +478,7 @@ function AccessibleFilterPanel({
             ref={applyButtonRef}
             onClick={onApply}
             disabled={!hasDraftChanges}
-            className="flex-1 flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               backgroundColor: hasDraftChanges ? "var(--accent-cyan)" : "var(--bg-hover, var(--bg-elevated))",
               color: hasDraftChanges ? "#000" : "var(--text-muted)",
