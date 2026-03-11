@@ -387,233 +387,236 @@ export default function TestCasesPage() {
 
   return (
     <Layout>
-      <div className="flex relative">
-        <div className={`space-y-6 transition-all duration-300 ${filterOpen ? "pr-4" : ""}`} style={{ flex: filterOpen ? "1 1 0" : "1 1 100%", minWidth: 0 }}>
-          <div className="page-title-bar">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }} data-testid="text-testcases-title">
-                <FlaskConical className="h-6 w-6" style={{ color: "var(--accent-violet)" }} />
-                Test Cases
-              </h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                Complete test suite coverage for CareOrbit platform
-              </p>
-            </div>
-            <button
-              onClick={filterOpen ? () => setFilterOpen(false) : openFilters}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shrink-0"
-              style={{
-                background: filterOpen ? "var(--accent-cyan)" : activeFilterCount > 0 ? "var(--accent-cyan-dim)" : "var(--bg-elevated)",
-                border: `1px solid ${filterOpen ? "var(--accent-cyan)" : activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--border-default)"}`,
-                color: filterOpen ? "#fff" : activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--text-secondary)",
-              }}
-              data-testid="button-open-filters"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && !filterOpen && (
-                <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent-cyan)", color: "#fff" }}>
-                  {activeFilterCount}
-                </span>
-              )}
-              {filterOpen ? <X className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            </button>
+      <div className="space-y-6">
+        <div className="page-title-bar">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }} data-testid="text-testcases-title">
+              <FlaskConical className="h-6 w-6" style={{ color: "var(--accent-violet)" }} />
+              Test Cases
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              Complete test suite coverage for CareOrbit platform
+            </p>
           </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="page-card p-5">
-                  <Skeleton className="h-4 w-24 mb-3" />
-                  <Skeleton className="h-8 w-16" />
-                </div>
-              ))}
-            </div>
-          ) : summary ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="page-card p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Tests</span>
-                  <ListChecks className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
-                </div>
-                <div className="font-mono text-2xl font-bold" style={{ color: "var(--text-primary)" }} data-testid="text-total-tests">{summary.total}</div>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Across all categories</p>
-              </div>
-              <div className="page-card p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>New Tests</span>
-                  <Sparkles className="h-4 w-4" style={{ color: "var(--accent-emerald)" }} />
-                </div>
-                <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-emerald)" }} data-testid="text-new-tests">{summary.new_count}</div>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Prompt 3 test cases</p>
-              </div>
-              <div className="page-card p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Existing Tests</span>
-                  <Archive className="h-4 w-4" style={{ color: "var(--accent-amber)" }} />
-                </div>
-                <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{summary.existing_count}</div>
-                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Phase 1 & 2 coverage</p>
-              </div>
-            </div>
-          ) : null}
-
-          {activeChips.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active:</span>
-              {activeChips.map((chip, i) => (
-                <button
-                  key={i}
-                  onClick={() => removeChip(chip.key, chip.resetValue)}
-                  className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition-colors group"
-                  style={{ background: "var(--accent-cyan-dim)", color: "var(--accent-cyan)" }}
-                  data-testid={`chip-filter-${i}`}
-                >
-                  {chip.label}
-                  <X className="h-3 w-3 opacity-60 group-hover:opacity-100" />
-                </button>
-              ))}
-              <button onClick={clearApplied} className="text-xs underline ml-1" style={{ color: "var(--accent-rose)" }} data-testid="button-clear-all-chips">
-                Clear all
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }} data-testid="text-filtered-count">
-              Showing {filtered.length} of {summary?.total || 0} tests
-            </span>
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2" data-testid="test-case-list">
-              {filtered.map((tc, idx) => {
-                const catColor = CATEGORY_COLORS[tc.category] || CATEGORY_COLORS.other;
-                return (
-                  <div
-                    key={`${tc.file_path}-${tc.name}-${idx}`}
-                    className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3.5 rounded-xl transition-all duration-200"
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.08)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
-                    data-testid={`row-test-${idx}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }} data-testid={`text-test-name-${idx}`}>
-                          {formatTestName(tc.name)}
-                        </span>
-                        {tc.is_new && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "var(--accent-emerald-dim)", color: "var(--accent-emerald)" }} data-testid={`badge-new-${idx}`}>
-                            NEW
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs mt-0.5 truncate font-mono" style={{ color: "var(--text-muted)" }} data-testid={`text-file-path-${idx}`}>
-                        {tc.file_path}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="outline" className="text-xs" style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)" }} data-testid={`badge-feature-${idx}`}>
-                        {tc.feature_area}
-                      </Badge>
-                      <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 rounded-md" style={{ background: catColor.bg, color: catColor.text }} data-testid={`badge-category-${idx}`}>
-                        {formatCategory(tc.category)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              {filtered.length === 0 && (
-                <div className="text-center py-12 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-                  <FlaskConical className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
-                  <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-results">No tests match your filters</p>
-                  <button onClick={clearApplied} className="text-xs mt-2 underline" style={{ color: "var(--accent-cyan)" }} data-testid="button-clear-filters-empty">
-                    Clear all filters
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          <button
+            onClick={openFilters}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shrink-0"
+            style={{
+              background: activeFilterCount > 0 ? "var(--accent-cyan-dim)" : "var(--bg-elevated)",
+              border: `1px solid ${activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--border-default)"}`,
+              color: activeFilterCount > 0 ? "var(--accent-cyan)" : "var(--text-secondary)",
+            }}
+            data-testid="button-open-filters"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent-cyan)", color: "#fff" }}>
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div
-          className="shrink-0 transition-all duration-300 overflow-hidden"
-          style={{
-            width: filterOpen ? "min(460px, 45vw)" : 0,
-            opacity: filterOpen ? 1 : 0,
-          }}
-          data-testid="filter-panel"
-        >
-          <div
-            className="rounded-2xl flex flex-col sticky top-2"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-subtle)",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-              maxHeight: "calc(100vh - 140px)",
-            }}
-          >
-            <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-cyan-dim)" }}>
-                  <SlidersHorizontal className="h-3.5 w-3.5" style={{ color: "var(--accent-cyan)" }} />
-                </div>
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Filters</span>
-                {draftFilterCount > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--accent-cyan)", color: "#fff" }} data-testid="badge-active-filters">
-                    {draftFilterCount}
-                  </span>
-                )}
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="page-card p-5">
+                <Skeleton className="h-4 w-24 mb-3" />
+                <Skeleton className="h-8 w-16" />
               </div>
-              <div className="flex items-center gap-2">
-                {draftFilterCount > 0 && (
-                  <button onClick={clearDraft} className="flex items-center gap-1 text-[11px] font-medium rounded-lg px-2.5 py-1 transition-colors" style={{ color: "var(--accent-rose)", background: "var(--accent-rose-dim)" }} data-testid="button-clear-filters">
-                    <X className="h-3 w-3" />
-                    Reset
-                  </button>
-                )}
-                <button onClick={() => setFilterOpen(false)} className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:opacity-80" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }} data-testid="button-close-filters">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+            ))}
+          </div>
+        ) : summary ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="page-card p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Tests</span>
+                <ListChecks className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
               </div>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--text-primary)" }} data-testid="text-total-tests">{summary.total}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Across all categories</p>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <FilterPanelContent
-                draft={draftFilters}
-                setDraft={setDraftFilters}
-                categories={categories}
-                featureAreas={featureAreas}
-                summary={summary}
-              />
+            <div className="page-card p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>New Tests</span>
+                <Sparkles className="h-4 w-4" style={{ color: "var(--accent-emerald)" }} />
+              </div>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-emerald)" }} data-testid="text-new-tests">{summary.new_count}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Prompt 3 test cases</p>
             </div>
-
-            <div className="shrink-0 px-5 py-3 flex items-center justify-between" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", borderRadius: "0 0 16px 16px" }}>
-              <button onClick={clearDraft} className="text-xs font-medium px-3 py-2 rounded-lg transition-colors" style={{ color: "var(--text-secondary)", background: "var(--bg-surface)" }} data-testid="button-clear-filters-bottom">
-                Clear All
-              </button>
-              <button
-                onClick={applyFilters}
-                className="flex items-center gap-1.5 text-xs font-semibold px-5 py-2.5 rounded-lg transition-all duration-200"
-                style={{
-                  background: hasDraftChanges ? "var(--accent-cyan)" : "var(--accent-cyan-dim)",
-                  color: hasDraftChanges ? "#fff" : "var(--accent-cyan)",
-                  boxShadow: hasDraftChanges ? "0 2px 8px rgba(0, 212, 255, 0.3)" : "none",
-                }}
-                data-testid="button-apply-filters"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Apply Filters
-              </button>
+            <div className="page-card p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Existing Tests</span>
+                <Archive className="h-4 w-4" style={{ color: "var(--accent-amber)" }} />
+              </div>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{summary.existing_count}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Phase 1 & 2 coverage</p>
             </div>
           </div>
+        ) : null}
+
+        {activeChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active:</span>
+            {activeChips.map((chip, i) => (
+              <button
+                key={i}
+                onClick={() => removeChip(chip.key, chip.resetValue)}
+                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full transition-colors group"
+                style={{ background: "var(--accent-cyan-dim)", color: "var(--accent-cyan)" }}
+                data-testid={`chip-filter-${i}`}
+              >
+                {chip.label}
+                <X className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+              </button>
+            ))}
+            <button onClick={clearApplied} className="text-xs underline ml-1" style={{ color: "var(--accent-rose)" }} data-testid="button-clear-all-chips">
+              Clear all
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }} data-testid="text-filtered-count">
+            Showing {filtered.length} of {summary?.total || 0} tests
+          </span>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2" data-testid="test-case-list">
+            {filtered.map((tc, idx) => {
+              const catColor = CATEGORY_COLORS[tc.category] || CATEGORY_COLORS.other;
+              return (
+                <div
+                  key={`${tc.file_path}-${tc.name}-${idx}`}
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3.5 rounded-xl transition-all duration-200"
+                  style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
+                  data-testid={`row-test-${idx}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }} data-testid={`text-test-name-${idx}`}>
+                        {formatTestName(tc.name)}
+                      </span>
+                      {tc.is_new && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "var(--accent-emerald-dim)", color: "var(--accent-emerald)" }} data-testid={`badge-new-${idx}`}>
+                          NEW
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5 truncate font-mono" style={{ color: "var(--text-muted)" }} data-testid={`text-file-path-${idx}`}>
+                      {tc.file_path}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="outline" className="text-xs" style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)" }} data-testid={`badge-feature-${idx}`}>
+                      {tc.feature_area}
+                    </Badge>
+                    <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 rounded-md" style={{ background: catColor.bg, color: catColor.text }} data-testid={`badge-category-${idx}`}>
+                      {formatCategory(tc.category)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="text-center py-12 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+                <FlaskConical className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-results">No tests match your filters</p>
+                <button onClick={clearApplied} className="text-xs mt-2 underline" style={{ color: "var(--accent-cyan)" }} data-testid="button-clear-filters-empty">
+                  Clear all filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          background: "rgba(0,0,0,0.5)",
+          backdropFilter: "blur(2px)",
+          opacity: filterOpen ? 1 : 0,
+          pointerEvents: filterOpen ? "auto" : "none",
+        }}
+        onClick={() => setFilterOpen(false)}
+        data-testid="filter-overlay"
+      />
+
+      <div
+        className="fixed top-0 right-0 z-50 h-full flex flex-col transition-transform duration-300 ease-out"
+        style={{
+          width: "min(480px, 50vw)",
+          transform: filterOpen ? "translateX(0)" : "translateX(100%)",
+          background: "var(--bg-surface)",
+          borderLeft: "1px solid var(--border-subtle)",
+          boxShadow: filterOpen ? "-8px 0 40px rgba(0,0,0,0.3)" : "none",
+        }}
+        data-testid="filter-panel"
+      >
+        <div className="flex items-center justify-between px-6 h-[60px] shrink-0" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-cyan-dim)" }}>
+              <SlidersHorizontal className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+            </div>
+            <span className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Filters</span>
+            {draftFilterCount > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--accent-cyan)", color: "#fff" }} data-testid="badge-active-filters">
+                {draftFilterCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {draftFilterCount > 0 && (
+              <button onClick={clearDraft} className="flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors" style={{ color: "var(--accent-rose)", background: "var(--accent-rose-dim)" }} data-testid="button-clear-filters">
+                <X className="h-3 w-3" />
+                Reset
+              </button>
+            )}
+            <button onClick={() => setFilterOpen(false)} className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }} data-testid="button-close-filters">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <FilterPanelContent
+            draft={draftFilters}
+            setDraft={setDraftFilters}
+            categories={categories}
+            featureAreas={featureAreas}
+            summary={summary}
+          />
+        </div>
+
+        <div className="shrink-0 px-6 py-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+          <button onClick={clearDraft} className="text-xs font-medium px-3 py-2 rounded-lg transition-colors" style={{ color: "var(--text-secondary)", background: "var(--bg-surface)" }} data-testid="button-clear-filters-bottom">
+            Clear All
+          </button>
+          <button
+            onClick={applyFilters}
+            className="flex items-center gap-1.5 text-xs font-semibold px-6 py-2.5 rounded-lg transition-all duration-200"
+            style={{
+              background: hasDraftChanges ? "var(--accent-cyan)" : "var(--accent-cyan-dim)",
+              color: hasDraftChanges ? "#fff" : "var(--accent-cyan)",
+              boxShadow: hasDraftChanges ? "0 2px 8px rgba(0, 212, 255, 0.3)" : "none",
+            }}
+            data-testid="button-apply-filters"
+          >
+            <Check className="h-3.5 w-3.5" />
+            Apply Filters
+          </button>
         </div>
       </div>
     </Layout>
