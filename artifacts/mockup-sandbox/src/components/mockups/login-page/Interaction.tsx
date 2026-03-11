@@ -137,9 +137,9 @@ export function Interaction() {
               <div 
                 key={i} 
                 className="feature-card p-4 rounded-xl flex items-start gap-4 cursor-default"
-                style={{ animationDelay: \`\${i * 0.1}s\` }}
+                style={{ animationDelay: `${i * 0.1}s` }}
               >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: \`color-mix(in srgb, \${feature.color} 20%, transparent)\` }}>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `color-mix(in srgb, ${feature.color} 20%, transparent)` }}>
                   <feature.icon className="h-5 w-5" style={{ color: feature.color }} />
                 </div>
                 <div>
