@@ -86,7 +86,7 @@ export function AppSidebar() {
       <SidebarHeader className="h-[72px] flex items-center px-5 sidebar-header-gradient" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
         <Link href="/" className="flex items-center gap-2.5 group" data-testid="link-home">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: "linear-gradient(135deg, var(--accent-cyan), color-mix(in srgb, var(--accent-cyan) 80%, var(--accent-violet)))",
               boxShadow: "0 2px 8px rgba(0, 212, 255, 0.25)",
