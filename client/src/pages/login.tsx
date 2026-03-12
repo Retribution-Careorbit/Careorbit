@@ -56,9 +56,14 @@ export default function LoginPage() {
         }
         .login-particle {
           position: absolute;
-          background: rgba(255, 255, 255, 0.1);
           border-radius: 50%;
           animation: float-particle 10s infinite linear;
+        }
+        :root .login-particle {
+          background: rgba(0, 0, 0, 0.06);
+        }
+        .dark .login-particle {
+          background: rgba(255, 255, 255, 0.1);
         }
         .login-feature-card {
           transition: all 0.3s ease;
@@ -107,9 +112,15 @@ export default function LoginPage() {
           background: var(--accent-cyan);
           border-color: var(--accent-cyan);
         }
+        .login-left-panel {
+          background: var(--bg-surface);
+        }
+        .dark .login-left-panel {
+          background: var(--bg-base);
+        }
       `}} />
 
-      <div className="hidden lg:flex w-[520px] flex-col justify-between p-12 relative border-r border-[var(--border-subtle)] z-10 overflow-hidden">
+      <div className="hidden lg:flex w-[520px] flex-col justify-between p-12 relative border-r border-[var(--border-subtle)] z-10 overflow-hidden login-left-panel">
         {Array.from({ length: 20 }).map((_, i) => (
           <div key={i} className="login-particle" style={{
             width: Math.random() * 6 + 2 + 'px',
@@ -126,14 +137,14 @@ export default function LoginPage() {
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--accent-cyan)] shadow-[0_0_20px_var(--accent-cyan-dim)]">
               <Heart className="h-6 w-6 text-white" />
             </div>
-            <span className="text-3xl font-mono font-bold text-white tracking-tight">CareOrbit</span>
+            <span className="text-3xl font-mono font-bold text-[var(--text-primary)] tracking-tight">CareOrbit</span>
           </div>
           <p className="text-[var(--text-secondary)] font-medium tracking-wide uppercase text-sm">HEALTHCARE AI PLATFORM</p>
         </div>
 
         <div className="relative z-10 space-y-8">
           <div>
-            <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+            <h2 className="text-4xl font-bold text-[var(--text-primary)] leading-tight mb-4">
               Your health,<br />intelligently managed.
             </h2>
             <p className="text-[var(--text-secondary)] text-lg leading-relaxed">
@@ -156,7 +167,7 @@ export default function LoginPage() {
                   <feature.icon className="h-5 w-5" style={{ color: feature.color }} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
+                  <h3 className="font-semibold text-[var(--text-primary)] mb-1">{feature.title}</h3>
                   <p className="text-sm text-[var(--text-muted)]">{feature.desc}</p>
                 </div>
               </div>
@@ -170,18 +181,18 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-6 relative z-10 bg-[var(--bg-surface)]">
+      <div className="flex-1 flex items-center justify-center p-6 relative z-10 bg-[var(--bg-base)]">
         <div className="w-full max-w-[440px]">
           <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--accent-cyan)] shadow-[0_0_20px_var(--accent-cyan-dim)]">
               <Heart className="h-6 w-6 text-white" />
             </div>
-            <span className="text-3xl font-mono font-bold text-white tracking-tight">CareOrbit</span>
+            <span className="text-3xl font-mono font-bold text-[var(--text-primary)] tracking-tight">CareOrbit</span>
           </div>
 
           <div className="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-subtle)] shadow-2xl">
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-white mb-2" data-testid="text-welcome">Welcome back</h1>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2" data-testid="text-welcome">Welcome back</h1>
               <p className="text-[var(--text-secondary)]">Sign in to your healthcare dashboard</p>
             </div>
 
@@ -195,7 +206,7 @@ export default function LoginPage() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full h-12 bg-transparent px-4 text-white placeholder-[var(--text-muted)] outline-none"
+                    className="w-full h-12 bg-transparent px-4 text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
                     required
                   />
                   {isEmailValid && (
@@ -215,7 +226,7 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-12 bg-transparent pl-4 pr-24 text-white placeholder-[var(--text-muted)] outline-none"
+                    className="w-full h-12 bg-transparent pl-4 pr-24 text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none"
                     required
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -225,7 +236,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="p-1.5 rounded-md hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors"
+                      className="p-1.5 rounded-md hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                       data-testid="button-toggle-password"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
@@ -256,9 +267,9 @@ export default function LoginPage() {
                   >
                     {rememberMe && <Check className="w-3.5 h-3.5 text-white" />}
                   </div>
-                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-white transition-colors">Remember me</span>
+                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">Remember me</span>
                 </button>
-                <a href="#" className="text-sm text-[var(--accent-cyan)] hover:text-white transition-colors" data-testid="link-forgot-password">Forgot password?</a>
+                <a href="#" className="text-sm text-[var(--accent-cyan)] hover:text-[var(--text-primary)] transition-colors" data-testid="link-forgot-password">Forgot password?</a>
               </div>
 
               <button
@@ -289,7 +300,7 @@ export default function LoginPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-white" data-testid="button-google-login">
+                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-google-login">
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -298,7 +309,7 @@ export default function LoginPage() {
                   </svg>
                   Google
                 </button>
-                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-white" data-testid="button-apple-login">
+                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-apple-login">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.43-2.09-3.603-2.324-4.335-2.376-2.053-.169-3.924 1.253-4.665 1.253zM15.504 4.542c.83-1.006 1.385-2.399 1.233-3.793-1.144.047-2.585.761-3.447 1.761-.692.805-1.353 2.227-1.171 3.603 1.28.1 2.553-.665 3.385-1.571z"/>
                   </svg>
@@ -310,7 +321,7 @@ export default function LoginPage() {
 
           <p className="text-center mt-6 text-[var(--text-secondary)]">
             Don't have an account?{' '}
-            <Link href="/register" className="text-[var(--accent-cyan)] font-medium hover:text-white transition-colors" data-testid="link-register">
+            <Link href="/register" className="text-[var(--accent-cyan)] font-medium hover:text-[var(--text-primary)] transition-colors" data-testid="link-register">
               Register
             </Link>
           </p>
