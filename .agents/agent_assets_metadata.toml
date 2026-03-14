@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Xdzrpy0QEhafTom43LrJf"
+uri = "file://careorbit_login_architecture.png"
+type = "image"
+title = "CareOrbit Login - Architecture & User Flow Diagram"
