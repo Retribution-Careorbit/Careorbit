@@ -98,5 +98,20 @@ Key architectural patterns include:
 - Theme toggle: `button-theme-toggle` (sidebar), `button-theme` (settings)
 - SOS button: `button-sos` (fixed position on all authenticated pages)
 
+## Deployment Infrastructure (Implemented)
+- **Config (T002):** `config.py` loads secrets from Azure Key Vault (via `AZURE_KEYVAULT_URI` env var) with fallback to env vars. Maps all 17 PRD secrets via `_KEYVAULT_SECRET_MAP`.
+- **Azure Services (T003):** All 7 service wrappers (`azure_openai.py`, `azure_vision.py`, `azure_language.py`, `azure_search.py`, `azure_translator.py`, `azure_email.py`, `azure_blob.py`) now use real Azure SDKs with lazy client initialization and graceful degradation (raise NotImplementedError when credentials not present).
+- **Database (T004):** `db/session.py` now supports async PostgreSQL via SQLAlchemy async engine (`AsyncPgSession`) with connection pooling, SSL for Azure PG. Falls back to `InMemorySession` when no PostgreSQL URL configured. Alembic initialized for migrations.
+- **Security (T005):** `SecurityHeadersMiddleware` adds HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy to all responses. DPDP compliance endpoints: `DELETE /api/auth/delete-account`, `GET /api/auth/export-data`. Enhanced `/health` endpoint returns `environment` and `database` status. Production JSON logging via `python-json-logger`.
+- **CI/CD (T001):** `.github/workflows/deploy.yml` with multi-environment deployment (dev/release/production with staging slot swap). `client/staticwebapp.config.json` for Azure SWA. CI workflow updated to exclude `deployment` marker tests.
+
+## Test Suite
+- **522 passed**, 3 skipped, 1 xfailed — full test suite intact
+- **136 deployment infra tests** across 6 files: `test_config_keyvault.py`, `test_azure_services_real.py`, `test_database_production.py`, `test_api_health_production.py`, `test_security_headers.py`, `test_deploy_readiness.py`
+- Sidebar nav testids: `nav-*` prefix (nav-dashboard, nav-medications, nav-orbit-score, nav-appointments, nav-health-insights, etc.)
+- Sign-out: `button-sign-out-sidebar` (sidebar), `button-sign-out` (settings)
+- Theme toggle: `button-theme-toggle` (sidebar), `button-theme` (settings)
+- SOS button: `button-sos` (fixed position on all authenticated pages)
+
 ## External Dependencies
-Azure Vision, Azure OpenAI (GPT-4o), Azure Translator, Azure Language, Azure Blob Storage, Azure Email, Azure AI Search, Azure KeyVault — all currently stubbed. pgcrypto for PII encryption, python-jose for JWT, bcrypt for passwords.
+Azure Vision, Azure OpenAI (GPT-4o), Azure Translator, Azure Language, Azure Blob Storage, Azure Email, Azure AI Search, Azure KeyVault — real SDK wrappers implemented with graceful degradation. pgcrypto for PII encryption, python-jose for JWT, bcrypt for passwords. SQLAlchemy async + asyncpg for PostgreSQL. Alembic for migrations.

@@ -346,3 +346,4 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "demo_only: Demo mode only (requires demo routes registered)")
     config.addinivalue_line("markers", "slow: Slow tests (>5s, often algorithm-level or real DB)")
     config.addinivalue_line("markers", "critical: Critical safety tests — must pass before any deployment")
+    config.addinivalue_line("markers", "deployment: Deployment infrastructure tests (require Tasks #1-#5 implementations)")

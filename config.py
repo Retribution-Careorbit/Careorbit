@@ -1,15 +1,88 @@
 import os
+import logging
+
+logger = logging.getLogger("careorbit.config")
+
+_KEYVAULT_SECRET_MAP = {
+    "DATABASE-URL": "DATABASE_URL",
+    "AZURE-OPENAI-ENDPOINT": "AZURE_OPENAI_ENDPOINT",
+    "AZURE-OPENAI-KEY": "AZURE_OPENAI_KEY",
+    "AZURE-DI-ENDPOINT": "AZURE_DI_ENDPOINT",
+    "AZURE-DI-KEY": "AZURE_DI_KEY",
+    "AZURE-LANGUAGE-ENDPOINT": "AZURE_LANGUAGE_ENDPOINT",
+    "AZURE-LANGUAGE-KEY": "AZURE_LANGUAGE_KEY",
+    "AZURE-SEARCH-ENDPOINT": "AZURE_SEARCH_ENDPOINT",
+    "AZURE-SEARCH-KEY": "AZURE_SEARCH_KEY",
+    "AZURE-SEARCH-INDEX": "AZURE_SEARCH_INDEX",
+    "AZURE-TRANSLATOR-ENDPOINT": "AZURE_TRANSLATOR_ENDPOINT",
+    "AZURE-TRANSLATOR-KEY": "AZURE_TRANSLATOR_KEY",
+    "AZURE-COMM-CONNECTION-STRING": "AZURE_COMM_CONNECTION_STRING",
+    "AZURE-BLOB-CONNECTION-STRING": "AZURE_BLOB_CONNECTION_STRING",
+    "APPINSIGHTS-CONNECTION-STRING": "APPINSIGHTS_CONNECTION_STRING",
+    "JWT-SECRET-KEY": "JWT_SECRET_KEY",
+    "PG-ENCRYPTION-KEY": "PG_ENCRYPTION_KEY",
+}
+
+
+def _load_keyvault_secrets() -> dict:
+    uri = os.environ.get("AZURE_KEYVAULT_URI")
+    if not uri:
+        return {}
+
+    try:
+        from azure.identity import DefaultAzureCredential
+        from azure.keyvault.secrets import SecretClient
+
+        credential = DefaultAzureCredential()
+        client = SecretClient(vault_url=uri, credential=credential)
+        secrets = {}
+        for kv_name, env_name in _KEYVAULT_SECRET_MAP.items():
+            try:
+                secret = client.get_secret(kv_name)
+                secrets[env_name] = secret.value
+                logger.info(f"Loaded secret {kv_name} from Key Vault")
+            except Exception as e:
+                logger.debug(f"Secret {kv_name} not found in Key Vault: {e}")
+        return secrets
+    except ImportError:
+        logger.warning("azure-identity/azure-keyvault-secrets not installed, skipping Key Vault")
+        return {}
+    except Exception as e:
+        logger.warning(f"Key Vault connection failed, falling back to env vars: {e}")
+        return {}
 
 
 class Settings:
-    JWT_SECRET: str = os.environ.get("JWT_SECRET", "careorbit-dev-secret-key-change-in-production")
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRY_DAYS: int = 30
-    DATABASE_URL: str = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./careorbit.db")
-    ENCRYPTION_KEY: str = os.environ.get("ENCRYPTION_KEY", "careorbit-encryption-key-32chars!")
-    RATE_LIMIT_MAX_FAILURES: int = 5
-    RATE_LIMIT_COOLDOWN_SECONDS: int = 900
+    def __init__(self):
+        kv_secrets = _load_keyvault_secrets()
+
+        def _get(key: str, default: str = "") -> str:
+            return kv_secrets.get(key) or os.environ.get(key, default)
+
+        self.JWT_SECRET: str = _get("JWT_SECRET_KEY") or _get("JWT_SECRET", "careorbit-dev-secret-key-change-in-production")
+        self.JWT_ALGORITHM: str = "HS256"
+        self.JWT_EXPIRY_MINUTES: int = int(_get("JWT_EXPIRY_MINUTES", "15") or "15")
+        self.REFRESH_TOKEN_EXPIRY_DAYS: int = int(_get("REFRESH_TOKEN_EXPIRY_DAYS", "30") or "30")
+        self.DATABASE_URL: str = _get("DATABASE_URL", "sqlite+aiosqlite:///./careorbit.db")
+        self.ENCRYPTION_KEY: str = _get("PG_ENCRYPTION_KEY") or _get("ENCRYPTION_KEY", "careorbit-encryption-key-32chars!")
+        self.RATE_LIMIT_MAX_FAILURES: int = 5
+        self.RATE_LIMIT_COOLDOWN_SECONDS: int = 900
+        self.ENVIRONMENT: str = _get("ENVIRONMENT", "development")
+
+        self.AZURE_OPENAI_ENDPOINT: str = _get("AZURE_OPENAI_ENDPOINT", "")
+        self.AZURE_OPENAI_KEY: str = _get("AZURE_OPENAI_KEY", "")
+        self.AZURE_DI_ENDPOINT: str = _get("AZURE_DI_ENDPOINT", "")
+        self.AZURE_DI_KEY: str = _get("AZURE_DI_KEY", "")
+        self.AZURE_LANGUAGE_ENDPOINT: str = _get("AZURE_LANGUAGE_ENDPOINT", "")
+        self.AZURE_LANGUAGE_KEY: str = _get("AZURE_LANGUAGE_KEY", "")
+        self.AZURE_SEARCH_ENDPOINT: str = _get("AZURE_SEARCH_ENDPOINT", "")
+        self.AZURE_SEARCH_KEY: str = _get("AZURE_SEARCH_KEY", "")
+        self.AZURE_SEARCH_INDEX: str = _get("AZURE_SEARCH_INDEX", "careorbit-medical-index")
+        self.AZURE_TRANSLATOR_ENDPOINT: str = _get("AZURE_TRANSLATOR_ENDPOINT", "")
+        self.AZURE_TRANSLATOR_KEY: str = _get("AZURE_TRANSLATOR_KEY", "")
+        self.AZURE_COMM_CONNECTION_STRING: str = _get("AZURE_COMM_CONNECTION_STRING", "")
+        self.AZURE_BLOB_CONNECTION_STRING: str = _get("AZURE_BLOB_CONNECTION_STRING", "")
+        self.APPINSIGHTS_CONNECTION_STRING: str = _get("APPINSIGHTS_CONNECTION_STRING", "")
 
 
 _settings = None

@@ -87,6 +87,28 @@ COVERAGE_MATRIX = {
         "functional": ["test_api_caregivers.py"],
         "security": ["test_rbac_permission_levels.py", "test_cross_patient_rbac.py"],
     },
+    "INFRA-01: Azure Key Vault Config": {
+        "unit": ["test_config_keyvault.py"],
+    },
+    "INFRA-02: Real Azure Service SDKs": {
+        "unit": ["test_azure_services_real.py", "test_azure_services.py"],
+    },
+    "INFRA-03: Production Database & Migration": {
+        "integration": ["test_database_production.py"],
+    },
+    "INFRA-04: Health Endpoint & Monitoring": {
+        "functional": ["test_api_health.py", "test_api_health_production.py"],
+    },
+    "INFRA-05: Security Hardening": {
+        "security": ["test_security_headers.py"],
+    },
+    "INFRA-06: Deploy Readiness & CI/CD": {
+        "functional": ["test_deploy_readiness.py"],
+    },
+    "INFRA-07: DPDP Compliance": {
+        "security": ["test_security_headers.py"],
+        "functional": ["test_deploy_readiness.py"],
+    },
 }
 
 

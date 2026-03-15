@@ -1,8 +1,23 @@
 import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from api.middleware.security import SecurityHeadersMiddleware
+
+environment = os.environ.get("ENVIRONMENT", "development")
+
+if environment == "production":
+    from pythonjsonlogger import json as json_log
+    handler = logging.StreamHandler()
+    handler.setFormatter(json_log.JsonFormatter(
+        fmt="%(asctime)s %(name)s %(levelname)s %(message)s"
+    ))
+    logging.root.handlers = [handler]
+    logging.root.setLevel(logging.INFO)
 
 app = FastAPI(title="CareOrbit", version="0.3.0")
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 _default_origins = [
     "http://localhost:5000",
@@ -16,9 +31,16 @@ _extra = os.environ.get("CORS_ORIGINS", "")
 if _extra:
     _default_origins.extend([o.strip() for o in _extra.split(",") if o.strip()])
 
+if environment == "production":
+    allowed_origins = [o for o in _default_origins if "localhost" not in o and "127.0.0.1" not in o]
+    if not allowed_origins:
+        allowed_origins = _default_origins
+else:
+    allowed_origins = _default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_default_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +58,7 @@ from api.routes.subscriptions import router as subscriptions_router
 from api.routes.chat import router as chat_router
 from api.routes.tests import router as tests_router
 from api.routes.orbit import router as orbit_router
+from api.routes.dpdp import router as dpdp_router
 
 app.include_router(auth_router)
 app.include_router(health_router)
@@ -49,6 +72,7 @@ app.include_router(subscriptions_router)
 app.include_router(chat_router)
 app.include_router(tests_router)
 app.include_router(orbit_router)
+app.include_router(dpdp_router)
 
 if __name__ == "__main__":
     import uvicorn

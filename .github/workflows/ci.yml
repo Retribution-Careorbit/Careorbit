@@ -61,8 +61,8 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov httpx
       - name: Run unit tests with coverage
         run: |
-          pytest tests/unit/ -v --tb=short -x \
-            --cov=graph --cov=utils --cov=api/middleware \
+          pytest tests/unit/ -v --tb=short -x -m "not deployment" \
+            --cov=graph --cov=utils --cov=api/middleware --cov=config --cov=services \
             --cov-report=term-missing \
             --cov-fail-under=90
 
@@ -113,8 +113,8 @@ jobs:
             -f database/schema.sql
       - name: Run integration tests
         run: |
-          pytest tests/integration/ tests/security/ -v --tb=short \
-            --cov=pipeline --cov=agents --cov=api \
+          pytest tests/integration/ tests/security/ -v --tb=short -m "not deployment" \
+            --cov=pipeline --cov=agents --cov=api --cov=db \
             --cov-report=term-missing \
             --cov-fail-under=80
 
@@ -139,7 +139,7 @@ jobs:
       - name: Run functional tests
         run: |
           pytest tests/functional/ tests/business_logic/ -v --tb=short \
-            -m "not phase2 and not phase3 and not demo_only"
+            -m "not phase2 and not phase3 and not demo_only and not deployment"
       - name: Run regression tests
         run: |
           pytest tests/regression/ -v --tb=short

@@ -1,5 +1,98 @@
+import os
+import logging
 from contextlib import asynccontextmanager
 from collections import defaultdict
+
+logger = logging.getLogger("careorbit.db.session")
+
+_engine = None
+_async_session_factory = None
+
+
+def _is_postgres_url(url: str) -> bool:
+    return url.startswith("postgresql")
+
+
+def _get_async_engine():
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    from config import get_settings
+    settings = get_settings()
+    db_url = settings.DATABASE_URL
+
+    if not _is_postgres_url(db_url):
+        return None
+
+    try:
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        connect_args = {}
+        if ".postgres.database.azure.com" in db_url:
+            connect_args["ssl"] = "require"
+
+        _engine = create_async_engine(
+            db_url,
+            pool_size=5,
+            max_overflow=10,
+            pool_timeout=30,
+            pool_recycle=1800,
+            pool_pre_ping=True,
+            connect_args=connect_args,
+        )
+        logger.info(f"Async PostgreSQL engine created")
+        return _engine
+    except Exception as e:
+        logger.warning(f"Failed to create async engine: {e}")
+        return None
+
+
+def _get_session_factory():
+    global _async_session_factory
+    if _async_session_factory is not None:
+        return _async_session_factory
+
+    engine = _get_async_engine()
+    if engine is None:
+        return None
+
+    try:
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+        _async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        return _async_session_factory
+    except Exception as e:
+        logger.warning(f"Failed to create session factory: {e}")
+        return None
+
+
+class AsyncPgSession:
+    def __init__(self, sa_session):
+        self._session = sa_session
+
+    async def execute(self, query, params=None):
+        from sqlalchemy import text
+        stmt = text(query) if isinstance(query, str) else query
+        if params:
+            result = await self._session.execute(stmt, params)
+        else:
+            result = await self._session.execute(stmt)
+        return result
+
+    async def commit(self):
+        await self._session.commit()
+
+    async def rollback(self):
+        await self._session.rollback()
+
+    async def close(self):
+        await self._session.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        await self._session.close()
 
 
 class InMemorySession:
@@ -90,4 +183,35 @@ _global_store = defaultdict(list)
 
 
 def async_session():
+    factory = _get_session_factory()
+    if factory is not None:
+        sa_session = factory()
+        return AsyncPgSession(sa_session)
     return InMemorySession(_global_store)
+
+
+def get_engine():
+    return _get_async_engine()
+
+
+async def check_db_connection() -> str:
+    from config import get_settings
+    settings = get_settings()
+    db_url = settings.DATABASE_URL
+
+    if not _is_postgres_url(db_url):
+        if "sqlite" in db_url:
+            return "sqlite"
+        return "in_memory"
+
+    try:
+        engine = _get_async_engine()
+        if engine is None:
+            return "not_configured"
+        async with engine.connect() as conn:
+            from sqlalchemy import text
+            await conn.execute(text("SELECT 1"))
+        return "connected"
+    except Exception as e:
+        logger.error(f"DB connection check failed: {e}")
+        return "error"
