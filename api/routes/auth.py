@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 _users_store = {}
 _rate_limit_store = defaultdict(list)
 _refresh_tokens_store = {}
+_otp_store = {}
 
 # DEMO SEED — remove when Azure + DB available
 from db.seed_demo import DEMO_USER_ID, DEMO_EMAIL, DEMO_PASSWORD, RAMESH_PROFILE
@@ -67,6 +68,11 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+
+class VerifyOTPRequest(BaseModel):
+    phone_number: str
+    otp_code: str
 
 
 class ChangePasswordRequest(BaseModel):
@@ -285,3 +291,36 @@ async def change_password(body: ChangePasswordRequest, request: Request):
     await revoke_all_user_tokens(current_user["id"])
 
     return {"status": "password_changed"}
+
+
+@router.post("/verify-otp")
+async def verify_otp(body: VerifyOTPRequest):
+    otp_entry = _otp_store.get(body.phone_number)
+
+    if not otp_entry:
+        raise HTTPException(status_code=400, detail="No pending OTP for this phone number")
+
+    if otp_entry.get("expired", False) or (
+        time.time() - otp_entry.get("created_at", 0) > 300
+    ):
+        raise HTTPException(status_code=410, detail="OTP has expired. Please request a new one.")
+
+    if otp_entry.get("code") != body.otp_code:
+        raise HTTPException(status_code=401, detail="Invalid OTP code")
+
+    del _otp_store[body.phone_number]
+
+    user_id = otp_entry.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="OTP session invalid")
+
+    access_token = create_access_token(user_id)
+    refresh_token = await create_refresh_token(user_id)
+    _store_refresh_token(refresh_token, user_id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "verified": True,
+    }

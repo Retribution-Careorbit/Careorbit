@@ -23,23 +23,47 @@ async def enforce_caregiver_limit(user_id: str, tier: str):
     from utils.tier_config import get_tier_limits
     limits = get_tier_limits(tier)
     max_caregivers = limits.get("max_caregivers", 2)
-    current = sum(1 for link in _caregiver_links if link["patient_id"] == user_id and not link.get("revoked"))
+
+    current = 0
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                "SELECT COUNT(*) as cnt FROM caregiver_links WHERE patient_id = :uid AND (revoked IS NULL OR revoked = false)",
+                {"uid": user_id}
+            )
+            row = result.first()
+            if row:
+                if hasattr(row, "_mapping"):
+                    current = dict(row._mapping).get("cnt", 0)
+                elif isinstance(row, tuple):
+                    current = row[0] if row[0] is not None else 0
+                elif isinstance(row, (int, float)):
+                    current = int(row)
+    except Exception:
+        current = sum(1 for link in _caregiver_links if link["patient_id"] == user_id and not link.get("revoked"))
+
     if current >= max_caregivers:
-        raise HTTPException(status_code=403, detail="Caregiver limit reached for your tier")
+        raise HTTPException(status_code=429, detail={
+            "error": "Caregiver limit reached",
+            "limit": max_caregivers,
+            "tier": tier,
+        })
 
 
 @router.post("/add")
 async def add_caregiver(body: AddCaregiverRequest, request: Request):
     current_user = await auth_mod.get_current_user(request)
 
+    patient_id = current_user["id"]
+    tier = current_user.get("tier", "free")
+
+    await enforce_caregiver_limit(patient_id, tier)
+
     if body.relationship not in VALID_RELATIONSHIPS:
         raise HTTPException(status_code=400, detail=f"Invalid relationship. Must be one of: {VALID_RELATIONSHIPS}")
 
     if body.permission_level not in VALID_PERMISSIONS:
         raise HTTPException(status_code=400, detail=f"Invalid permission level. Must be one of: {VALID_PERMISSIONS}")
-
-    patient_id = current_user["id"]
-    tier = current_user.get("tier", "free")
 
     from utils.tier_config import get_tier_limits
     limits = get_tier_limits(tier)
