@@ -1,0 +1,860 @@
+# CareOrbit — Production Deployment PRD v2
+
+## Fully Configured for Rishab + Arjya · March 2026
+
+---
+
+# YOUR CONFIGURATION
+
+```
+SUBSCRIPTION        = (auto-select — single subscription)
+TENANT_ID           = ⚠️ STILL NEEDED — run: az account show --query tenantId -o tsv
+AZURE_EMAIL         = arjya5000@gmail.com
+GITHUB_ORG          = github.com/Retribution-Careorbit
+REPLIT_URL          = https://c42ef667-...kirk.replit.dev:5000/
+DOMAIN              = Azure default (*.azurewebsites.net / *.azurestaticapps.net)
+REGION              = southindia
+OPENAI_REGION       = swedencentral (OpenAI not available in southindia)
+PG_ADMIN_USER       = careorbit_admin
+ENVIRONMENTS        = dev · release · production
+TIMELINE            = 1 month to demo — full CI/CD
+AZURE_OPENAI        = ✅ Already approved
+```
+
+**⚠️ Before running ANYTHING, get your Tenant ID:**
+```bash
+az login
+az account show --query "{subscription:id, tenant:tenantId}" -o table
+```
+Replace every `{{TENANT_ID}}` below with that value.
+
+---
+
+# STEP 0 — ONE-TIME SETUP (5 minutes)
+
+```bash
+# Login and verify
+az login
+az account show -o table
+# Confirm it shows your single subscription. If yes, you're set.
+
+# Register all required providers (run once, wait 2-3 min)
+az provider register -n Microsoft.Web
+az provider register -n Microsoft.DBforPostgreSQL
+az provider register -n Microsoft.CognitiveServices
+az provider register -n Microsoft.Search
+az provider register -n Microsoft.KeyVault
+az provider register -n Microsoft.Storage
+az provider register -n Microsoft.Communication
+az provider register -n Microsoft.Insights
+
+# Create the GitHub repo (do this in browser first)
+# Go to: github.com/orgs/Retribution-Careorbit/repositories → New
+# Name: careorbit-platform
+# Private repo, initialize with README
+# Then clone locally:
+git clone https://github.com/Retribution-Careorbit/careorbit-platform.git
+cd careorbit-platform
+```
+
+---
+
+# STEP 1 — PROVISION ALL RESOURCES (10 minutes)
+
+Run this single script. It creates everything in the correct order.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+REGION="southindia"
+OPENAI_REGION="swedencentral"  # OpenAI not available in southindia
+RG_PROD="careorbit-production"
+RG_REL="careorbit-release"
+RG_DEV="careorbit-dev"
+PG_USER="careorbit_admin"
+PG_PASS=$(openssl rand -base64 24)
+
+echo "══════════════════════════════════════════"
+echo "SAVE THIS → PostgreSQL Password: $PG_PASS"
+echo "══════════════════════════════════════════"
+
+# ── RESOURCE GROUPS (3 environments) ──
+echo "→ Creating resource groups..."
+az group create --name $RG_PROD --location $REGION --tags env=production -o none
+az group create --name $RG_REL  --location $REGION --tags env=release -o none
+az group create --name $RG_DEV  --location $REGION --tags env=dev -o none
+
+# ═══════════════════════════════════════
+# PRODUCTION ENVIRONMENT
+# ═══════════════════════════════════════
+
+echo "→ Key Vault..."
+az keyvault create \
+  --name careorbit-kv-prod \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --sku standard \
+  --enable-rbac-authorization true -o none
+
+# Grant Key Vault Admin to your account
+az role assignment create \
+  --role "Key Vault Administrator" \
+  --assignee arjya5000@gmail.com \
+  --scope $(az keyvault show --name careorbit-kv-prod --query id -o tsv) -o none
+
+echo "→ PostgreSQL (production)..."
+az postgres flexible-server create \
+  --name careorbit-db-prod \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --admin-user $PG_USER \
+  --admin-password "$PG_PASS" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 16 \
+  --yes -o none
+
+az postgres flexible-server parameter set \
+  --resource-group $RG_PROD \
+  --server-name careorbit-db-prod \
+  --name azure.extensions \
+  --value pgcrypto -o none
+
+az postgres flexible-server firewall-rule create \
+  --resource-group $RG_PROD \
+  --name careorbit-db-prod \
+  --rule-name AllowAzure \
+  --start-ip-address 0.0.0.0 \
+  --end-ip-address 0.0.0.0 -o none
+
+az postgres flexible-server db create \
+  --resource-group $RG_PROD \
+  --server-name careorbit-db-prod \
+  --database-name careorbit -o none
+
+echo "→ Storage Account..."
+az storage account create \
+  --name careorbitprod \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --sku Standard_LRS \
+  --kind StorageV2 \
+  --min-tls-version TLS1_2 -o none
+
+az storage container create --name prescriptions --account-name careorbitprod --public-access off -o none
+az storage container create --name lab-reports --account-name careorbitprod --public-access off -o none
+az storage container create --name exports --account-name careorbitprod --public-access off -o none
+
+echo "→ Azure OpenAI (swedencentral)..."
+az cognitiveservices account create \
+  --name careorbit-openai \
+  --resource-group $RG_PROD \
+  --location $OPENAI_REGION \
+  --kind OpenAI \
+  --sku S0 --yes -o none
+
+az cognitiveservices account deployment create \
+  --name careorbit-openai \
+  --resource-group $RG_PROD \
+  --deployment-name gpt-4o \
+  --model-name gpt-4o \
+  --model-version "2024-08-06" \
+  --model-format OpenAI \
+  --sku-capacity 10 \
+  --sku-name Standard -o none
+
+echo "→ Document Intelligence..."
+az cognitiveservices account create \
+  --name careorbit-docai \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --kind FormRecognizer \
+  --sku F0 --yes -o none
+
+echo "→ Language NER..."
+az cognitiveservices account create \
+  --name careorbit-language \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --kind TextAnalytics \
+  --sku F0 --yes -o none
+
+echo "→ AI Search..."
+az search service create \
+  --name careorbit-search \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --sku free -o none
+
+echo "→ Translator..."
+az cognitiveservices account create \
+  --name careorbit-translator \
+  --resource-group $RG_PROD \
+  --location global \
+  --kind TextTranslation \
+  --sku F0 --yes -o none
+
+echo "→ Communication Services..."
+az communication create \
+  --name careorbit-comm \
+  --resource-group $RG_PROD \
+  --data-location unitedstates \
+  --location global -o none
+
+echo "→ App Service Plan + Backend..."
+az appservice plan create \
+  --name careorbit-plan-prod \
+  --resource-group $RG_PROD \
+  --location $REGION \
+  --sku B1 \
+  --is-linux -o none
+
+az webapp create \
+  --name careorbit-api-prod \
+  --resource-group $RG_PROD \
+  --plan careorbit-plan-prod \
+  --runtime "PYTHON:3.12" -o none
+
+az webapp identity assign \
+  --name careorbit-api-prod \
+  --resource-group $RG_PROD -o none
+
+# Create staging slot for blue-green deployment
+az webapp deployment slot create \
+  --name careorbit-api-prod \
+  --resource-group $RG_PROD \
+  --slot staging -o none
+
+echo "→ Static Web App (Frontend)..."
+az staticwebapp create \
+  --name careorbit-web-prod \
+  --resource-group $RG_PROD \
+  --location centralindia \
+  --sku Free -o none
+
+echo "→ Application Insights..."
+az monitor app-insights component create \
+  --app careorbit-insights-prod \
+  --location $REGION \
+  --resource-group $RG_PROD \
+  --application-type web -o none
+
+# ═══════════════════════════════════════
+# DEV ENVIRONMENT (minimal — shares AI services with prod)
+# ═══════════════════════════════════════
+
+echo "→ Dev PostgreSQL..."
+DEV_PG_PASS=$(openssl rand -base64 24)
+echo "Dev PG Password: $DEV_PG_PASS"
+
+az postgres flexible-server create \
+  --name careorbit-db-dev \
+  --resource-group $RG_DEV \
+  --location $REGION \
+  --admin-user $PG_USER \
+  --admin-password "$DEV_PG_PASS" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 16 \
+  --yes -o none
+
+az postgres flexible-server parameter set \
+  --resource-group $RG_DEV \
+  --server-name careorbit-db-dev \
+  --name azure.extensions \
+  --value pgcrypto -o none
+
+az postgres flexible-server firewall-rule create \
+  --resource-group $RG_DEV \
+  --name careorbit-db-dev \
+  --rule-name AllowAll \
+  --start-ip-address 0.0.0.0 \
+  --end-ip-address 255.255.255.255 -o none
+
+az postgres flexible-server db create \
+  --resource-group $RG_DEV \
+  --server-name careorbit-db-dev \
+  --database-name careorbit -o none
+
+echo "→ Dev App Service..."
+az appservice plan create \
+  --name careorbit-plan-dev \
+  --resource-group $RG_DEV \
+  --location $REGION \
+  --sku F1 \
+  --is-linux -o none
+
+az webapp create \
+  --name careorbit-api-dev \
+  --resource-group $RG_DEV \
+  --plan careorbit-plan-dev \
+  --runtime "PYTHON:3.12" -o none
+
+# ═══════════════════════════════════════
+# RELEASE ENVIRONMENT (same shape as prod, shares AI services)
+# ═══════════════════════════════════════
+
+echo "→ Release PostgreSQL..."
+REL_PG_PASS=$(openssl rand -base64 24)
+echo "Release PG Password: $REL_PG_PASS"
+
+az postgres flexible-server create \
+  --name careorbit-db-rel \
+  --resource-group $RG_REL \
+  --location $REGION \
+  --admin-user $PG_USER \
+  --admin-password "$REL_PG_PASS" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 16 \
+  --yes -o none
+
+az postgres flexible-server parameter set \
+  --resource-group $RG_REL \
+  --server-name careorbit-db-rel \
+  --name azure.extensions \
+  --value pgcrypto -o none
+
+az postgres flexible-server firewall-rule create \
+  --resource-group $RG_REL \
+  --name careorbit-db-rel \
+  --rule-name AllowAzure \
+  --start-ip-address 0.0.0.0 \
+  --end-ip-address 0.0.0.0 -o none
+
+az postgres flexible-server db create \
+  --resource-group $RG_REL \
+  --server-name careorbit-db-rel \
+  --database-name careorbit -o none
+
+echo "→ Release App Service..."
+az appservice plan create \
+  --name careorbit-plan-rel \
+  --resource-group $RG_REL \
+  --location $REGION \
+  --sku B1 \
+  --is-linux -o none
+
+az webapp create \
+  --name careorbit-api-rel \
+  --resource-group $RG_REL \
+  --plan careorbit-plan-rel \
+  --runtime "PYTHON:3.12" -o none
+
+echo ""
+echo "══════════════════════════════════════════"
+echo "ALL RESOURCES CREATED"
+echo "══════════════════════════════════════════"
+echo "Production PG Password: $PG_PASS"
+echo "Dev PG Password:        $DEV_PG_PASS"
+echo "Release PG Password:    $REL_PG_PASS"
+echo ""
+echo "SAVE ALL THREE PASSWORDS NOW."
+echo "══════════════════════════════════════════"
+
+az resource list --resource-group $RG_PROD --output table
+```
+
+---
+
+# STEP 2 — POPULATE KEY VAULT WITH ALL SECRETS (5 minutes)
+
+Run this after Step 1 completes. It extracts every key from every service and stores it in Key Vault.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+RG="careorbit-production"
+KV="careorbit-kv-prod"
+PG_PASS="{{PASTE_PROD_PG_PASSWORD_FROM_STEP_1}}"
+
+echo "→ Collecting all service credentials..."
+
+# PostgreSQL
+az keyvault secret set --vault-name $KV --name DATABASE-URL \
+  --value "postgresql://careorbit_admin:${PG_PASS}@careorbit-db-prod.postgres.database.azure.com:5432/careorbit?sslmode=require" -o none
+
+# OpenAI
+OPENAI_EP=$(az cognitiveservices account show --name careorbit-openai --resource-group $RG --query "properties.endpoint" -o tsv)
+OPENAI_KEY=$(az cognitiveservices account keys list --name careorbit-openai --resource-group $RG --query "key1" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-OPENAI-ENDPOINT --value "$OPENAI_EP" -o none
+az keyvault secret set --vault-name $KV --name AZURE-OPENAI-KEY --value "$OPENAI_KEY" -o none
+
+# Document Intelligence
+DI_EP=$(az cognitiveservices account show --name careorbit-docai --resource-group $RG --query "properties.endpoint" -o tsv)
+DI_KEY=$(az cognitiveservices account keys list --name careorbit-docai --resource-group $RG --query "key1" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-DI-ENDPOINT --value "$DI_EP" -o none
+az keyvault secret set --vault-name $KV --name AZURE-DI-KEY --value "$DI_KEY" -o none
+
+# Language NER
+LANG_EP=$(az cognitiveservices account show --name careorbit-language --resource-group $RG --query "properties.endpoint" -o tsv)
+LANG_KEY=$(az cognitiveservices account keys list --name careorbit-language --resource-group $RG --query "key1" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-LANGUAGE-ENDPOINT --value "$LANG_EP" -o none
+az keyvault secret set --vault-name $KV --name AZURE-LANGUAGE-KEY --value "$LANG_KEY" -o none
+
+# AI Search
+SEARCH_KEY=$(az search admin-key show --service-name careorbit-search --resource-group $RG --query "primaryKey" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-SEARCH-ENDPOINT --value "https://careorbit-search.search.windows.net" -o none
+az keyvault secret set --vault-name $KV --name AZURE-SEARCH-KEY --value "$SEARCH_KEY" -o none
+az keyvault secret set --vault-name $KV --name AZURE-SEARCH-INDEX --value "drug-interactions" -o none
+
+# Translator
+TRANS_EP=$(az cognitiveservices account show --name careorbit-translator --resource-group $RG --query "properties.endpoint" -o tsv)
+TRANS_KEY=$(az cognitiveservices account keys list --name careorbit-translator --resource-group $RG --query "key1" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-TRANSLATOR-ENDPOINT --value "$TRANS_EP" -o none
+az keyvault secret set --vault-name $KV --name AZURE-TRANSLATOR-KEY --value "$TRANS_KEY" -o none
+
+# Communication Services
+COMM_STR=$(az communication list-key --name careorbit-comm --resource-group $RG --query "primaryConnectionString" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-COMM-CONNECTION-STRING --value "$COMM_STR" -o none
+
+# Blob Storage
+BLOB_STR=$(az storage account show-connection-string --name careorbitprod --resource-group $RG --query "connectionString" -o tsv)
+az keyvault secret set --vault-name $KV --name AZURE-BLOB-CONNECTION-STRING --value "$BLOB_STR" -o none
+
+# Application Insights
+INSIGHTS_STR=$(az monitor app-insights component show --app careorbit-insights-prod --resource-group $RG --query "connectionString" -o tsv)
+az keyvault secret set --vault-name $KV --name APPINSIGHTS-CONNECTION-STRING --value "$INSIGHTS_STR" -o none
+
+# Application secrets (generate fresh)
+JWT_SECRET=$(openssl rand -hex 32)
+PG_ENC_KEY=$(openssl rand -hex 32)
+az keyvault secret set --vault-name $KV --name JWT-SECRET-KEY --value "$JWT_SECRET" -o none
+az keyvault secret set --vault-name $KV --name PG-ENCRYPTION-KEY --value "$PG_ENC_KEY" -o none
+
+echo ""
+echo "══════════════════════════════════════════"
+echo "ALL 17 SECRETS STORED IN KEY VAULT"
+echo "══════════════════════════════════════════"
+az keyvault secret list --vault-name $KV --query "[].name" -o table
+```
+
+**Verify:** That last command should show 17 secrets.
+
+---
+
+# STEP 3 — GRANT MANAGED IDENTITY TO KEY VAULT (2 minutes)
+
+```bash
+# Get the production app's managed identity
+PROD_PRINCIPAL=$(az webapp identity show \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --query "principalId" -o tsv)
+
+# Grant Key Vault Secrets User
+az role assignment create \
+  --role "Key Vault Secrets User" \
+  --assignee "$PROD_PRINCIPAL" \
+  --scope $(az keyvault show --name careorbit-kv-prod --query id -o tsv)
+
+echo "✅ Production app can now read Key Vault secrets via managed identity"
+```
+
+---
+
+# STEP 4 — CONFIGURE REPLIT → AZURE (5 minutes)
+
+## 4.1 Get Replit's outbound IP
+
+```bash
+# Run this IN Replit's shell
+curl -s ifconfig.me
+```
+
+## 4.2 Add Replit IP to dev database firewall
+
+```bash
+az postgres flexible-server firewall-rule create \
+  --resource-group careorbit-dev \
+  --name careorbit-db-dev \
+  --rule-name ReplitIP \
+  --start-ip-address {{REPLIT_IP}} \
+  --end-ip-address {{REPLIT_IP}}
+```
+
+## 4.3 Copy secrets to Replit
+
+Run these commands and copy each output into Replit → Tools → Secrets:
+
+```bash
+KV="careorbit-kv-prod"
+
+# Dev database (NOT production!)
+echo "DATABASE_URL=postgresql://careorbit_admin:{{DEV_PG_PASS}}@careorbit-db-dev.postgres.database.azure.com:5432/careorbit?sslmode=require"
+
+# All AI services (shared across environments — they're stateless)
+echo "AZURE_OPENAI_ENDPOINT=$(az keyvault secret show --vault-name $KV --name AZURE-OPENAI-ENDPOINT --query value -o tsv)"
+echo "AZURE_OPENAI_KEY=$(az keyvault secret show --vault-name $KV --name AZURE-OPENAI-KEY --query value -o tsv)"
+echo "AZURE_DI_ENDPOINT=$(az keyvault secret show --vault-name $KV --name AZURE-DI-ENDPOINT --query value -o tsv)"
+echo "AZURE_DI_KEY=$(az keyvault secret show --vault-name $KV --name AZURE-DI-KEY --query value -o tsv)"
+echo "AZURE_LANGUAGE_ENDPOINT=$(az keyvault secret show --vault-name $KV --name AZURE-LANGUAGE-ENDPOINT --query value -o tsv)"
+echo "AZURE_LANGUAGE_KEY=$(az keyvault secret show --vault-name $KV --name AZURE-LANGUAGE-KEY --query value -o tsv)"
+echo "AZURE_SEARCH_ENDPOINT=$(az keyvault secret show --vault-name $KV --name AZURE-SEARCH-ENDPOINT --query value -o tsv)"
+echo "AZURE_SEARCH_KEY=$(az keyvault secret show --vault-name $KV --name AZURE-SEARCH-KEY --query value -o tsv)"
+echo "AZURE_SEARCH_INDEX=drug-interactions"
+echo "AZURE_TRANSLATOR_ENDPOINT=$(az keyvault secret show --vault-name $KV --name AZURE-TRANSLATOR-ENDPOINT --query value -o tsv)"
+echo "AZURE_TRANSLATOR_KEY=$(az keyvault secret show --vault-name $KV --name AZURE-TRANSLATOR-KEY --query value -o tsv)"
+echo "AZURE_COMM_CONNECTION_STRING=$(az keyvault secret show --vault-name $KV --name AZURE-COMM-CONNECTION-STRING --query value -o tsv)"
+echo "AZURE_BLOB_CONNECTION_STRING=$(az keyvault secret show --vault-name $KV --name AZURE-BLOB-CONNECTION-STRING --query value -o tsv)"
+echo "JWT_SECRET_KEY=$(openssl rand -hex 32)"
+echo "PG_ENCRYPTION_KEY=$(openssl rand -hex 32)"
+echo "ENVIRONMENT=development"
+```
+
+Copy each line's output into Replit Secrets.
+
+**Key safety rule:** Replit points at DEV database, but shares AI services with production (they're stateless — no risk). This means you test against real Azure AI from day one.
+
+---
+
+# STEP 5 — CONFIGURE APP SERVICE (3 minutes)
+
+```bash
+# Production backend config
+az webapp config appsettings set \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --settings \
+    AZURE_KEYVAULT_URI="https://careorbit-kv-prod.vault.azure.net/" \
+    WEBSITES_PORT=8000 \
+    SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+    ENVIRONMENT=production
+
+az webapp config set \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --startup-file "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+
+az webapp update \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --https-only true
+
+az webapp cors add \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --allowed-origins "https://careorbit-web-prod.azurestaticapps.net"
+```
+
+---
+
+# STEP 6 — CI/CD PIPELINE (GitHub Actions)
+
+## 6.1 Create service principal for GitHub
+
+```bash
+az ad sp create-for-rbac \
+  --name "careorbit-github-cicd" \
+  --role contributor \
+  --scopes \
+    /subscriptions/$(az account show --query id -o tsv)/resourceGroups/careorbit-production \
+    /subscriptions/$(az account show --query id -o tsv)/resourceGroups/careorbit-release \
+    /subscriptions/$(az account show --query id -o tsv)/resourceGroups/careorbit-dev \
+  --sdk-auth
+```
+
+**Copy the ENTIRE JSON output.** Then:
+
+1. Go to github.com/Retribution-Careorbit/careorbit-platform
+2. Settings → Secrets and variables → Actions
+3. New repository secret: `AZURE_CREDENTIALS` → paste the JSON
+4. New repository secret: `SWA_DEPLOYMENT_TOKEN` → get from:
+
+```bash
+az staticwebapp secrets list \
+  --name careorbit-web-prod \
+  --resource-group careorbit-production \
+  --query "properties.apiKey" -o tsv
+```
+
+## 6.2 GitHub Actions Workflow
+
+**File: `.github/workflows/deploy.yml`**
+
+```yaml
+name: CareOrbit CI/CD
+
+on:
+  push:
+    branches: [main, release, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  # ═══ TEST (runs on every push/PR) ═══
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: careorbit_test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -r apps/backend/requirements.txt -r apps/backend/requirements-test.txt
+      - name: Run 875-test TDD suite
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/careorbit_test
+          JWT_SECRET_KEY: test-ci-key
+          PG_ENCRYPTION_KEY: test-ci-enc
+          ENVIRONMENT: test
+        run: pytest tests/ -v --tb=short --junitxml=test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-results, path: apps/backend/test-results.xml }
+
+  # ═══ DEPLOY DEV (on push to dev branch) ═══
+  deploy-dev:
+    needs: test
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with: { creds: "${{ secrets.AZURE_CREDENTIALS }}" }
+      - uses: azure/webapps-deploy@v3
+        with: { app-name: careorbit-api-dev, package: apps/backend }
+
+  # ═══ DEPLOY RELEASE (on push to release branch) ═══
+  deploy-release:
+    needs: test
+    if: github.ref == 'refs/heads/release' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with: { creds: "${{ secrets.AZURE_CREDENTIALS }}" }
+      - uses: azure/webapps-deploy@v3
+        with: { app-name: careorbit-api-rel, package: apps/backend }
+
+  # ═══ DEPLOY PRODUCTION (on push to main — via staging slot) ═══
+  deploy-production:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with: { creds: "${{ secrets.AZURE_CREDENTIALS }}" }
+
+      # Deploy to staging slot first
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: careorbit-api-prod
+          slot-name: staging
+          package: apps/backend
+
+      # Swap staging → production (zero downtime)
+      - name: Swap to production
+        run: |
+          az webapp deployment slot swap \
+            --name careorbit-api-prod \
+            --resource-group careorbit-production \
+            --slot staging \
+            --target-slot production
+
+  # ═══ DEPLOY FRONTEND (on push to main) ═══
+  deploy-frontend:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - working-directory: apps/frontend
+        run: npm ci && npm run build
+        env:
+          VITE_API_BASE_URL: https://careorbit-api-prod.azurewebsites.net
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: apps/frontend/dist
+          skip_app_build: true
+```
+
+## 6.3 Branch Strategy
+
+```
+main     → deploys to PRODUCTION (via staging slot swap)
+release  → deploys to RELEASE environment
+dev      → deploys to DEV environment
+feature/* → PR to dev → triggers tests only
+```
+
+---
+
+# STEP 7 — MONITORING + BUDGET ALERT (3 minutes)
+
+```bash
+# Cost budget: alert at $60 (warn) and $79 (critical)
+az consumption budget create \
+  --budget-name CareOrbitMonthly \
+  --amount 79 \
+  --category Cost \
+  --resource-group careorbit-production \
+  --time-grain Monthly \
+  --start-date 2026-04-01 \
+  --end-date 2027-03-31
+
+# Enable app logging
+az webapp log config \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --application-logging filesystem \
+  --level information \
+  --detailed-error-messages true
+
+# Real-time logs (useful during demo)
+# az webapp log tail --name careorbit-api-prod --resource-group careorbit-production
+```
+
+---
+
+# STEP 8 — SECURITY HARDENING (3 minutes)
+
+```bash
+# HTTPS only (already done in step 5, verify)
+az webapp show --name careorbit-api-prod --resource-group careorbit-production --query "httpsOnly"
+
+# Disable FTP deployment
+az webapp config set \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --ftps-state Disabled
+
+# Disable public blob access
+az storage account update \
+  --name careorbitprod \
+  --resource-group careorbit-production \
+  --allow-blob-public-access false
+
+# Min TLS 1.2 on App Service
+az webapp config set \
+  --name careorbit-api-prod \
+  --resource-group careorbit-production \
+  --min-tls-version 1.2
+```
+
+---
+
+# STEP 9 — DATABASE MIGRATION FROM REPLIT (5 minutes)
+
+```bash
+# In Replit shell — export your current database
+pg_dump $DATABASE_URL --schema-only > schema.sql
+pg_dump $DATABASE_URL --data-only > data.sql
+
+# Import to all three environments
+for ENV in prod dev rel; do
+  PG_URL=$(az keyvault secret show --vault-name careorbit-kv-prod --name DATABASE-URL --query value -o tsv)
+  # For dev/rel, construct URL manually from passwords saved in Step 1
+  
+  psql "$PG_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+  psql "$PG_URL" < schema.sql
+  psql "$PG_URL" < data.sql
+  echo "✅ Migrated to $ENV"
+done
+```
+
+---
+
+# STEP 10 — VERIFY EVERYTHING WORKS
+
+```bash
+# 1. Check all production resources exist
+az resource list --resource-group careorbit-production --output table
+
+# 2. Check Key Vault has all 17 secrets
+az keyvault secret list --vault-name careorbit-kv-prod --query "length(@)"
+# Expected: 17
+
+# 3. Check backend health
+curl https://careorbit-api-prod.azurewebsites.net/health
+
+# 4. Check frontend loads
+curl -sI https://careorbit-web-prod.azurestaticapps.net | head -5
+
+# 5. Check database connection
+az postgres flexible-server show --name careorbit-db-prod --resource-group careorbit-production --query "state"
+# Expected: "Ready"
+```
+
+---
+
+# ENVIRONMENT MAP
+
+| Resource | Dev | Release | Production |
+|---|---|---|---|
+| **Resource Group** | careorbit-dev | careorbit-release | careorbit-production |
+| **PostgreSQL** | careorbit-db-dev | careorbit-db-rel | careorbit-db-prod |
+| **Backend URL** | careorbit-api-dev.azurewebsites.net | careorbit-api-rel.azurewebsites.net | careorbit-api-prod.azurewebsites.net |
+| **Frontend** | — (use Replit) | — | careorbit-web-prod.azurestaticapps.net |
+| **App Service SKU** | F1 (Free) | B1 | B1 + staging slot |
+| **AI Services** | Shared from prod | Shared from prod | All services here |
+| **Key Vault** | Replit Secrets | Manual config | careorbit-kv-prod |
+| **Git Branch** | `dev` | `release` | `main` |
+| **Deploys on** | Push to dev | Push to release | Push to main (via staging) |
+
+**Cost for all 3 environments:** ~$55/month (dev uses F1 free plan, release shares B1 pricing, AI services shared)
+
+---
+
+# ROLLBACK CHEAT SHEET
+
+| Problem | Fix | Time |
+|---|---|---|
+| Bad production deploy | `az webapp deployment slot swap --name careorbit-api-prod --resource-group careorbit-production --slot production --target-slot staging` | 30 sec |
+| Bad frontend deploy | Revert commit on main, push → auto-redeploys | 2 min |
+| Database corruption | `az postgres flexible-server restore --name careorbit-db-restored --source-server careorbit-db-prod --restore-time "{{ISO_TIMESTAMP}}"` | 15 min |
+| Replit can't connect | `curl -s ifconfig.me` → update firewall rule with new IP | 1 min |
+| Key Vault locked | Check RBAC: `az role assignment list --scope $(az keyvault show --name careorbit-kv-prod --query id -o tsv)` | 2 min |
+
+---
+
+# WHAT TO DO IN ORDER (TIMELINE)
+
+| Day | What | Time |
+|---|---|---|
+| **Day 1** | Run Step 0 + Step 1 (provision all resources) | 20 min |
+| **Day 1** | Run Step 2 (populate Key Vault) | 5 min |
+| **Day 1** | Run Step 3 (managed identity) | 2 min |
+| **Day 1** | Run Step 4 (Replit → Azure connection) | 10 min |
+| **Day 2** | Run Step 5 (configure App Service) | 3 min |
+| **Day 2** | Run Step 6 (CI/CD setup) | 15 min |
+| **Day 2** | Run Step 9 (database migration) | 5 min |
+| **Day 2** | Run Step 10 (verify everything) | 5 min |
+| **Day 3** | Run Steps 7-8 (monitoring + security) | 6 min |
+| **Day 3** | First deploy via GitHub Actions | 5 min |
+| **Day 4-30** | Develop on Replit → push to dev → promote to release → merge to main | Ongoing |
+
+**Total setup time: ~75 minutes across 3 days.**
+
+---
+
+# ⚠️ STILL NEEDED FROM YOU
+
+1. **Tenant ID** — run `az account show --query tenantId -o tsv` and save it
+2. **Create GitHub repo** — github.com/Retribution-Careorbit/careorbit-platform
+3. **Create three branches** after first push: `main`, `release`, `dev`
+
+Once you have the Tenant ID, you can run Step 0 and Step 1 immediately.
