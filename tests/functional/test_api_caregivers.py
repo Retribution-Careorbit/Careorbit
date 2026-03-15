@@ -80,21 +80,11 @@ class TestCaregiverAdd:
             assert response.status_code == 404, \
                 "Non-registered caregiver email must return 404"
 
-    @pytest.mark.xfail(
-        reason=(
-            "V4.1-C: Feature gate enforcement requires explicit wiring in caregivers.py "
-            "(e.g. await check_caregiver_limit(patient_id) before INSERT). "
-            "caregivers.py in MVP Part 3 does not call check_caregiver_limit yet. "
-            "Remove xfail once the gate is wired."
-        ),
-        strict=True  # xpass = test code is wrong, must be reviewed
-    )
     def test_caregiver_limit_exceeded_returns_429(self):
         """
         Free tier max_caregivers=2 (TIER_LIMITS). When the limit is exceeded
         the feature gate must raise HTTP 429.
         This test verifies the gate IS called by the route and returns 429.
-        Currently xfail — gate not wired in MVP caregivers.py.
         """
         from fastapi import HTTPException
         with _auth(tier="free"), \
