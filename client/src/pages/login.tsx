@@ -17,13 +17,6 @@ export default function LoginPage() {
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isPasswordValid = password.length >= 6;
 
-  const getPasswordStrength = () => {
-    if (password.length === 0) return 0;
-    if (password.length < 6) return 1;
-    if (password.length < 10) return 2;
-    return 3;
-  };
-  const strength = getPasswordStrength();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,13 +238,6 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {password.length > 0 && (
-                  <div className="pt-1 flex gap-1 h-1.5" data-testid="password-strength">
-                    <div className={`flex-1 rounded-full ${strength >= 1 ? (strength === 1 ? 'bg-red-500' : strength === 2 ? 'bg-yellow-500' : 'bg-emerald-500') : 'bg-[var(--bg-hover)]'}`} />
-                    <div className={`flex-1 rounded-full ${strength >= 2 ? (strength === 2 ? 'bg-yellow-500' : 'bg-emerald-500') : 'bg-[var(--bg-hover)]'}`} />
-                    <div className={`flex-1 rounded-full ${strength >= 3 ? 'bg-emerald-500' : 'bg-[var(--bg-hover)]'}`} />
-                  </div>
-                )}
               </div>
 
               <div className="flex items-center justify-between">
