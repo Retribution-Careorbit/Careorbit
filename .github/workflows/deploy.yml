@@ -2,7 +2,7 @@ name: CareOrbit Deploy Pipeline
 
 on:
   push:
-    branches: [dev, release, main]
+    branches: [develop, dev, release, main]
   workflow_dispatch:
 
 permissions:
@@ -85,7 +85,7 @@ jobs:
   deploy-dev:
     name: Deploy to Dev
     needs: [test, build-backend-artifact]
-    if: github.ref == 'refs/heads/dev'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -232,7 +232,7 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend (Static Web App)
     needs: test
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -254,7 +254,7 @@ jobs:
         working-directory: client
         run: |
           npm ci
-          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ] || [ "${GITHUB_REF}" = "refs/heads/develop" ]; then
             export VITE_API_BASE_URL=https://careorbit-api-dev.azurewebsites.net
           else
             export VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net
