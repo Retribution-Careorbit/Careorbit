@@ -23,6 +23,7 @@ _default_origins = [
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:3000",
+    "https://gray-field-0d037aa00.1.azurestaticapps.net",
 ]
 _replit_domain = os.environ.get("REPLIT_DEV_DOMAIN", "")
 if _replit_domain:
@@ -40,7 +41,7 @@ else:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
