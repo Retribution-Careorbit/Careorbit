@@ -13,17 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: '3.12'
-  NODE_VERSION: '20'
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
   AZURE_RG: careorbit-rg
-  AZURE_LOCATION: southindia
   AZURE_CREDENTIALS_JSON: ${{ secrets.AZURE_CREDENTIALS_JSON }}
   AZURE_SWA_DEPLOY_TOKEN: ${{ secrets.AZURE_SWA_DEPLOY_TOKEN }}
 
 jobs:
   test:
-    name: "Pre-deploy Tests"
+    name: Pre-deploy Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -42,25 +42,41 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://careorbit_test:testpass123@localhost:5432/careorbit_test
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
       - name: Install dependencies
         run: |
-          pip install .
-          pip install pytest pytest-asyncio httpx
+          python -m pip install --upgrade pip
+          python - <<'PY'
+          import subprocess
+          import sys
+          import tomllib
+
+          with open("pyproject.toml", "rb") as f:
+              deps = tomllib.load(f)["project"].get("dependencies", [])
+
+          # Install runtime deps directly from pyproject without building the project package.
+          subprocess.check_call([sys.executable, "-m", "pip", "install", *deps, "pytest", "pytest-asyncio", "httpx"])
+          PY
+
       - name: Run safety tests
         run: pytest tests/false_positive_negative/ -m critical -v --tb=long -x
+
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short -x -m "not deployment"
 
   build-backend-artifact:
-    name: "Build Backend Artifact"
+    name: Build Backend Artifact
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
       - name: Create backend deploy package
         run: |
           zip -r backend-package.zip . \
@@ -72,105 +88,141 @@ jobs:
                "__pycache__/*" \
                "*.pyc" \
                "tests/*"
+
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-package
           path: backend-package.zip
+          retention-days: 1
 
   deploy-dev:
-    name: "Deploy to Dev"
+    name: Deploy to Dev
     needs: [test, build-backend-artifact]
     if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-package
-      - uses: actions/checkout@v4
+
       - name: Validate Azure credentials presence
         run: |
           if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ env.AZURE_CREDENTIALS_JSON }}
+
       - name: Deploy to Dev App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-dev
           package: backend-package.zip
+
       - name: Smoke test
         run: |
-          sleep 15
-          curl -f https://careorbit-api-dev.azurewebsites.net/health
+          for i in 1 2 3 4 5; do
+            if curl -fsS https://careorbit-api-dev.azurewebsites.net/health; then
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 20
+          done
+          echo "Dev smoke test failed"
+          exit 1
 
   deploy-release:
-    name: "Deploy to Release"
+    name: Deploy to Release
     needs: [test, build-backend-artifact]
     if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-package
-      - uses: actions/checkout@v4
+
       - name: Validate Azure credentials presence
         run: |
           if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ env.AZURE_CREDENTIALS_JSON }}
+
       - name: Deploy to Release App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-release
           package: backend-package.zip
+
       - name: Smoke test
         run: |
-          sleep 15
-          curl -f https://careorbit-api-release.azurewebsites.net/health
+          for i in 1 2 3 4 5; do
+            if curl -fsS https://careorbit-api-release.azurewebsites.net/health; then
+              exit 0
+            fi
+            echo "Health check attempt $i failed, retrying..."
+            sleep 20
+          done
+          echo "Release smoke test failed"
+          exit 1
 
   deploy-production:
-    name: "Deploy to Production (Staging Slot Swap)"
+    name: Deploy to Production (Staging Slot Swap)
     needs: [test, build-backend-artifact]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
           name: backend-package
-      - uses: actions/checkout@v4
+
       - name: Validate Azure credentials presence
         run: |
           if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ env.AZURE_CREDENTIALS_JSON }}
+
       - name: Deploy to staging slot
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-prod
           slot-name: staging
           package: backend-package.zip
+
       - name: Smoke test staging slot
         run: |
-          sleep 20
-          curl -f https://careorbit-api-prod-staging.azurewebsites.net/health
+          for i in 1 2 3 4 5; do
+            if curl -fsS https://careorbit-api-prod-staging.azurewebsites.net/health; then
+              exit 0
+            fi
+            echo "Staging health check attempt $i failed, retrying..."
+            sleep 20
+          done
+          echo "Staging smoke test failed"
+          exit 1
+
       - name: Swap staging to production
         run: |
           az webapp deployment slot swap \
@@ -178,33 +230,46 @@ jobs:
             --name careorbit-api-prod \
             --slot staging \
             --target-slot production
+
       - name: Verify production
         run: |
-          sleep 10
-          curl -f https://careorbit-api-prod.azurewebsites.net/health
+          for i in 1 2 3 4 5; do
+            if curl -fsS https://careorbit-api-prod.azurewebsites.net/health; then
+              exit 0
+            fi
+            echo "Production health check attempt $i failed, retrying..."
+            sleep 20
+          done
+          echo "Production verification failed"
+          exit 1
 
   deploy-frontend:
-    name: "Deploy Frontend (Static Web App)"
+    name: Deploy Frontend (Static Web App)
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
       - name: Validate SWA deploy token presence
         run: |
           if [ -z "${{ env.AZURE_SWA_DEPLOY_TOKEN }}" ]; then
             echo "AZURE_SWA_DEPLOY_TOKEN is empty. Set it before running frontend deployment." >&2
             exit 1
           fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Install and build
+
+      - name: Install and build frontend
         working-directory: client
         run: |
           npm ci
           VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net npm run build
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
