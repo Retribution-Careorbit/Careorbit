@@ -3,12 +3,22 @@ name: CareOrbit Deploy Pipeline
 on:
   push:
     branches: [dev, release, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: '3.12'
   NODE_VERSION: '20'
   AZURE_RG: careorbit-rg
   AZURE_LOCATION: southindia
+  AZURE_CREDENTIALS_JSON: ${{ secrets.AZURE_CREDENTIALS_JSON }}
+  AZURE_SWA_DEPLOY_TOKEN: ${{ secrets.AZURE_SWA_DEPLOY_TOKEN }}
 
 jobs:
   test:
@@ -45,68 +55,118 @@ jobs:
       - name: Run unit tests
         run: pytest tests/unit/ -v --tb=short -x -m "not deployment"
 
-  deploy-dev:
-    name: "Deploy to Dev"
+  build-backend-artifact:
+    name: "Build Backend Artifact"
     needs: test
-    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
-    environment: development
     steps:
       - uses: actions/checkout@v4
+      - name: Create backend deploy package
+        run: |
+          zip -r backend-package.zip . \
+            -x ".git/*" \
+               ".github/*" \
+               "client/*" \
+               "node_modules/*" \
+               ".venv/*" \
+               "__pycache__/*" \
+               "*.pyc" \
+               "tests/*"
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-package
+          path: backend-package.zip
+
+  deploy-dev:
+    name: "Deploy to Dev"
+    needs: [test, build-backend-artifact]
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-package
+      - uses: actions/checkout@v4
+      - name: Validate Azure credentials presence
+        run: |
+          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+            echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
+            exit 1
+          fi
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS_JSON }}
       - name: Deploy to Dev App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-dev
-          package: .
+          package: backend-package.zip
       - name: Smoke test
         run: |
           sleep 15
-          curl -f https://careorbit-api-dev.azurewebsites.net/health || echo "Dev deploy health check pending"
+          curl -f https://careorbit-api-dev.azurewebsites.net/health
 
   deploy-release:
     name: "Deploy to Release"
-    needs: test
+    needs: [test, build-backend-artifact]
     if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
-    environment: staging
     steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-package
       - uses: actions/checkout@v4
+      - name: Validate Azure credentials presence
+        run: |
+          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+            echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
+            exit 1
+          fi
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS_JSON }}
       - name: Deploy to Release App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-release
-          package: .
+          package: backend-package.zip
       - name: Smoke test
         run: |
           sleep 15
-          curl -f https://careorbit-api-release.azurewebsites.net/health || echo "Release deploy health check pending"
+          curl -f https://careorbit-api-release.azurewebsites.net/health
 
   deploy-production:
     name: "Deploy to Production (Staging Slot Swap)"
-    needs: test
+    needs: [test, build-backend-artifact]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
     steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-package
       - uses: actions/checkout@v4
+      - name: Validate Azure credentials presence
+        run: |
+          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+            echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
+            exit 1
+          fi
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS_JSON }}
       - name: Deploy to staging slot
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-prod
           slot-name: staging
-          package: .
+          package: backend-package.zip
       - name: Smoke test staging slot
         run: |
           sleep 20
@@ -130,20 +190,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate SWA deploy token presence
+        run: |
+          if [ -z "${{ env.AZURE_SWA_DEPLOY_TOKEN }}" ]; then
+            echo "AZURE_SWA_DEPLOY_TOKEN is empty. Set it before running frontend deployment." >&2
+            exit 1
+          fi
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Install and build
+        working-directory: client
         run: |
           npm ci
           VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net npm run build
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
+          azure_static_web_apps_api_token: ${{ env.AZURE_SWA_DEPLOY_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: client
-          output_location: dist/public
+          output_location: dist
           skip_app_build: true
