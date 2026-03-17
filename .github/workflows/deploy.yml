@@ -63,6 +63,12 @@ jobs:
           subprocess.check_call([sys.executable, "-m", "pip", "install", *deps, "pytest", "pytest-asyncio", "httpx"])
           PY
 
+      - name: Initialize test database schema
+        env:
+          PGPASSWORD: testpass123
+        run: |
+          psql -h localhost -U careorbit_test -d careorbit_test -v ON_ERROR_STOP=1 -f database/schema.sql
+
       - name: Run safety tests
         run: pytest tests/false_positive_negative/ -m critical -v --tb=long -x
 
