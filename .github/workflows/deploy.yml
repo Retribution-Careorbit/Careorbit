@@ -39,7 +39,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql+asyncpg://careorbit_test:testpass123@localhost:5432/careorbit_test
+      DATABASE_URL: sqlite:///tmp/careorbit_test.db
     steps:
       - uses: actions/checkout@v4
 
@@ -62,12 +62,6 @@ jobs:
           # Install runtime deps directly from pyproject without building the project package.
           subprocess.check_call([sys.executable, "-m", "pip", "install", *deps, "pytest", "pytest-asyncio", "httpx"])
           PY
-
-      - name: Initialize test database schema
-        env:
-          PGPASSWORD: testpass123
-        run: |
-          psql -h localhost -U careorbit_test -d careorbit_test -v ON_ERROR_STOP=1 -f database/schema.sql
 
       - name: Run safety tests
         run: pytest tests/false_positive_negative/ -m critical -v --tb=long -x
