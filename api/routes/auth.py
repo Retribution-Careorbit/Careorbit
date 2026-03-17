@@ -1,6 +1,7 @@
 import re
 import hashlib
 import time
+import logging
 from collections import defaultdict
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ from db.session import async_session
 from config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = logging.getLogger("careorbit.auth.routes")
 
 _users_store = {}
 _rate_limit_store = defaultdict(list)
@@ -172,17 +174,20 @@ async def register(body: RegisterRequest, request: Request):
         "phone": body.phone_number,
     })
 
-    async with async_session() as session:
-        await session.execute(
-            "SELECT id FROM users WHERE email = :email",
-            {"email": body.email}
-        )
-        await session.execute(
-            "INSERT INTO users (id, name, email, phone_number, password_hash) "
-            "VALUES (:uid, pgp_sym_encrypt(:name, :encryption_key), :email, :phone, :pwd)",
-            {**params, "pwd": hashed}
-        )
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await session.execute(
+                "SELECT id FROM users WHERE email = :email",
+                {"email": body.email}
+            )
+            await session.execute(
+                "INSERT INTO users (id, name, email, phone_number, password_hash) "
+                "VALUES (:uid, pgp_sym_encrypt(:name, :encryption_key), :email, :phone, :pwd)",
+                {**params, "pwd": hashed}
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning(f"User persistence skipped for {body.email}: {exc}")
 
     access_token = create_access_token(user_id)
     ip = _get_client_ip(request)

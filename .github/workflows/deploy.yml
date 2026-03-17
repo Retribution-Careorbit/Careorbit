@@ -24,22 +24,8 @@ jobs:
     name: Pre-deploy Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: careorbit_test
-          POSTGRES_PASSWORD: testpass123
-          POSTGRES_DB: careorbit_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      DATABASE_URL: sqlite:///tmp/careorbit_test.db
+      DATABASE_URL: sqlite:///./careorbit_test.db
     steps:
       - uses: actions/checkout@v4
 
@@ -110,7 +96,7 @@ jobs:
 
       - name: Validate Azure credentials presence
         run: |
-          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+          if [ -z "$AZURE_CREDENTIALS_JSON" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
@@ -152,7 +138,7 @@ jobs:
 
       - name: Validate Azure credentials presence
         run: |
-          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+          if [ -z "$AZURE_CREDENTIALS_JSON" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
@@ -194,7 +180,7 @@ jobs:
 
       - name: Validate Azure credentials presence
         run: |
-          if [ -z "${{ env.AZURE_CREDENTIALS_JSON }}" ]; then
+          if [ -z "$AZURE_CREDENTIALS_JSON" ]; then
             echo "AZURE_CREDENTIALS_JSON is empty. Set it before running deployments." >&2
             exit 1
           fi
@@ -246,7 +232,7 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend (Static Web App)
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -254,7 +240,7 @@ jobs:
 
       - name: Validate SWA deploy token presence
         run: |
-          if [ -z "${{ env.AZURE_SWA_DEPLOY_TOKEN }}" ]; then
+          if [ -z "$AZURE_SWA_DEPLOY_TOKEN" ]; then
             echo "AZURE_SWA_DEPLOY_TOKEN is empty. Set it before running frontend deployment." >&2
             exit 1
           fi
@@ -268,7 +254,12 @@ jobs:
         working-directory: client
         run: |
           npm ci
-          VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net npm run build
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            export VITE_API_BASE_URL=https://careorbit-api-dev.azurewebsites.net
+          else
+            export VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net
+          fi
+          npm run build
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

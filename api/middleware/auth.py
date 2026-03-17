@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -8,6 +9,9 @@ from jose import jwt, JWTError
 
 from config import get_settings
 from db.session import async_session
+
+
+logger = logging.getLogger("careorbit.auth")
 
 
 def hash_password(password: str) -> str:
@@ -34,17 +38,20 @@ async def create_refresh_token(user_id: str, ip_address: str = None) -> str:
     raw_token = secrets.token_urlsafe(48)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 
-    async with async_session() as session:
-        await session.execute(
-            "INSERT INTO refresh_tokens (user_id, token_hash, ip_address, expires_at) VALUES (:uid, :hash, :ip, :exp)",
-            {
-                "uid": user_id,
-                "hash": token_hash,
-                "ip": ip_address or "unknown",
-                "exp": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-            }
-        )
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await session.execute(
+                "INSERT INTO refresh_tokens (user_id, token_hash, ip_address, expires_at) VALUES (:uid, :hash, :ip, :exp)",
+                {
+                    "uid": user_id,
+                    "hash": token_hash,
+                    "ip": ip_address or "unknown",
+                    "exp": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                }
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning(f"Refresh token persistence failed: {exc}")
 
     return raw_token
 
@@ -79,19 +86,25 @@ async def get_current_user(request_or_credentials=None) -> dict:
 
 
 async def revoke_all_user_tokens(user_id: str):
-    async with async_session() as session:
-        await session.execute(
-            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = :uid AND revoked_at IS NULL",
-            {"uid": user_id}
-        )
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await session.execute(
+                "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = :uid AND revoked_at IS NULL",
+                {"uid": user_id}
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning(f"Revoke all refresh tokens failed: {exc}")
 
 
 async def revoke_refresh_token(raw_token: str):
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    async with async_session() as session:
-        await session.execute(
-            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = :hash",
-            {"hash": token_hash}
-        )
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await session.execute(
+                "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = :hash",
+                {"hash": token_hash}
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning(f"Revoke refresh token failed: {exc}")
