@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient, toApiUrl } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient, toApiUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
@@ -22,11 +22,49 @@ interface UploadResult {
 }
 
 export default function DocumentsPage() {
-  const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
+
+  const { data: docsData } = useQuery<{ documents: any[] }>({
+    queryKey: ["/api/documents/list"],
+  });
+
+  const results: UploadResult[] = (docsData?.documents || []).map((doc) => {
+    const status = doc.processing_status || (doc.valid ? "success" : "failed");
+    return {
+      document_id: doc.document_id,
+      file_name: doc.file_name,
+      document_type: doc.document_type || "Document",
+      status,
+      nodes_created: Number(doc.nodes_created || 0),
+      interaction_alerts: doc.interaction_alerts || [],
+      confirmation_needed: doc.confirmation_needed || [],
+      error_message: status === "failed" ? (doc.error_message || doc.summary) : undefined,
+      summary: doc.summary,
+    };
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const res = await apiRequest("POST", `/api/documents/sync/${documentId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/list"] });
+      toast({ title: "Synced to PHIG", description: "Document data has been synced and other tabs are updated." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -44,7 +82,7 @@ export default function DocumentsPage() {
       return res.json();
     },
     onSuccess: (data: UploadResult) => {
-      setResults((prev) => [data, ...prev]);
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
@@ -222,6 +260,19 @@ export default function DocumentsPage() {
                         <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
                           {result.summary}
                         </p>
+                      )}
+                      {!!result.document_id && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => syncMutation.mutate(result.document_id!)}
+                          disabled={syncMutation.isPending}
+                          data-testid={`button-sync-phig-${result.document_id}`}
+                        >
+                          {syncMutation.isPending ? "Syncing..." : "Apply To PHIG"}
+                        </Button>
                       )}
                       {result.interaction_alerts?.length > 0 && (
                         <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>

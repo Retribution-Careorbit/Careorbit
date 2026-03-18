@@ -76,11 +76,17 @@ async def upload_document(
         "file_name": file.filename or f"upload.{ext}",
         "document_type": result.document_type or "unknown",
         "valid": result.processing_status in {"success", "needs_confirmation"},
+        "processing_status": result.processing_status,
+        "nodes_created": nodes_count,
+        "interaction_alerts": result.interaction_alerts,
+        "confirmation_needed": result.confirmation_needed,
+        "error_message": result.error_message,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "doctor_name": "Uploaded Document",
         "summary": (result.extracted_data or {}).get("summary") or (result.error_message or "Document parsed."),
         "file_url": f"/api/documents/file/{document_id}",
         "extracted_markers": (result.extracted_data or {}).get("labs", []),
+        "extracted_medications": (result.extracted_data or {}).get("medications", []),
     }
     add_patient_document(patient_id, doc_record)
 
@@ -143,6 +149,39 @@ async def list_documents(request: Request):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
     return {"documents": get_patient_documents(patient_id)}
+
+
+@router.post("/sync/{document_id}")
+async def sync_document_to_phig(document_id: str, request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
+
+    doc = next((d for d in get_patient_documents(patient_id) if d.get("document_id") == document_id), None)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    meds = doc.get("extracted_medications") or []
+    if meds:
+        add_extracted_medications(patient_id, meds)
+
+    markers = doc.get("extracted_markers") or []
+
+    push_notification(
+        patient_id,
+        "document",
+        "Document Synced",
+        f"{doc.get('file_name', 'Document')} synced into PHIG.",
+        path="/documents",
+        metadata={"document_id": document_id, "sync": True},
+    )
+
+    return {
+        "status": "synced",
+        "document_id": document_id,
+        "medications_synced": len(meds),
+        "markers_available": len(markers),
+    }
 
 
 @router.get("/prescriptions/valid")
