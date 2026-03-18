@@ -230,7 +230,7 @@ export default function DashboardPage() {
           ))}
         </StaggerContainer>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-5">
           {orbitScore && (
             <FadeIn delay={0.1}>
               <div
@@ -243,8 +243,8 @@ export default function DashboardPage() {
                   </div>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Orbit Score</span>
                 </div>
-                <div className="flex flex-col items-center">
-                  <OrbitScoreRadial score={orbitScore.total_score || 0} size={160} />
+                <div className="flex flex-col items-center py-2">
+                  <OrbitScoreRadial score={orbitScore.total_score || 0} size={200} />
                   <Link href="/orbit-score">
                     <Button variant="ghost" size="sm" className="mt-3 text-xs" style={{ color: "var(--accent-cyan)" }} data-testid="link-view-orbit">
                       View Details
@@ -257,7 +257,7 @@ export default function DashboardPage() {
           )}
 
           {bpChartData.length > 0 && (
-            <FadeIn delay={0.15} className="lg:col-span-2">
+            <FadeIn delay={0.15}>
               <div
                 className="page-card p-6"
                 data-testid="card-vitals-chart"

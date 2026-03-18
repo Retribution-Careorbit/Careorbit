@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/animations";
@@ -6,9 +8,60 @@ import { Bell, Search } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
+
+interface SearchResponse {
+  query: string;
+  results: Array<{ id: string; type: string; title: string; subtitle: string; path: string }>;
+}
+
+interface NotificationsResponse {
+  notifications: Array<{ id: string; title: string; message: string; read: boolean; path: string; created_at: string }>;
+  unread_count: number;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
+  const [, setLocation] = useLocation();
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  const { data: searchData } = useQuery<SearchResponse>({
+    queryKey: ["/api/system/search", debouncedSearch],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/system/search?q=${encodeURIComponent(debouncedSearch)}`);
+      return res.json();
+    },
+    enabled: debouncedSearch.length >= 2,
+    staleTime: 10_000,
+  });
+
+  const { data: notificationsData } = useQuery<NotificationsResponse>({
+    queryKey: ["/api/system/notifications"],
+    refetchInterval: 10_000,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: async (ids?: string[]) => {
+      const res = await apiRequest("POST", "/api/system/notifications/mark-read", { ids });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
+    },
+  });
+
+  const unreadCount = notificationsData?.unread_count || 0;
+  const searchResults = searchData?.results || [];
+  const hasSearchResults = debouncedSearch.length >= 2 && searchResults.length > 0;
 
   return (
     <SidebarProvider>
@@ -27,7 +80,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex-1" />
 
             <div
-              className="flex items-center gap-2 rounded-full px-4"
+              className="flex items-center gap-2 rounded-full px-4 relative"
               style={{
                 width: 280,
                 height: 38,
@@ -42,7 +95,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className="flex-1 bg-transparent border-none outline-none font-mono text-xs"
                 style={{ color: "var(--text-primary)" }}
                 data-testid="input-header-search"
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
               />
+              {searchOpen && debouncedSearch.length >= 2 && (
+                <div className="absolute top-11 left-0 w-full rounded-xl p-2" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", zIndex: 30 }}>
+                  {hasSearchResults ? (
+                    <div className="space-y-1 max-h-72 overflow-auto">
+                      {searchResults.map((result) => (
+                        <button
+                          key={result.id}
+                          type="button"
+                          className="w-full text-left p-2 rounded-lg"
+                          style={{ background: "transparent" }}
+                          onClick={() => {
+                            setLocation(result.path || "/");
+                            setSearchOpen(false);
+                          }}
+                        >
+                          <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{result.title}</p>
+                          <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{result.subtitle}</p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs p-2" style={{ color: "var(--text-muted)" }}>No matching records</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button
@@ -50,13 +134,59 @@ export function Layout({ children }: { children: React.ReactNode }) {
               size="icon"
               className="relative h-9 w-9 rounded-full"
               data-testid="button-notifications"
+              onClick={() => setNotifOpen((v) => !v)}
             >
               <Bell className="h-[18px] w-[18px]" style={{ color: "var(--text-secondary)" }} />
-              <span
-                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                style={{ background: "var(--accent-rose)" }}
-              />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] flex items-center justify-center"
+                  style={{ background: "var(--accent-rose)", color: "white" }}
+                >
+                  {Math.min(unreadCount, 9)}
+                </span>
+              )}
             </Button>
+
+            {notifOpen && (
+              <div className="absolute top-14 right-16 w-80 rounded-xl p-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", zIndex: 30 }}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Notifications</p>
+                  <button
+                    type="button"
+                    className="text-xs underline"
+                    style={{ color: "var(--accent-cyan)" }}
+                    onClick={() => markReadMutation.mutate(undefined)}
+                  >
+                    Mark all read
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-80 overflow-auto">
+                  {(notificationsData?.notifications || []).length === 0 ? (
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>No notifications</p>
+                  ) : (
+                    (notificationsData?.notifications || []).map((n) => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        className="w-full text-left p-2 rounded-lg"
+                        style={{
+                          border: "1px solid var(--border-subtle)",
+                          background: n.read ? "transparent" : "color-mix(in srgb, var(--accent-cyan) 8%, transparent)",
+                        }}
+                        onClick={() => {
+                          markReadMutation.mutate([n.id]);
+                          if (n.path) setLocation(n.path);
+                          setNotifOpen(false);
+                        }}
+                      >
+                        <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>{n.title}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>{n.message}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             <Button
               variant="ghost"

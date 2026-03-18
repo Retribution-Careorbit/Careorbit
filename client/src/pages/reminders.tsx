@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
-import { Bell, Plus, Trash2, Clock, Loader2 } from "lucide-react";
+import { Bell, Plus, Trash2, Clock, Loader2, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -58,12 +58,12 @@ export default function RemindersPage() {
     queryKey: ["/api/reminders/due"],
   });
 
-  const { data: adherence } = useQuery<any>({
-    queryKey: ["/api/reminders/adherence/summary"],
-  });
-
   const { data: appointments = [] } = useQuery<any[]>({
     queryKey: ["/api/orbit/appointments"],
+  });
+
+  const { data: adherence } = useQuery<any>({
+    queryKey: ["/api/reminders/adherence/summary"],
   });
 
   const reminderList = Array.isArray(reminders) ? reminders : [];
@@ -136,11 +136,8 @@ export default function RemindersPage() {
   };
 
   const dueList = dueData?.due || [];
-  const upcomingAppointments = Array.isArray(appointments)
-    ? appointments
-        .filter((appt: any) => appt.status === "upcoming")
-        .sort((a: any, b: any) => new Date(a.appointment_datetime).getTime() - new Date(b.appointment_datetime).getTime())
-        .slice(0, 3)
+  const upcomingAppts = Array.isArray(appointments)
+    ? appointments.filter((a: any) => a.status === "upcoming").slice(0, 2)
     : [];
 
   const handleMarkMissed = (reminderId: string) => {
@@ -206,23 +203,22 @@ export default function RemindersPage() {
           </FadeIn>
         )}
 
-        {upcomingAppointments.length > 0 && (
+        {upcomingAppts.length > 0 && (
           <FadeIn delay={0.08}>
-            <div className="page-card p-4" data-testid="card-upcoming-appointment-reminders">
-              <p className="section-header mb-2">Upcoming Appointments</p>
+            <div className="page-card p-4" data-testid="card-upcoming-appointments">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+                <p className="section-header">Upcoming Appointments</p>
+              </div>
               <div className="space-y-2">
-                {upcomingAppointments.map((appt: any, i: number) => (
+                {upcomingAppts.map((appt: any, i: number) => (
                   <div key={appt.appointment_id || i} className="flex items-center justify-between p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }}>
                     <div>
-                      <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid={`text-appointment-reminder-${i}`}>
-                        {appt.doctor_name}
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {appt.specialization || "Consultation"}
-                      </p>
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{appt.specialization || "General"}</p>
                     </div>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {new Date(appt.appointment_datetime).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {new Date(appt.appointment_datetime).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
                     </Badge>
                   </div>
                 ))}

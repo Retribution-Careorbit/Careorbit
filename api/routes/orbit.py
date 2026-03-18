@@ -8,22 +8,33 @@ import api.middleware.rbac as rbac_mod
 from db.seed_demo import (
     DEMO_USER_ID, RAMESH_ORBIT_HISTORY, RAMESH_NARRATIVE,
     RAMESH_APPOINTMENTS, RAMESH_CARE_GAPS, RAMESH_LABS, RAMESH_INTERACTIONS,
-    RAMESH_NARRATIVE_EVENTS, get_phig_for_orbit,
+    RAMESH_NARRATIVE_EVENTS,
 )
 from api.routes.reminders import get_adherence_snapshot_for_patient
+from graph.phig_builder import phig_builder
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
 
 async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     from graph.orbit_score import OrbitScoreCalculator
-    # DEMO SEED — remove when Azure + DB available
-    if patient_id == DEMO_USER_ID:
-        phig = get_phig_for_orbit()
-        phig["reminders"] = None
-    else:
-        phig = {"nodes": [], "interactions": [], "care_gaps": [], "reminders": None}
-    # END DEMO SEED
+
+    graph_data = await phig_builder.get_full_patient_graph(patient_id)
+    nodes = []
+    for med in graph_data.get("medications", []):
+        nodes.append({"type": "medication", "name": med.get("name"), "confidence": med.get("confidence", 0.7)})
+    for cond in graph_data.get("conditions", []):
+        nodes.append({"type": "condition", "name": cond.get("name"), "confidence": cond.get("confidence", 0.7)})
+    for lab in graph_data.get("labs", []):
+        nodes.append({"type": "lab_value", "name": lab.get("name"), "value": lab.get("value"), "confidence": 0.9})
+
+    phig = {
+        "nodes": nodes,
+        "interactions": graph_data.get("interactions", []),
+        "care_gaps": graph_data.get("care_gaps", []),
+        "reminders": None,
+    }
+
     calc = OrbitScoreCalculator(phig)
     score = calc.compute()
     if user_tier == "free":

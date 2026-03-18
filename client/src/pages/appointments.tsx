@@ -15,12 +15,12 @@ import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope, Download } fro
 export default function AppointmentsPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [visitOpen, setVisitOpen] = useState(false);
+  const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
   const [doctorName, setDoctorName] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [datetime, setDatetime] = useState("");
   const [clinicName, setClinicName] = useState("");
-  const [pastVisitOpen, setPastVisitOpen] = useState(false);
-  const [selectedPastVisit, setSelectedPastVisit] = useState<any | null>(null);
 
   const { data: appointments = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/orbit/appointments"],
@@ -67,22 +67,26 @@ export default function AppointmentsPage() {
     }
   };
 
-  const openPrevisitBrief = async (appointmentId: string) => {
+  const handleOpenBrief = async (appointmentId: string) => {
     try {
-      const response = await apiRequest("GET", `/api/summary/previsit-brief/${appointmentId}`);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
+      const res = await apiRequest("GET", `/api/summary/previsit-brief/${appointmentId}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err: any) {
-      toast({ title: "Unable to open brief", description: err?.message || "Please try again.", variant: "destructive" });
+      toast({ title: "Unable to open brief", description: err.message, variant: "destructive" });
     }
   };
 
-  const openPastVisit = (appointment: any) => {
-    setSelectedPastVisit(appointment);
-    setPastVisitOpen(true);
+  const openVisitSummary = (appt: any) => {
+    setSelectedVisit(appt);
+    setVisitOpen(true);
   };
+
+  const visitHeader = selectedVisit
+    ? `${selectedVisit.doctor_name || "Doctor"} • ${formatDate(selectedVisit.appointment_datetime || "")}`
+    : "Past Visit Summary";
 
   return (
     <Layout>
@@ -203,15 +207,11 @@ export default function AppointmentsPage() {
                             <Video className="h-3.5 w-3.5 mr-1" />
                             Video Call
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid={`button-brief-${i}`}
-                            onClick={() => openPrevisitBrief(appt.appointment_id)}
-                          >
-                            <Download className="h-3.5 w-3.5 mr-1" />
-                            Brief PDF
+                          <Button variant="outline" size="sm" className="text-xs" asChild data-testid={`button-brief-${i}`}>
+                            <button onClick={() => handleOpenBrief(appt.appointment_id)}>
+                              <Download className="h-3.5 w-3.5 mr-1" />
+                              Brief PDF
+                            </button>
                           </Button>
                         </div>
                       </div>
@@ -232,8 +232,10 @@ export default function AppointmentsPage() {
                 <StaggerContainer className="space-y-3">
                   {past.map((appt: any, i: number) => (
                     <StaggerItem key={appt.appointment_id || `past-${i}`}>
-                      <div
-                        className="page-card p-5 opacity-70"
+                      <button
+                        type="button"
+                        className="page-card p-5 opacity-70 text-left w-full"
+                        onClick={() => openVisitSummary(appt)}
                         data-testid={`card-past-appointment-${i}`}
                       >
                         <div className="flex items-center justify-between">
@@ -247,50 +249,60 @@ export default function AppointmentsPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-xs">Completed</Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs"
-                              onClick={() => openPastVisit(appt)}
-                              data-testid={`button-view-past-visit-${i}`}
-                            >
-                              View Past Visit
-                            </Button>
+                            {(appt.visit_summary || appt.visit_findings) && (
+                              <span className="text-xs" style={{ color: "var(--accent-cyan)" }}>
+                                View Visit
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </StaggerItem>
                   ))}
                 </StaggerContainer>
               </>
             )}
-
-            <Dialog open={pastVisitOpen} onOpenChange={setPastVisitOpen}>
-              <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
-                <DialogHeader>
-                  <DialogTitle>Past Visit Details</DialogTitle>
-                </DialogHeader>
-                {selectedPastVisit && (
-                  <div className="space-y-3" data-testid="dialog-past-visit-details">
-                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Doctor:</span> {selectedPastVisit.doctor_name}</p>
-                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Specialization:</span> {selectedPastVisit.specialization || "General"}</p>
-                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Date:</span> {formatDate(selectedPastVisit.appointment_datetime)}</p>
-                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Clinic:</span> {selectedPastVisit.clinic_name || "N/A"}</p>
-                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                      Visit summary and prescription brief can be reopened anytime from the secured PDF endpoint.
-                    </p>
-                    <div className="flex justify-end">
-                      <Button size="sm" onClick={() => openPrevisitBrief(selectedPastVisit.appointment_id)} data-testid="button-open-past-visit-pdf">
-                        <Download className="h-3.5 w-3.5 mr-1" />
-                        Open Visit PDF
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
           </>
         )}
+
+        <Dialog open={visitOpen} onOpenChange={setVisitOpen}>
+          <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+            <DialogHeader>
+              <DialogTitle>{visitHeader}</DialogTitle>
+            </DialogHeader>
+            {selectedVisit && (
+              <div className="space-y-3">
+                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{selectedVisit.visit_summary}</p>
+                {Array.isArray(selectedVisit.visit_findings) && selectedVisit.visit_findings.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Findings</p>
+                    <ul className="text-sm mt-1 space-y-1" style={{ color: "var(--text-secondary)" }}>
+                      {selectedVisit.visit_findings.map((f: string, i: number) => (
+                        <li key={i}>- {f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedVisit.doctor_notes && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Doctor Notes</p>
+                    <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{selectedVisit.doctor_notes}</p>
+                  </div>
+                )}
+                {Array.isArray(selectedVisit.visit_prescriptions) && selectedVisit.visit_prescriptions.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Prescriptions</p>
+                    <ul className="text-sm mt-1 space-y-1" style={{ color: "var(--text-secondary)" }}>
+                      {selectedVisit.visit_prescriptions.map((p: any, i: number) => (
+                        <li key={i}>- {p.name} {p.dosage}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

@@ -13,9 +13,9 @@ interface Medication {
   name: string;
   dosage?: string;
   frequency?: string;
-  prescribed_by_doctor?: string;
   confidence?: number;
   confidence_label?: string;
+  prescribed_by_doctor?: string;
   interactions?: any[];
 }
 
@@ -34,6 +34,10 @@ export default function MedicationsPage() {
     queryKey: ["/api/patients/medications"],
   });
 
+  const { data: adherence } = useQuery<any>({
+    queryKey: ["/api/reminders/adherence/summary"],
+  });
+
   const medications = data?.medications || [];
   const filteredMeds = medications.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase())
@@ -43,9 +47,8 @@ export default function MedicationsPage() {
     (m.interactions || []).map((ix: any) => ({ ...ix, medicationName: m.name }))
   );
 
-  const verifiedCount = medications.filter((m) => m.confidence_label === "VERIFIED").length;
-  const adherenceScore = medications.length > 0 ? Math.round((verifiedCount / medications.length) * 100 + 40) : 0;
-  const clampedAdherence = Math.min(adherenceScore, 95);
+  const adherenceScore = Math.round((adherence?.adherence_rate || 0) * 100);
+  const clampedAdherence = Math.max(0, Math.min(adherenceScore, 100));
 
   return (
     <Layout>
@@ -202,9 +205,7 @@ export default function MedicationsPage() {
                             {med.prescribed_by_doctor && (
                               <p>
                                 <span style={{ color: "var(--text-muted)" }}>Prescribed by:</span>{" "}
-                                <span className="font-medium" style={{ color: "var(--text-primary)" }} data-testid={`text-prescriber-${i}`}>
-                                  {med.prescribed_by_doctor}
-                                </span>
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.prescribed_by_doctor}</span>
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-2">

@@ -61,6 +61,7 @@ from api.routes.chat import router as chat_router
 from api.routes.tests import router as tests_router
 from api.routes.orbit import router as orbit_router
 from api.routes.dpdp import router as dpdp_router
+from api.routes.system import router as system_router
 
 app.include_router(auth_router)
 app.include_router(health_router)
@@ -75,6 +76,7 @@ app.include_router(chat_router)
 app.include_router(tests_router)
 app.include_router(orbit_router)
 app.include_router(dpdp_router)
+app.include_router(system_router)
 
 if __name__ == "__main__":
     import uvicorn

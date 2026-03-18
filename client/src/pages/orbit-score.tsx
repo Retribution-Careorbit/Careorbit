@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from "@/components/animations";
-import { OrbitScoreRadial, CategoryBreakdownBar } from "@/components/charts";
-import { Trophy, TrendingUp, Target, Star, Upload, Shield, BookOpen } from "lucide-react";
+import { CategoryBreakdownBar } from "@/components/charts";
+import { Trophy, TrendingUp, Target, Star, Upload, Shield } from "lucide-react";
 
 const BADGES = [
   { id: "first-upload", label: "First Upload", icon: Upload, description: "Uploaded your first document", color: "var(--accent-cyan)" },
@@ -23,12 +23,9 @@ export default function OrbitScorePage() {
     queryKey: ["/api/orbit/score"],
   });
 
+
   const { data: improvementPlan } = useQuery<any>({
     queryKey: ["/api/orbit/improvement-plan"],
-  });
-
-  const { data: narrativeData } = useQuery<any>({
-    queryKey: ["/api/orbit/narrative"],
   });
 
   const loading = scoreLoading;
@@ -68,10 +65,10 @@ export default function OrbitScorePage() {
           </div>
         </FadeIn>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-5">
           <FadeIn delay={0.1}>
             <div
-              className="page-card p-6 lg:row-span-2 flex flex-col items-center"
+              className="page-card p-6 flex flex-col items-center"
               data-testid="card-orbit-main"
             >
               <div className="page-card-header self-stretch">
@@ -138,7 +135,7 @@ export default function OrbitScorePage() {
           </FadeIn>
 
           {breakdown && (
-            <FadeIn delay={0.2} className="lg:col-span-2">
+            <FadeIn delay={0.15}>
               <div
                 className="page-card p-6"
                 data-testid="card-score-breakdown"
@@ -229,34 +226,6 @@ export default function OrbitScorePage() {
           </FadeIn>
         )}
 
-        {narrativeData?.narrative && (
-          <FadeIn delay={0.35}>
-            <div className="page-card p-6" data-testid="card-living-narrative">
-              <div className="page-card-header">
-                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
-                  <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
-                </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
-              </div>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                {narrativeData.narrative}
-              </p>
-              {Array.isArray(narrativeData.events) && narrativeData.events.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {narrativeData.events.map((event: any, i: number) => (
-                    <div key={i} className="flex items-start justify-between p-2 rounded-lg" style={{ border: "1px solid var(--border-subtle)" }} data-testid={`card-narrative-event-${i}`}>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{event.event}</p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{event.impact}</p>
-                      </div>
-                      <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{event.date}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </FadeIn>
-        )}
 
         <Dialog open={!!selectedAction} onOpenChange={(open) => !open && setSelectedAction(null)}>
           <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>

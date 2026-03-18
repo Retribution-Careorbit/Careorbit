@@ -10,6 +10,7 @@ import api.middleware.rbac as rbac_mod
 from db.seed_demo import DEMO_USER_ID, RAMESH_VITALS, RAMESH_EMERGENCY_CONTACTS
 from db.seed_demo import RAMESH_MEDICATIONS
 from db.seed_demo import RAMESH_LAB_HISTORY
+from db.runtime_store import get_latest_lab_markers
 from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
 from utils.profile_validators import (
@@ -72,6 +73,10 @@ def _insight_sentence(marker_name: str, latest: float, threshold: str, direction
         "stable": "trend is stable",
     }.get(direction, "trend is stable")
     return f"{marker_name} is at {latest} ({threshold}); current {direction_text} and needs physician review."
+
+
+def _latest_extracted_markers(patient_id: str) -> dict[str, dict]:
+    return get_latest_lab_markers(patient_id)
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -280,14 +285,26 @@ async def get_lab_insights(request: Request):
     if patient_id != DEMO_USER_ID:
         return {"areas": []}
 
+    extracted_map = _latest_extracted_markers(patient_id)
     areas = []
     for entry in RAMESH_LAB_HISTORY:
         points = entry.get("points", [])
         if not points:
             continue
+        marker_name = entry.get("marker_name")
+        extracted = extracted_map.get(marker_name)
         latest = float(points[-1].get("value", 0))
         ref_low = entry.get("ref_low")
         ref_high = entry.get("ref_high")
+
+        if extracted and extracted.get("value") is not None:
+            latest = float(extracted.get("value", latest))
+            ref_low = extracted.get("ref_low") if extracted.get("ref_low") is not None else ref_low
+            ref_high = extracted.get("ref_high") if extracted.get("ref_high") is not None else ref_high
+            extracted_date = extracted.get("date")
+            if extracted_date and all(p.get("date") != extracted_date for p in points):
+                points = [*points, {"date": extracted_date, "value": latest}]
+
         breached, ratio = _classify_threshold(latest, ref_low, ref_high)
         if not breached:
             continue
@@ -298,13 +315,13 @@ async def get_lab_insights(request: Request):
             {
                 "area_key": entry.get("area_key"),
                 "area_label": entry.get("area_label"),
-                "marker_name": entry.get("marker_name"),
+                "marker_name": marker_name,
                 "latest_value": latest,
-                "unit": entry.get("unit"),
+                "unit": extracted.get("unit") if extracted and extracted.get("unit") else entry.get("unit"),
                 "threshold": threshold,
                 "severity": _severity_from_ratio(ratio),
                 "trend_direction": trend,
-                "insight": _insight_sentence(entry.get("marker_name", "Marker"), latest, threshold, trend),
+                "insight": _insight_sentence(marker_name or "Marker", latest, threshold, trend),
                 "points": points,
                 "severity_score": ratio,
             }

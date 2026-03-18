@@ -144,6 +144,9 @@ function MedicalIDCard() {
   const medications = medsData?.medications || [];
   const qrPath = emergencyPass?.qr_path;
   const qrUrl = qrPath ? `${window.location.origin}${qrPath}` : "";
+  const qrImageUrl = qrUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrUrl)}`
+    : "";
 
   return (
     <div className="mt-3">
@@ -175,7 +178,15 @@ function MedicalIDCard() {
             title={qrUrl ? "Open emergency read-only profile" : "Generating emergency QR"}
             data-testid="link-emergency-qr"
           >
-            <QrCode className="h-10 w-10" style={{ color: "var(--text-muted)" }} />
+            {qrImageUrl ? (
+              <img
+                src={qrImageUrl}
+                alt="Emergency QR"
+                className="w-14 h-14 rounded"
+              />
+            ) : (
+              <QrCode className="h-10 w-10" style={{ color: "var(--text-muted)" }} />
+            )}
           </a>
         </div>
 

@@ -36,7 +36,7 @@ NAV_ITEMS = [
     {"label": "Documents", "path": "/documents", "testid": "nav-documents"},
     {"label": "AI Chat", "path": "/chat", "testid": "nav-ai-chat"},
     {"label": "Reminders", "path": "/reminders", "testid": "nav-reminders"},
-    {"label": "Test Cases", "path": "/test-cases", "testid": "nav-test-cases"},
+    {"label": "Lab Reports", "path": "/test-cases", "testid": "nav-test-cases"},
     {"label": "Settings", "path": "/settings", "testid": "nav-settings"},
 ]
 

@@ -46,7 +46,7 @@ const dataNav = [
 ];
 
 const systemNav = [
-  { href: "/test-cases", label: "Test Cases", icon: FlaskConical, testId: "nav-test-cases" },
+  { href: "/test-cases", label: "Lab Reports", icon: FlaskConical, testId: "nav-test-cases" },
   { href: "/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
 ];
 

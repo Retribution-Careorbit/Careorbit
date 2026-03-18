@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, toApiUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
@@ -28,7 +28,7 @@ export default function DocumentsPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/documents/upload", {
+      const res = await fetch(toApiUrl("/api/documents/upload"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -43,6 +43,11 @@ export default function DocumentsPage() {
       setResults((prev) => [data, ...prev]);
       queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
       toast({ title: "Document Uploaded", description: `${data.document_type || "Document"} processed` });
     },
     onError: (err: Error) => {
@@ -51,9 +56,13 @@ export default function DocumentsPage() {
   });
 
   const handleUpload = (file: File) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic"];
-    if (!allowedTypes.includes(file.type)) {
-      toast({ title: "Invalid File", description: "Only JPEG, PNG, WebP, and HEIC images are allowed", variant: "destructive" });
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
+    const allowedExtensions = ["jpg", "jpeg", "png", "webp", "heic", "pdf"];
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const mimeOk = allowedTypes.includes(file.type);
+    const extOk = allowedExtensions.includes(ext);
+    if (!mimeOk && !extOk) {
+      toast({ title: "Invalid File", description: "Allowed files: JPG, PNG, WebP, HEIC, or PDF (max 10MB)", variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -122,7 +131,7 @@ export default function DocumentsPage() {
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
               data-testid="dropzone-upload"
             >
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" onChange={handleFileChange} className="hidden" data-testid="input-file" />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.pdf" onChange={handleFileChange} className="hidden" data-testid="input-file" />
               {uploadMutation.isPending ? (
                 <div className="space-y-4">
                   <div
@@ -143,7 +152,7 @@ export default function DocumentsPage() {
                     <Upload className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
                   </div>
                   <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Drop your document here</p>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, or HEIC up to 10MB</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, HEIC, or PDF up to 10MB</p>
                   <Button variant="outline" className="rounded-full" data-testid="button-browse">
                     <FileUp className="h-4 w-4 mr-2" />
                     Browse Files

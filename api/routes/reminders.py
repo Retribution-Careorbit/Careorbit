@@ -8,6 +8,7 @@ import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.session import async_session
 from db.seed_demo import DEMO_USER_ID, RAMESH_REMINDERS, RAMESH_REMINDER_EVENTS
+from db.runtime_store import push_notification
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
@@ -66,6 +67,58 @@ def _latest_event_for_reminder(user_id: str, reminder_id: str) -> Optional[dict]
         return None
     events.sort(key=lambda x: x.get("occurred_at", ""), reverse=True)
     return events[0]
+
+
+def _has_event_for_date(user_id: str, reminder_id: str, day_iso: str) -> bool:
+    for ev in _reminder_events_store.get(user_id, []):
+        if ev.get("reminder_id") != reminder_id:
+            continue
+        occurred = str(ev.get("occurred_at") or "")
+        if occurred.startswith(day_iso):
+            return True
+    return False
+
+
+def _auto_mark_overdue_missed(user_id: str, now: datetime) -> int:
+    auto_marked = 0
+    day_iso = now.date().isoformat()
+    for reminder in _reminders_store.values():
+        if reminder.get("user_id") != user_id or not reminder.get("active", True):
+            continue
+        if now.isoweekday() not in (reminder.get("days_of_week") or [1, 2, 3, 4, 5, 6, 7]):
+            continue
+        if _has_event_for_date(user_id, reminder["reminder_id"], day_iso):
+            continue
+
+        hh, mm = _parse_hhmm(reminder.get("reminder_time", "08:00"))
+        overdue_cutoff = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if now <= overdue_cutoff:
+            continue
+
+        event = {
+            "event_id": str(uuid4()),
+            "reminder_id": reminder["reminder_id"],
+            "status": "missed",
+            "reason": "Auto-marked missed: due time passed without confirmation.",
+            "occurred_at": now.isoformat(),
+        }
+        _reminder_events_store.setdefault(user_id, []).append(event)
+        reminder["adherence_streak"] = 0
+        reminder["total_missed"] = int(reminder.get("total_missed", 0)) + 1
+        reminder["last_status"] = "missed"
+        reminder["last_reason"] = event["reason"]
+        auto_marked += 1
+
+    if auto_marked:
+        push_notification(
+            user_id,
+            "reminder",
+            "Reminder status updated",
+            f"{auto_marked} dose(s) auto-marked as missed after due time elapsed.",
+            path="/reminders",
+            metadata={"auto_marked": auto_marked},
+        )
+    return auto_marked
 
 
 def _compute_adherence(user_id: str) -> dict:
@@ -187,6 +240,7 @@ async def list_reminders(request: Request):
 async def list_due_reminders(request: Request):
     current_user = await auth_mod.get_current_user(request)
     now = _utc_now()
+    _auto_mark_overdue_missed(current_user["id"], now)
 
     due = []
     for reminder in _reminders_store.values():
@@ -246,6 +300,15 @@ async def mark_reminder_status(reminder_id: str, body: ReminderStatusRequest, re
 
     reminder["last_status"] = status
 
+    push_notification(
+        current_user["id"],
+        "reminder",
+        "Dose status updated",
+        f"{reminder.get('medication_node_id', 'Medication')} marked as {status}.",
+        path="/reminders",
+        metadata={"reminder_id": reminder_id, "status": status},
+    )
+
     return {
         "status": "updated",
         "event": event,
@@ -259,6 +322,7 @@ async def get_adherence_summary(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+    _auto_mark_overdue_missed(patient_id, _utc_now())
     return get_adherence_snapshot_for_patient(patient_id)
 
 

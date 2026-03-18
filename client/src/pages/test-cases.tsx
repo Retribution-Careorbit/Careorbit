@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
+import { apiRequest } from "@/lib/queryClient";
 import {
   FlaskConical, Search, ListChecks, Sparkles, Archive,
   Filter, X, RotateCcw, ChevronRight, AlertCircle,
@@ -44,18 +45,16 @@ interface TestScenariosResponse {
   };
 }
 
-interface ValidPrescriptionDoc {
+interface LabReportDocument {
   document_id: string;
   file_name: string;
   document_type: string;
-  is_valid: boolean;
+  valid: boolean;
   uploaded_at: string;
-  prescribed_by: string;
-  summary: string;
-}
-
-interface ValidPrescriptionsResponse {
-  documents: ValidPrescriptionDoc[];
+  doctor_name?: string;
+  summary?: string;
+  file_url?: string;
+  extracted_markers?: Array<{ name: string; value: number; unit?: string }>;
 }
 
 interface FilterState {
@@ -541,24 +540,25 @@ export default function TestCasesPage() {
     queryKey: ["/api/tests/scenarios"],
   });
 
-  const { data: validDocsData } = useQuery<ValidPrescriptionsResponse>({
-    queryKey: ["/api/documents/validated-prescriptions"],
+  const { data: labReportData } = useQuery<{ documents: LabReportDocument[] }>({
+    queryKey: ["/api/documents/lab-reports/valid"],
   });
 
   const categories = useMemo(() => {
     if (!data) return [];
-    return Array.from(new Set(data.tests.map((t) => t.category))).sort();
+    return [...new Set(data.tests.map((t) => t.category))].sort();
   }, [data]);
 
   const featureAreas = useMemo(() => {
     if (!data) return [];
-    return Array.from(new Set(data.tests.map((t) => t.feature_area))).sort();
+    return [...new Set(data.tests.map((t) => t.feature_area))].sort();
   }, [data]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const f = appliedFilters;
     return data.tests.filter((t) => {
+      if (t.category === "false_positive_negative") return false;
       if (f.showNewOnly && !t.is_new) return false;
       if (f.showExistingOnly && t.is_new) return false;
       if (f.selectedCategory !== "all" && t.category !== f.selectedCategory) return false;
@@ -597,6 +597,15 @@ export default function TestCasesPage() {
 
   const summary = data?.summary;
   const hasDraftChanges = JSON.stringify(draftFilters) !== JSON.stringify(appliedFilters);
+  const validReports = labReportData?.documents || [];
+
+  const openLabReportPdf = async (documentId: string) => {
+    const response = await apiRequest("GET", `/api/documents/file/${documentId}`);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  };
 
   const activeChips = useMemo(() => {
     const f = appliedFilters;
@@ -623,10 +632,10 @@ export default function TestCasesPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }} data-testid="text-testcases-title">
               <FlaskConical className="h-6 w-6" style={{ color: "var(--accent-violet)" }} />
-              Test Cases
+              Lab Reports
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-              Complete test suite coverage for CareOrbit platform
+              Verified lab report uploads and diagnostic scenarios
             </p>
           </div>
           <button
@@ -659,31 +668,60 @@ export default function TestCasesPage() {
               </div>
             ))}
           </div>
-        ) : summary ? (
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Tests</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Reports</span>
                 <ListChecks className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
               </div>
-              <div className="font-mono text-2xl font-bold" style={{ color: "var(--text-primary)" }} data-testid="text-total-tests">{summary.total}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Across all categories</p>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--text-primary)" }} data-testid="text-total-tests">{validReports.length}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Uploaded lab reports</p>
             </div>
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>New Tests</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Valid Reports</span>
                 <Sparkles className="h-4 w-4" style={{ color: "var(--accent-emerald)" }} />
               </div>
-              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-emerald)" }} data-testid="text-new-tests">{summary.new_count}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Prompt 3 test cases</p>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-emerald)" }} data-testid="text-new-tests">{validReports.length}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Extracted and usable</p>
             </div>
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Existing Tests</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Outcome Scenarios</span>
                 <Archive className="h-4 w-4" style={{ color: "var(--accent-amber)" }} />
               </div>
-              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{summary.existing_count}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Phase 1 & 2 coverage</p>
+              <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{scenariosData?.summary?.total || 0}</div>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Limit flag outcomes</p>
+            </div>
+          </div>
+        )}
+
+        {labReportData?.documents?.length ? (
+          <div className="page-card p-4" data-testid="card-valid-lab-reports">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Valid Lab Reports</p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Total: {labReportData.documents.length}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {labReportData.documents.map((doc, i) => (
+                <div key={doc.document_id || i} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }} data-testid={`card-lab-report-${i}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{doc.file_name}</p>
+                    <Badge variant="outline" className="capitalize">valid</Badge>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{doc.summary || "Lab report upload"}</p>
+                  <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{doc.doctor_name || "Unknown doctor"}</p>
+                  {Array.isArray(doc.extracted_markers) && doc.extracted_markers.length > 0 && (
+                    <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+                      {doc.extracted_markers.slice(0, 3).map((m) => `${m.name} ${m.value}${m.unit ? ` ${m.unit}` : ""}`).join(" • ")}
+                    </p>
+                  )}
+                  <button type="button" className="text-xs underline" style={{ color: "var(--accent-cyan)" }} onClick={() => openLabReportPdf(doc.document_id)}>
+                    View PDF
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}
@@ -709,37 +747,6 @@ export default function TestCasesPage() {
           </div>
         ) : null}
 
-        {(validDocsData?.documents?.length || 0) > 0 && (
-          <div className="page-card p-4" data-testid="card-valid-prescriptions">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                Valid Uploaded Prescription PDFs
-              </p>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Total: {validDocsData?.documents?.length || 0}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {(validDocsData?.documents || []).map((doc, i) => (
-                <div key={doc.document_id} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }} data-testid={`card-valid-prescription-${i}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{doc.file_name}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        Uploaded {new Date(doc.uploaded_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} • Prescribed by {doc.prescribed_by}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="uppercase" style={{ color: "var(--accent-emerald)", borderColor: "color-mix(in srgb, var(--accent-emerald) 40%, transparent)" }}>
-                      valid
-                    </Badge>
-                  </div>
-                  <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>{doc.summary}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active:</span>
@@ -763,7 +770,7 @@ export default function TestCasesPage() {
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }} data-testid="text-filtered-count">
-            Showing {filtered.length} of {summary?.total || 0} tests
+            Showing {validReports.length} valid lab reports
           </span>
         </div>
 
@@ -773,56 +780,7 @@ export default function TestCasesPage() {
               <Skeleton key={i} className="h-16 w-full rounded-lg" />
             ))}
           </div>
-        ) : (
-          <div className="space-y-2" data-testid="test-case-list">
-            {filtered.map((tc, idx) => {
-              const catColor = CATEGORY_COLORS[tc.category] || CATEGORY_COLORS.other;
-              return (
-                <div
-                  key={`${tc.file_path}-${tc.name}-${idx}`}
-                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3.5 rounded-xl transition-all duration-200"
-                  style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-default)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.08)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
-                  data-testid={`row-test-${idx}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }} data-testid={`text-test-name-${idx}`}>
-                        {formatTestName(tc.name)}
-                      </span>
-                      {tc.is_new && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "var(--accent-emerald-dim)", color: "var(--accent-emerald)" }} data-testid={`badge-new-${idx}`}>
-                          NEW
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs mt-0.5 truncate font-mono" style={{ color: "var(--text-muted)" }} data-testid={`text-file-path-${idx}`}>
-                      {tc.file_path}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="text-xs" style={{ borderColor: "var(--border-default)", color: "var(--text-secondary)" }} data-testid={`badge-feature-${idx}`}>
-                      {tc.feature_area}
-                    </Badge>
-                    <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-1 rounded-md" style={{ background: catColor.bg, color: catColor.text }} data-testid={`badge-category-${idx}`}>
-                      {formatCategory(tc.category)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center py-12 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
-                <FlaskConical className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
-                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-results">No tests match your filters</p>
-                <button onClick={clearApplied} className="text-xs mt-2 underline" style={{ color: "var(--accent-cyan)" }} data-testid="button-clear-filters-empty">
-                  Clear all filters
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        ) : null}
       </div>
 
       <AccessibleFilterPanel

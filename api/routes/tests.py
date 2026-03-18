@@ -1,7 +1,8 @@
 import ast
 import os
 from fastapi import APIRouter
-from db.seed_demo import RAMESH_LABS, RAMESH_VITALS, RAMESH_INTERACTIONS, RAMESH_REMINDERS
+from db.seed_demo import RAMESH_LABS, RAMESH_VITALS, RAMESH_INTERACTIONS, RAMESH_REMINDERS, DEMO_USER_ID
+from db.runtime_store import get_valid_lab_reports
 
 router = APIRouter(prefix="/api/tests", tags=["tests"])
 
@@ -152,11 +153,24 @@ async def get_test_cases():
 
 @router.get("/scenarios")
 async def get_test_scenarios():
-    labs = {lab.get("name"): lab for lab in RAMESH_LABS}
+    labs = {lab.get("name"): dict(lab) for lab in RAMESH_LABS}
+    valid_lab_reports = get_valid_lab_reports(DEMO_USER_ID)
+    valid_lab_reports.sort(key=lambda d: d.get("uploaded_at", ""))
+    for report in valid_lab_reports:
+        for marker in report.get("extracted_markers") or []:
+            name = marker.get("name")
+            if not name:
+                continue
+            labs[name] = {
+                "name": name,
+                "value": marker.get("value"),
+                "unit": marker.get("unit"),
+                "ref_low": marker.get("ref_low"),
+                "ref_high": marker.get("ref_high"),
+            }
+
     latest_bp = [v for v in RAMESH_VITALS if v.get("type") == "blood_pressure"]
     latest_bp_entry = latest_bp[-1] if latest_bp else None
-    latest_glucose = [v for v in RAMESH_VITALS if v.get("type") == "glucose"]
-    latest_glucose_entry = latest_glucose[-1] if latest_glucose else None
 
     scenarios = []
 
@@ -197,15 +211,6 @@ async def get_test_scenarios():
             "potential_outcome": "Prompt antihypertensive adherence and physician dosage reassessment.",
             "limit_flag": "warning",
             "threshold": f"Systolic {latest_bp_entry.get('systolic')} mmHg >= 140 mmHg",
-        })
-
-    if latest_glucose_entry and float(latest_glucose_entry.get("fasting", 0)) >= 140:
-        scenarios.append({
-            "case_id": "scenario-fasting-glucose-high",
-            "title": "Fasting Glucose Above Target",
-            "potential_outcome": "Add diet-control alert and repeat fasting panel planning.",
-            "limit_flag": "monitor",
-            "threshold": f"Fasting glucose {latest_glucose_entry.get('fasting')} mg/dL >= 140 mg/dL",
         })
 
     if any((ix.get("severity") or "").upper() in {"ELEVATED", "HIGH"} for ix in RAMESH_INTERACTIONS):
