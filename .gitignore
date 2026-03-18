@@ -4,3 +4,16 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+__pycache__/
+**/__pycache__/
+*.pyc
+appservice_logs*/
+appservice_logs*.zip
+careorbit-api-dev-logs*/
+careorbit-api-dev-logs*.zip
+fresh_logs_*/
+fresh_logs_*.zip
+backend-package.zip
+deploy_head.zip
+tmp_*.py
+careorbit/
