@@ -3,8 +3,7 @@ import App from "./App";
 import "./index.css";
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
-const fallbackApiBase = "https://careorbit-api-dev.azurewebsites.net";
-const apiBase = configuredApiBase || fallbackApiBase;
+const apiBase = configuredApiBase;
 
 const originalFetch = window.fetch.bind(window);
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -12,8 +11,11 @@ window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 	const shouldRewrite = url.startsWith("/api/") || url === "/health";
 
 	if (shouldRewrite) {
-		const rewritten = `${apiBase}${url}`;
-		return originalFetch(rewritten, init);
+		if (apiBase) {
+			const rewritten = `${apiBase}${url}`;
+			return originalFetch(rewritten, init);
+		}
+		return originalFetch(url, init);
 	}
 
 	return originalFetch(input as RequestInfo, init);
