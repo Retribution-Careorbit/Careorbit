@@ -37,9 +37,7 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
 
     calc = OrbitScoreCalculator(phig)
     score = calc.compute()
-    if user_tier == "free":
-        score["breakdown"] = None
-        score["premium_required_for_breakdown"] = True
+    score["premium_required_for_breakdown"] = False
     return score
 
 

@@ -34,10 +34,11 @@ export default function OrbitScorePage() {
 
   const breakdownData = breakdown
     ? [
-        { name: "Completeness", value: Math.round((breakdown.completeness || 0) * 100) },
-        { name: "Confidence", value: Math.round((breakdown.avg_confidence || 0) * 100) },
-        { name: "Interactions", value: Math.round((1 - (breakdown.interaction_risk || 0)) * 100) },
-        { name: "Care Gaps", value: Math.round((1 - (breakdown.care_gap_penalty || 0)) * 100) },
+        { name: "Completeness", value: Math.round(breakdown.completeness || 0) },
+        { name: "Avg Confidence", value: Math.round(breakdown.avg_confidence || 0) },
+        { name: "Interaction Risk", value: Math.round(breakdown.interaction_risk || 0) },
+        { name: "Care Gap Status", value: Math.round(breakdown.care_gap_status || 0) },
+        { name: "Adherence (30d)", value: Math.round(breakdown.adherence_rate || 0) },
       ]
     : [];
 
