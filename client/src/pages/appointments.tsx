@@ -10,7 +10,7 @@ import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope } from "lucide-react";
+import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope, Download } from "lucide-react";
 
 export default function AppointmentsPage() {
   const { toast } = useToast();
@@ -183,6 +183,12 @@ export default function AppointmentsPage() {
                           <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
                             <Video className="h-3.5 w-3.5 mr-1" />
                             Video Call
+                          </Button>
+                          <Button variant="outline" size="sm" className="text-xs" asChild data-testid={`button-brief-${i}`}>
+                            <a href={`/api/summary/previsit-brief/${appt.appointment_id}`} target="_blank" rel="noreferrer">
+                              <Download className="h-3.5 w-3.5 mr-1" />
+                              Brief PDF
+                            </a>
                           </Button>
                         </div>
                       </div>

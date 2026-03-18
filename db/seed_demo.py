@@ -129,6 +129,120 @@ RAMESH_NARRATIVE = (
     "as more records are uploaded and confirmed."
 )
 
+RAMESH_NARRATIVE_EVENTS = [
+    {
+        "date": "2026-01-10",
+        "event": "Onboarding completed",
+        "impact": "Profile baseline established",
+    },
+    {
+        "date": "2026-01-24",
+        "event": "HbA1c reduced",
+        "impact": "Glycemic control trend improving",
+    },
+    {
+        "date": "2026-02-08",
+        "event": "Blood pressure stabilized",
+        "impact": "Reduced hypertension risk trajectory",
+    },
+    {
+        "date": "2026-02-22",
+        "event": "Medication adherence streak",
+        "impact": "Higher expected Orbit score reliability",
+    },
+]
+
+RAMESH_REMINDERS = [
+    {
+        "reminder_id": "rem-001",
+        "user_id": DEMO_USER_ID,
+        "medication_node_id": "metformin-node-id",
+        "reminder_time": "08:00",
+        "days_of_week": [1, 2, 3, 4, 5, 6, 7],
+        "active": True,
+        "adherence_streak": 4,
+        "total_taken": 18,
+        "total_missed": 2,
+        "last_status": "taken",
+        "last_reason": None,
+    },
+    {
+        "reminder_id": "rem-002",
+        "user_id": DEMO_USER_ID,
+        "medication_node_id": "amlodipine-node-id",
+        "reminder_time": "21:00",
+        "days_of_week": [1, 2, 3, 4, 5, 6, 7],
+        "active": True,
+        "adherence_streak": 1,
+        "total_taken": 14,
+        "total_missed": 4,
+        "last_status": "missed",
+        "last_reason": "Travelled and forgot evening dose",
+    },
+]
+
+RAMESH_REMINDER_EVENTS = [
+    {
+        "event_id": "evt-001",
+        "reminder_id": "rem-001",
+        "status": "taken",
+        "reason": None,
+        "occurred_at": "2026-02-20T08:15:00+05:30",
+    },
+    {
+        "event_id": "evt-002",
+        "reminder_id": "rem-001",
+        "status": "taken",
+        "reason": None,
+        "occurred_at": "2026-02-21T08:05:00+05:30",
+    },
+    {
+        "event_id": "evt-003",
+        "reminder_id": "rem-001",
+        "status": "taken",
+        "reason": None,
+        "occurred_at": "2026-02-22T08:01:00+05:30",
+    },
+    {
+        "event_id": "evt-004",
+        "reminder_id": "rem-002",
+        "status": "missed",
+        "reason": "Family event outside home",
+        "occurred_at": "2026-02-22T21:45:00+05:30",
+    },
+]
+
+RAMESH_TEST_SCENARIOS = [
+    {
+        "case_id": "scenario-hba1c-borderline",
+        "title": "Borderline HbA1c Drift",
+        "potential_outcome": "Escalate to dietary intervention if HbA1c crosses 7.5% twice.",
+        "limit_flag": "warning",
+        "threshold": "HbA1c >= 7.5%",
+    },
+    {
+        "case_id": "scenario-egfr-safety",
+        "title": "Renal Safety With NSAID Use",
+        "potential_outcome": "Flag high-risk metformin + NSAID interaction and prompt nephrology consult.",
+        "limit_flag": "critical",
+        "threshold": "eGFR < 60 with NSAID usage",
+    },
+    {
+        "case_id": "scenario-adherence-dip",
+        "title": "Medication Adherence Dip",
+        "potential_outcome": "Reduce adherence score component and reset streak after two misses in 7 days.",
+        "limit_flag": "warning",
+        "threshold": "missed_doses >= 2 in last 7 days",
+    },
+    {
+        "case_id": "scenario-hypotension-guard",
+        "title": "Hypotension Guardrail",
+        "potential_outcome": "Recommend physician review if systolic BP trends below 100 with dizziness notes.",
+        "limit_flag": "monitor",
+        "threshold": "systolic < 100",
+    },
+]
+
 
 def get_phig_for_orbit():
     nodes = []

@@ -1,6 +1,7 @@
 import ast
 import os
 from fastapi import APIRouter
+from db.seed_demo import RAMESH_TEST_SCENARIOS
 
 router = APIRouter(prefix="/api/tests", tags=["tests"])
 
@@ -143,5 +144,21 @@ async def get_test_cases():
             "new_count": new_count,
             "existing_count": existing_count,
             "by_category": by_category,
+        },
+    }
+
+
+@router.get("/scenarios")
+async def get_test_scenarios():
+    counts: dict[str, int] = {}
+    for scenario in RAMESH_TEST_SCENARIOS:
+        flag = scenario.get("limit_flag", "other")
+        counts[flag] = counts.get(flag, 0) + 1
+
+    return {
+        "scenarios": RAMESH_TEST_SCENARIOS,
+        "summary": {
+            "total": len(RAMESH_TEST_SCENARIOS),
+            "by_limit_flag": counts,
         },
     }

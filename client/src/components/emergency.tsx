@@ -69,7 +69,12 @@ function EmergencyContacts() {
     queryKey: ["/api/patients/emergency-contacts"],
   });
 
+  const { data: emergencyPass } = useQuery<any>({
+    queryKey: ["/api/patients/emergency-pass"],
+  });
+
   const contacts = data?.contacts || [];
+  const dispatchPhone = emergencyPass?.dispatch_phone || "108";
 
   return (
     <div className="space-y-3 mt-3">
@@ -105,7 +110,7 @@ function EmergencyContacts() {
         ))
       )}
 
-      <a href="tel:108" className="block">
+      <a href={`tel:${dispatchPhone}`} className="block">
         <Button
           variant="destructive"
           className="w-full h-12 text-base"
@@ -113,7 +118,7 @@ function EmergencyContacts() {
           data-testid="button-call-ambulance"
         >
           <Phone className="h-5 w-5 mr-2" />
-          Call Ambulance (108)
+          Call Emergency ({dispatchPhone})
         </Button>
       </a>
     </div>
@@ -131,8 +136,14 @@ function MedicalIDCard() {
     queryKey: ["/api/patients/medications"],
   });
 
+  const { data: emergencyPass } = useQuery<any>({
+    queryKey: ["/api/patients/emergency-pass"],
+  });
+
   const profile = profileData?.profile || {};
   const medications = medsData?.medications || [];
+  const qrPath = emergencyPass?.qr_path;
+  const qrUrl = qrPath ? `${window.location.origin}${qrPath}` : "";
 
   return (
     <div className="mt-3">
@@ -151,12 +162,21 @@ function MedicalIDCard() {
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>CareOrbit Medical ID</p>
             </div>
           </div>
-          <div
+          <a
+            href={qrUrl || "#"}
+            target="_blank"
+            rel="noreferrer"
             className="w-16 h-16 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}
+            style={{
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-subtle)",
+              pointerEvents: qrUrl ? "auto" : "none",
+            }}
+            title={qrUrl ? "Open emergency read-only profile" : "Generating emergency QR"}
+            data-testid="link-emergency-qr"
           >
             <QrCode className="h-10 w-10" style={{ color: "var(--text-muted)" }} />
-          </div>
+          </a>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -192,6 +212,12 @@ function MedicalIDCard() {
               ))}
             </div>
           </div>
+        )}
+
+        {qrUrl && (
+          <p className="text-[11px] break-all" style={{ color: "var(--text-muted)" }} data-testid="text-emergency-qr-url">
+            QR read-only URL: {qrUrl}
+          </p>
         )}
       </div>
     </div>

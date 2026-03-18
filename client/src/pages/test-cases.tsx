@@ -28,6 +28,22 @@ interface TestCasesResponse {
   summary: TestSummary;
 }
 
+interface TestScenario {
+  case_id: string;
+  title: string;
+  potential_outcome: string;
+  limit_flag: string;
+  threshold: string;
+}
+
+interface TestScenariosResponse {
+  scenarios: TestScenario[];
+  summary: {
+    total: number;
+    by_limit_flag: Record<string, number>;
+  };
+}
+
 interface FilterState {
   search: string;
   nameFilter: string;
@@ -507,6 +523,10 @@ export default function TestCasesPage() {
     queryKey: ["/api/tests/cases"],
   });
 
+  const { data: scenariosData } = useQuery<TestScenariosResponse>({
+    queryKey: ["/api/tests/scenarios"],
+  });
+
   const categories = useMemo(() => {
     if (!data) return [];
     return [...new Set(data.tests.map((t) => t.category))].sort();
@@ -646,6 +666,27 @@ export default function TestCasesPage() {
               </div>
               <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{summary.existing_count}</div>
               <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Phase 1 & 2 coverage</p>
+            </div>
+          </div>
+        ) : null}
+
+        {scenariosData?.scenarios?.length ? (
+          <div className="page-card p-4" data-testid="card-test-scenarios">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Outcome Scenarios & Limit Flags</p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Total: {scenariosData.summary.total}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {scenariosData.scenarios.map((scenario, i) => (
+                <div key={scenario.case_id} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }} data-testid={`card-test-scenario-${i}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{scenario.title}</p>
+                    <Badge variant="outline" className="capitalize">{scenario.limit_flag}</Badge>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{scenario.potential_outcome}</p>
+                  <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{scenario.threshold}</p>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}

@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart, CategoryBreakdownBar } from "@/components/charts";
-import { Trophy, TrendingUp, Target, Star, Upload, Shield } from "lucide-react";
+import { Trophy, TrendingUp, Target, Star, Upload, Shield, BookOpen } from "lucide-react";
 
 const BADGES = [
   { id: "first-upload", label: "First Upload", icon: Upload, description: "Uploaded your first document", color: "var(--accent-cyan)" },
@@ -20,6 +20,14 @@ export default function OrbitScorePage() {
 
   const { data: historyData, isLoading: historyLoading } = useQuery<any[]>({
     queryKey: ["/api/orbit/score/history"],
+  });
+
+  const { data: improvementPlan } = useQuery<any>({
+    queryKey: ["/api/orbit/improvement-plan"],
+  });
+
+  const { data: narrativeData } = useQuery<any>({
+    queryKey: ["/api/orbit/narrative"],
   });
 
   const loading = scoreLoading || historyLoading;
@@ -222,6 +230,65 @@ export default function OrbitScorePage() {
             </StaggerContainer>
           </div>
         </FadeIn>
+
+        {improvementPlan?.actions?.length > 0 && (
+          <FadeIn delay={0.3}>
+            <div className="page-card p-6" data-testid="card-orbit-improvement-plan">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-emerald-dim)" }}>
+                  <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-emerald)" }} />
+                </div>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>How To Improve Orbit Score</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Badge variant="outline">Current: {improvementPlan.current_score}</Badge>
+                <Badge variant="outline">Projected 30d: {improvementPlan.projected_score_30d}</Badge>
+                <Badge variant="outline">Adherence: {Math.round((improvementPlan.adherence?.adherence_rate || 0) * 100)}%</Badge>
+              </div>
+              <div className="space-y-3">
+                {improvementPlan.actions.slice(0, 4).map((action: any, i: number) => (
+                  <div key={i} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }} data-testid={`card-improvement-action-${i}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>{action.focus}</p>
+                      <Badge variant="outline">+{action.expected_impact}</Badge>
+                    </div>
+                    <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{action.action}</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{action.why}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeIn>
+        )}
+
+        {narrativeData?.narrative && (
+          <FadeIn delay={0.35}>
+            <div className="page-card p-6" data-testid="card-living-narrative">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {narrativeData.narrative}
+              </p>
+              {Array.isArray(narrativeData.events) && narrativeData.events.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {narrativeData.events.map((event: any, i: number) => (
+                    <div key={i} className="flex items-start justify-between p-2 rounded-lg" style={{ border: "1px solid var(--border-subtle)" }} data-testid={`card-narrative-event-${i}`}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{event.event}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{event.impact}</p>
+                      </div>
+                      <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{event.date}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </FadeIn>
+        )}
       </div>
     </Layout>
   );

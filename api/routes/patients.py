@@ -2,10 +2,13 @@ from datetime import date
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from uuid import uuid4
+from datetime import datetime, timezone
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.seed_demo import DEMO_USER_ID, RAMESH_VITALS, RAMESH_EMERGENCY_CONTACTS
+from db.seed_demo import RAMESH_MEDICATIONS
 from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
 from utils.profile_validators import (
@@ -15,6 +18,8 @@ from utils.profile_validators import (
 )
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
+
+_emergency_pass_store: dict[str, dict] = {}
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -75,6 +80,14 @@ def _build_profile_response(user_data: dict) -> dict:
         },
         "onboarding_complete": _check_onboarding_complete(user_data),
     }
+
+
+def _pick_dispatch_number(contacts: list[dict]) -> str:
+    for c in contacts:
+        relation = (c.get("relation") or "").lower()
+        if "emergency" in relation:
+            return c.get("phone", "112")
+    return "112"
 
 
 @router.get("/profile")
@@ -214,3 +227,67 @@ async def get_emergency_contacts(request: Request):
     if patient_id == DEMO_USER_ID:
         return {"contacts": RAMESH_EMERGENCY_CONTACTS}
     return {"contacts": []}
+
+
+@router.get("/emergency-pass")
+async def generate_emergency_pass(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    users_store = _get_users_store()
+    user_data = users_store.get(patient_id, {})
+
+    contacts = RAMESH_EMERGENCY_CONTACTS if patient_id == DEMO_USER_ID else []
+    meds = RAMESH_MEDICATIONS if patient_id == DEMO_USER_ID else []
+    dispatch_number = _pick_dispatch_number(contacts)
+
+    token = uuid4().hex
+    payload = {
+        "token": token,
+        "patient_id": patient_id,
+        "patient_name": user_data.get("name") or current_user.get("name") or "Patient",
+        "age": user_data.get("age"),
+        "gender": user_data.get("gender"),
+        "blood_type": user_data.get("blood_type"),
+        "city": user_data.get("city"),
+        "dispatch_phone": dispatch_number,
+        "emergency_contacts": contacts,
+        "medications": [
+            {
+                "name": m.get("name"),
+                "dosage": m.get("dosage"),
+                "frequency": m.get("frequency"),
+            }
+            for m in meds[:6]
+        ],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _emergency_pass_store[token] = payload
+
+    return {
+        "dispatch_phone": dispatch_number,
+        "token": token,
+        "qr_path": f"/api/patients/emergency-pass/{token}",
+        "read_only_note": "Emergency view is read-only and intended for first responders.",
+        "card": payload,
+    }
+
+
+@router.get("/emergency-pass/{token}")
+async def get_emergency_pass(token: str):
+    payload = _emergency_pass_store.get(token)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Emergency pass not found")
+    return {
+        "read_only": True,
+        "patient_name": payload.get("patient_name"),
+        "age": payload.get("age"),
+        "gender": payload.get("gender"),
+        "blood_type": payload.get("blood_type"),
+        "city": payload.get("city"),
+        "dispatch_phone": payload.get("dispatch_phone"),
+        "emergency_contacts": payload.get("emergency_contacts", []),
+        "medications": payload.get("medications", []),
+        "issued_at": payload.get("created_at"),
+    }

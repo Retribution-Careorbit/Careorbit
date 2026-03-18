@@ -18,6 +18,19 @@ interface Reminder {
   reminder_time: string;
   days_of_week?: number[];
   status?: string;
+  adherence_streak?: number;
+  total_taken?: number;
+  total_missed?: number;
+  last_status?: string | null;
+  last_reason?: string | null;
+}
+
+interface DueReminder {
+  reminder_id: string;
+  medication_node_id: string;
+  reminder_time: string;
+  status: "pending" | "taken" | "missed";
+  reason?: string | null;
 }
 
 const DAYS = [
@@ -39,6 +52,14 @@ export default function RemindersPage() {
 
   const { data: reminders = [], isLoading } = useQuery<Reminder[]>({
     queryKey: ["/api/reminders/list"],
+  });
+
+  const { data: dueData } = useQuery<{ due: DueReminder[] }>({
+    queryKey: ["/api/reminders/due"],
+  });
+
+  const { data: adherence } = useQuery<any>({
+    queryKey: ["/api/reminders/adherence/summary"],
   });
 
   const reminderList = Array.isArray(reminders) ? reminders : [];
@@ -74,6 +95,26 @@ export default function RemindersPage() {
     },
   });
 
+  const markMutation = useMutation({
+    mutationFn: async (body: { reminderId: string; status: "taken" | "missed"; reason?: string }) => {
+      const res = await apiRequest("POST", `/api/reminders/${body.reminderId}/mark`, {
+        status: body.status,
+        reason: body.reason,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/due"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/adherence/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
+      toast({ title: "Reminder updated" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nodeId.trim()) return;
@@ -90,9 +131,71 @@ export default function RemindersPage() {
     );
   };
 
+  const dueList = dueData?.due || [];
+
+  const handleMarkMissed = (reminderId: string) => {
+    const reason = window.prompt("Why did you miss this dose? (required)");
+    if (!reason || !reason.trim()) {
+      toast({ title: "Missed reason is required", variant: "destructive" });
+      return;
+    }
+    markMutation.mutate({ reminderId, status: "missed", reason: reason.trim() });
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
+        <FadeIn>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="page-card p-3">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Adherence Rate</p>
+              <p className="font-mono text-xl font-bold" data-testid="text-adherence-rate">{Math.round((adherence?.adherence_rate || 0) * 100)}%</p>
+            </div>
+            <div className="page-card p-3">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Current Streak</p>
+              <p className="font-mono text-xl font-bold" data-testid="text-adherence-streak">{adherence?.streak_days || 0}d</p>
+            </div>
+            <div className="page-card p-3">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Taken</p>
+              <p className="font-mono text-xl font-bold" data-testid="text-total-taken">{adherence?.total_taken || 0}</p>
+            </div>
+            <div className="page-card p-3">
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Missed</p>
+              <p className="font-mono text-xl font-bold" data-testid="text-total-missed">{adherence?.total_missed || 0}</p>
+            </div>
+          </div>
+        </FadeIn>
+
+        {dueList.length > 0 && (
+          <FadeIn delay={0.05}>
+            <div className="page-card p-4">
+              <p className="section-header mb-2">Due Now</p>
+              <div className="space-y-2">
+                {dueList.map((item, i) => (
+                  <div key={item.reminder_id} className="flex items-center justify-between p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }} data-testid={`card-due-reminder-${i}`}>
+                    <div>
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>{item.medication_node_id}</p>
+                      <p className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{item.reminder_time}</p>
+                    </div>
+                    {item.status === "pending" ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => markMutation.mutate({ reminderId: item.reminder_id, status: "taken" })} disabled={markMutation.isPending} data-testid={`button-mark-taken-${i}`}>
+                          Taken
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleMarkMissed(item.reminder_id)} disabled={markMutation.isPending} data-testid={`button-mark-missed-${i}`}>
+                          Missed
+                        </Button>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className="capitalize">{item.status}</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeIn>
+        )}
+
         <FadeIn>
           <div className="page-title-bar">
             <div>
@@ -197,6 +300,12 @@ export default function RemindersPage() {
                         </p>
                         <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
                           <span className="font-mono text-xs">{reminder.reminder_time}</span>
+                          {reminder.last_status && (
+                            <Badge variant="outline" className="text-xs capitalize">{reminder.last_status}</Badge>
+                          )}
+                          {typeof reminder.adherence_streak === "number" && (
+                            <Badge variant="outline" className="text-xs">Streak {reminder.adherence_streak}d</Badge>
+                          )}
                           {reminder.days_of_week && (
                             <div className="flex gap-1">
                               {DAYS.filter((d) => reminder.days_of_week!.includes(d.value)).map((d) => (
@@ -205,6 +314,11 @@ export default function RemindersPage() {
                             </div>
                           )}
                         </div>
+                        {reminder.last_reason && (
+                          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                            Last missed reason: {reminder.last_reason}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Button

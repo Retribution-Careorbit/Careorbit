@@ -7,7 +7,7 @@ import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
-import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles } from "lucide-react";
+import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen } from "lucide-react";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -145,6 +145,10 @@ export default function DashboardPage() {
 
   const { data: appointments = [] } = useQuery<any[]>({
     queryKey: ["/api/orbit/appointments"],
+  });
+
+  const { data: narrativeData } = useQuery<any>({
+    queryKey: ["/api/orbit/narrative"],
   });
 
   const loading = overviewLoading || subLoading || remLoading;
@@ -432,6 +436,28 @@ export default function DashboardPage() {
             </div>
           </FadeIn>
         </div>
+
+        {narrativeData?.narrative && (
+          <FadeIn delay={0.25}>
+            <div className="page-card p-6" data-testid="card-dashboard-living-narrative">
+              <div className="page-card-header">
+                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
+                  <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
+                </div>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">
+                {narrativeData.narrative}
+              </p>
+              <Link href="/orbit-score">
+                <Button variant="ghost" size="sm" className="mt-3 text-xs" style={{ color: "var(--accent-cyan)" }}>
+                  View full journey
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </div>
+          </FadeIn>
+        )}
 
         {recentEvents.length > 0 && (
           <FadeIn delay={0.25}>

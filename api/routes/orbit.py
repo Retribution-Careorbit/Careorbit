@@ -7,8 +7,10 @@ import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.seed_demo import (
     DEMO_USER_ID, RAMESH_ORBIT_HISTORY, RAMESH_NARRATIVE,
-    RAMESH_APPOINTMENTS, get_phig_for_orbit,
+    RAMESH_APPOINTMENTS, RAMESH_CARE_GAPS, RAMESH_LABS, RAMESH_INTERACTIONS,
+    RAMESH_NARRATIVE_EVENTS, get_phig_for_orbit,
 )
+from api.routes.reminders import get_adherence_snapshot_for_patient
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
@@ -63,14 +65,84 @@ async def get_living_narrative(patient_id: str) -> dict:
     if patient_id == DEMO_USER_ID:
         return {
             "narrative": RAMESH_NARRATIVE,
+            "events": RAMESH_NARRATIVE_EVENTS,
             "trigger_event": "initial_profile_complete",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
     # END DEMO SEED
     return {
         "narrative": "",
+        "events": [],
         "trigger_event": None,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+async def build_improvement_plan(patient_id: str, user_tier: str = "free") -> dict:
+    score_payload = await compute_orbit_score(patient_id, user_tier)
+    current_score = float(score_payload.get("total_score", 0) or 0)
+    adherence = get_adherence_snapshot_for_patient(patient_id)
+
+    actions: list[dict] = []
+
+    if adherence.get("adherence_rate", 1.0) < 0.9:
+        actions.append({
+            "focus": "Medication adherence",
+            "action": "Mark reminders on time and avoid missing evening doses for 7 consecutive days.",
+            "expected_impact": 8,
+            "why": "Adherence consistency directly improves confidence and Orbit score stability.",
+        })
+
+    if patient_id == DEMO_USER_ID:
+        for lab in RAMESH_LABS:
+            if lab.get("abnormal"):
+                if lab.get("name") == "HbA1c":
+                    actions.append({
+                        "focus": "Glycemic control",
+                        "action": "Target fasting glucose under 130 mg/dL and review Metformin timing with your doctor.",
+                        "expected_impact": 7,
+                        "why": "Lower HbA1c trends significantly improve overall risk-adjusted scoring.",
+                    })
+                if lab.get("name") == "eGFR":
+                    actions.append({
+                        "focus": "Renal protection",
+                        "action": "Avoid NSAIDs unless prescribed and repeat renal panel in 2-4 weeks.",
+                        "expected_impact": 6,
+                        "why": "Improving renal risk factors reduces medication interaction penalties.",
+                    })
+
+        if any(g.get("status") == "open" for g in RAMESH_CARE_GAPS):
+            actions.append({
+                "focus": "Care gap closure",
+                "action": "Complete diabetic retinopathy screening during your next appointment.",
+                "expected_impact": 5,
+                "why": "Closing open care gaps raises preventive-care completeness.",
+            })
+
+        if any(ix.get("severity") == "ELEVATED" for ix in RAMESH_INTERACTIONS):
+            actions.append({
+                "focus": "Interaction risk",
+                "action": "Discuss replacing Ibuprofen with a kidney-safe analgesic option.",
+                "expected_impact": 4,
+                "why": "Resolving high-risk interactions lowers Orbit interaction penalties.",
+            })
+
+    if not actions:
+        actions.append({
+            "focus": "Maintenance",
+            "action": "Continue current medication, monitoring, and appointment cadence.",
+            "expected_impact": 3,
+            "why": "Consistency protects current score and prevents regressions.",
+        })
+
+    actions.sort(key=lambda item: item.get("expected_impact", 0), reverse=True)
+    projected = min(100.0, round(current_score + sum(a["expected_impact"] for a in actions[:3]) * 0.4, 1))
+
+    return {
+        "current_score": current_score,
+        "projected_score_30d": projected,
+        "adherence": adherence,
+        "actions": actions,
     }
 
 
@@ -91,6 +163,7 @@ async def get_orbit_score(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     result = await compute_orbit_score(patient_id, current_user.get("tier", "free"))
+    result["adherence"] = get_adherence_snapshot_for_patient(patient_id)
     return result
 
 
@@ -101,6 +174,14 @@ async def get_orbit_score_history(request: Request):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     history = await get_score_history(patient_id, days=30)
     return history
+
+
+@router.get("/improvement-plan")
+async def get_orbit_improvement_plan(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+    return await build_improvement_plan(patient_id, current_user.get("tier", "free"))
 
 
 @router.post("/appointments")
