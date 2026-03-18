@@ -15,6 +15,25 @@ from graph.phig_builder import phig_builder
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
+PROFILE_COMPLETENESS_FIELDS = [
+    "date_of_birth",
+    "gender",
+    "preferred_language",
+    "medical_literacy_level",
+    "city",
+    "state",
+]
+
+
+def _get_profile_completeness_ratio(patient_id: str) -> float:
+    from api.routes.auth import _users_store
+
+    user_data = _users_store.get(patient_id, {})
+    if not user_data:
+        return 0.0
+    filled = sum(1 for field in PROFILE_COMPLETENESS_FIELDS if user_data.get(field))
+    return filled / len(PROFILE_COMPLETENESS_FIELDS)
+
 
 async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     from graph.orbit_score import OrbitScoreCalculator
@@ -34,6 +53,27 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
         "care_gaps": graph_data.get("care_gaps", []),
         "reminders": get_adherence_snapshot_for_patient(patient_id),
     }
+
+    # New users with no clinical graph should start at 0 and rise as profile details are completed.
+    has_clinical_data = bool(nodes)
+    if not has_clinical_data:
+        profile_ratio = _get_profile_completeness_ratio(patient_id)
+        completeness = round(profile_ratio * 100.0, 1)
+        breakdown = {
+            "completeness": completeness,
+            "avg_confidence": 0.0,
+            "interaction_risk": 0.0,
+            "care_gap_status": 0.0,
+            "adherence_rate": 0.0,
+        }
+        total = round(0.25 * completeness, 2)
+        return {
+            "total_score": total,
+            "breakdown": breakdown,
+            "delta": None,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
+            "premium_required_for_breakdown": False,
+        }
 
     calc = OrbitScoreCalculator(phig)
     score = calc.compute()

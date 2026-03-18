@@ -129,7 +129,7 @@ def _compute_adherence(user_id: str) -> dict:
     total_taken = sum(int(r.get("total_taken", 0)) for r in reminders)
     total_missed = sum(int(r.get("total_missed", 0)) for r in reminders)
     denominator = total_taken + total_missed
-    rate = round((total_taken / denominator) if denominator else 1.0, 3)
+    rate = round((total_taken / denominator) if denominator else 0.0, 3)
     streak = max([int(r.get("adherence_streak", 0)) for r in reminders], default=0)
     latest_reasons = [
         r.get("last_reason") for r in reminders
