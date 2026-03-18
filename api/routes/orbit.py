@@ -18,7 +18,6 @@ router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 PROFILE_COMPLETENESS_FIELDS = [
     "date_of_birth",
     "gender",
-    "preferred_language",
     "medical_literacy_level",
     "city",
     "state",
