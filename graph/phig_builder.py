@@ -1,7 +1,7 @@
 from services.azure_search import AzureSearchService
 from db.seed_demo import (
     DEMO_USER_ID, RAMESH_MEDICATIONS, RAMESH_CONDITIONS,
-    RAMESH_LABS, RAMESH_INTERACTIONS,
+    RAMESH_LABS, RAMESH_INTERACTIONS, RAMESH_CARE_GAPS,
 )
 from db.runtime_store import get_extracted_medications, get_latest_lab_markers
 
@@ -124,6 +124,7 @@ class PHIGBuilder:
                 "conditions": RAMESH_CONDITIONS,
                 "labs": list(merged_labs.values()),
                 "interactions": merged_interactions,
+                "care_gaps": list(RAMESH_CARE_GAPS),
             }
         # END DEMO SEED
         return {"summary": {"total_nodes": 0}}

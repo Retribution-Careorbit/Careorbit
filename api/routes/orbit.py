@@ -32,7 +32,7 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
         "nodes": nodes,
         "interactions": graph_data.get("interactions", []),
         "care_gaps": graph_data.get("care_gaps", []),
-        "reminders": None,
+        "reminders": get_adherence_snapshot_for_patient(patient_id),
     }
 
     calc = OrbitScoreCalculator(phig)

@@ -61,6 +61,15 @@ class OrbitScoreCalculator:
         reminders = self.phig.get("reminders")
         if not reminders:
             return 75.0
+        if isinstance(reminders, dict) and "adherence_rate" in reminders:
+            rate = reminders.get("adherence_rate", 0)
+            try:
+                rate = float(rate)
+            except (TypeError, ValueError):
+                return 75.0
+            if rate <= 1.0:
+                return max(0.0, min(rate * 100.0, 100.0))
+            return max(0.0, min(rate, 100.0))
         taken = reminders.get("taken", 0)
         skipped = reminders.get("skipped", 0)
         no_response = reminders.get("no_response", 0)
