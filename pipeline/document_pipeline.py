@@ -7,6 +7,7 @@ from db.session import async_session as db_session
 from graph.confidence import ConfidenceCalculator
 from graph.orbit_score import OrbitScoreCalculator
 from utils.drug_database import DrugDatabase
+from pipeline.lab_report_extractor import LabReportExtractor
 
 openai_service = AzureOpenAIService()
 vision_service = AzureVisionService()
@@ -41,6 +42,7 @@ class DocumentPipeline:
         self._search = mod.search_service
         self._email = mod.email_service
         self._drug_db = DrugDatabase()
+        self._lab_extractor = LabReportExtractor()
 
     def _infer_document_type_from_filename(self, filename: str) -> str:
         lower = (filename or "").lower()
@@ -86,6 +88,51 @@ class DocumentPipeline:
                 "ref_high": ref_high,
             })
 
+        # Broader lab parsing for reports where markers are not in the hardcoded list.
+        if doc_type in {"lab_report", "medical_document", "unknown"} and text:
+            existing = {str(item.get("name", "")).strip().lower() for item in structured["labs"]}
+            for parsed in self._lab_extractor.extract(text):
+                marker = str(parsed.get("name", "")).strip()
+                if not marker or marker.lower() in existing:
+                    continue
+                raw_value = str(parsed.get("value", "")).replace("<", "").replace(">", "").strip()
+                try:
+                    value = float(raw_value)
+                except ValueError:
+                    continue
+                structured["labs"].append({
+                    "name": marker,
+                    "value": value,
+                    "unit": parsed.get("unit", ""),
+                    "ref_low": None,
+                    "ref_high": None,
+                })
+                existing.add(marker.lower())
+
+        # Handwritten prescription fallback: capture common "name + dose" patterns.
+        med_pattern = re.compile(
+            r"(?:tab(?:let)?\.?|cap(?:sule)?\.?|syrup|inj(?:ection)?\.?\s*)?"
+            r"([A-Za-z][A-Za-z0-9\-]{2,}(?:\s+[A-Za-z][A-Za-z0-9\-]{1,}){0,2})\s+"
+            r"(\d{1,4}(?:\.\d+)?\s?(?:mg|mcg|g|ml))",
+            re.IGNORECASE,
+        )
+        existing_meds = {str(item.get("name", "")).strip().lower() for item in structured["medications"]}
+        for match in med_pattern.finditer(text or ""):
+            name = re.sub(r"\s+", " ", match.group(1)).strip()
+            if not name:
+                continue
+            key = name.lower()
+            if key in existing_meds:
+                continue
+            structured["medications"].append({
+                "name": name.title(),
+                "dosage": match.group(2).strip(),
+                "frequency": "",
+            })
+            existing_meds.add(key)
+            if len(structured["medications"]) >= 8:
+                break
+
         return structured
 
     async def process_document(self, image_bytes, patient_id, uploaded_by, file_extension="jpg", filename="upload"):
@@ -117,8 +164,21 @@ class DocumentPipeline:
 
         try:
             structured_data = await self._openai.extract_structured_data(full_text, doc_type)
-        except Exception as e:
+        except Exception:
             structured_data = self._fallback_extract_structured_data(full_text, doc_type)
+
+        if not isinstance(structured_data, dict):
+            structured_data = {}
+
+        # If AI output is sparse, enrich with deterministic fallback extraction.
+        ai_meds = structured_data.get("medications", []) if isinstance(structured_data.get("medications"), list) else []
+        ai_labs = structured_data.get("labs", []) if isinstance(structured_data.get("labs"), list) else []
+        if not ai_meds and not ai_labs:
+            fallback_data = self._fallback_extract_structured_data(full_text, doc_type)
+            structured_data["medications"] = fallback_data.get("medications", [])
+            structured_data["labs"] = fallback_data.get("labs", [])
+            if not structured_data.get("summary"):
+                structured_data["summary"] = fallback_data.get("summary")
 
         try:
             await self._blob.upload_document(image_bytes, f"{patient_id}.{file_extension}")
@@ -187,6 +247,31 @@ class DocumentPipeline:
         status = "needs_confirmation" if needs_confirm else "success"
 
         if not nodes:
+            text_len = len((full_text or "").strip())
+            if text_len >= 20 and doc_type in {"prescription", "lab_report", "medical_document", "unknown"}:
+                return DocumentProcessingResult(
+                    document_id=f"doc-{patient_id}",
+                    document_type="medical_document" if doc_type == "unknown" else doc_type,
+                    processing_status="needs_confirmation",
+                    nodes_created=[],
+                    interaction_alerts=[],
+                    care_gap_alerts=[],
+                    confirmation_needed=[
+                        {
+                            "id": f"confirm-{patient_id}",
+                            "node_type": "manual_review",
+                            "reason": "Low-confidence OCR extraction from uploaded document.",
+                        }
+                    ],
+                    processing_time_ms=int((time.time() - start) * 1000),
+                    error_message=None,
+                    extracted_data={
+                        "medications": [],
+                        "labs": [],
+                        "summary": "Partial clinical text detected. Please confirm extracted details manually.",
+                    },
+                )
+
             return DocumentProcessingResult(
                 document_id=f"doc-{patient_id}",
                 document_type=doc_type,
