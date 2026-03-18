@@ -1,5 +1,9 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const SWA_HOST_SUFFIX = ".azurestaticapps.net";
+const SWA_FALLBACK_API_BASE = "https://careorbit-api-dev.azurewebsites.net";
+
 function getToken(): string | null {
   return localStorage.getItem("careorbit_token");
 }
@@ -8,6 +12,31 @@ function clearAuthState() {
   localStorage.removeItem("careorbit_token");
   localStorage.removeItem("careorbit_refresh_token");
   localStorage.removeItem("careorbit_user");
+}
+
+function trimTrailingSlash(url: string): string {
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+export function getApiBaseUrl(): string {
+  if (configuredApiBase) {
+    return trimTrailingSlash(configuredApiBase);
+  }
+
+  const host = window.location.hostname.toLowerCase();
+  if (host.endsWith(SWA_HOST_SUFFIX)) {
+    return SWA_FALLBACK_API_BASE;
+  }
+
+  return "";
+}
+
+export function toApiUrl(url: string): string {
+  if (!url.startsWith("/")) {
+    return url;
+  }
+  const base = getApiBaseUrl();
+  return base ? `${base}${url}` : url;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -36,7 +65,7 @@ export async function apiRequest(
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (data) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(url, {
+  const res = await fetch(toApiUrl(url), {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -56,7 +85,7 @@ export const getQueryFn: <T>(options: {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(queryKey[0] as string, {
+    const res = await fetch(toApiUrl(queryKey[0] as string), {
       headers,
     });
 

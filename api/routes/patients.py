@@ -9,6 +9,7 @@ import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.seed_demo import DEMO_USER_ID, RAMESH_VITALS, RAMESH_EMERGENCY_CONTACTS
 from db.seed_demo import RAMESH_MEDICATIONS
+from db.seed_demo import RAMESH_LAB_HISTORY
 from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
 from utils.profile_validators import (
@@ -20,6 +21,57 @@ from utils.profile_validators import (
 router = APIRouter(prefix="/api/patients", tags=["patients"])
 
 _emergency_pass_store: dict[str, dict] = {}
+
+
+def _classify_threshold(value: float, ref_low: Optional[float], ref_high: Optional[float]) -> tuple[bool, float]:
+    if ref_high is not None and value > ref_high:
+        delta = value - ref_high
+        ratio = delta / ref_high if ref_high else delta
+        return True, max(ratio, 0.0)
+    if ref_low is not None and value < ref_low:
+        delta = ref_low - value
+        ratio = delta / ref_low if ref_low else delta
+        return True, max(ratio, 0.0)
+    return False, 0.0
+
+
+def _derive_trend_direction(points: list[dict]) -> str:
+    if len(points) < 2:
+        return "stable"
+    first = float(points[0].get("value", 0))
+    last = float(points[-1].get("value", 0))
+    if last > first:
+        return "up"
+    if last < first:
+        return "down"
+    return "stable"
+
+
+def _threshold_label(ref_low: Optional[float], ref_high: Optional[float]) -> str:
+    if ref_low is not None and ref_high is not None:
+        return f"{ref_low}-{ref_high}"
+    if ref_high is not None:
+        return f"<= {ref_high}"
+    if ref_low is not None:
+        return f">= {ref_low}"
+    return "n/a"
+
+
+def _severity_from_ratio(ratio: float) -> str:
+    if ratio >= 0.25:
+        return "critical"
+    if ratio >= 0.12:
+        return "warning"
+    return "monitor"
+
+
+def _insight_sentence(marker_name: str, latest: float, threshold: str, direction: str) -> str:
+    direction_text = {
+        "up": "trend is rising",
+        "down": "trend is declining",
+        "stable": "trend is stable",
+    }.get(direction, "trend is stable")
+    return f"{marker_name} is at {latest} ({threshold}); current {direction_text} and needs physician review."
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -217,6 +269,52 @@ async def get_vitals(request: Request):
     if patient_id == DEMO_USER_ID:
         return {"vitals": RAMESH_VITALS}
     return {"vitals": []}
+
+
+@router.get("/lab-insights")
+async def get_lab_insights(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    if patient_id != DEMO_USER_ID:
+        return {"areas": []}
+
+    areas = []
+    for entry in RAMESH_LAB_HISTORY:
+        points = entry.get("points", [])
+        if not points:
+            continue
+        latest = float(points[-1].get("value", 0))
+        ref_low = entry.get("ref_low")
+        ref_high = entry.get("ref_high")
+        breached, ratio = _classify_threshold(latest, ref_low, ref_high)
+        if not breached:
+            continue
+
+        trend = _derive_trend_direction(points)
+        threshold = _threshold_label(ref_low, ref_high)
+        areas.append(
+            {
+                "area_key": entry.get("area_key"),
+                "area_label": entry.get("area_label"),
+                "marker_name": entry.get("marker_name"),
+                "latest_value": latest,
+                "unit": entry.get("unit"),
+                "threshold": threshold,
+                "severity": _severity_from_ratio(ratio),
+                "trend_direction": trend,
+                "insight": _insight_sentence(entry.get("marker_name", "Marker"), latest, threshold, trend),
+                "points": points,
+                "severity_score": ratio,
+            }
+        )
+
+    areas.sort(key=lambda item: item.get("severity_score", 0), reverse=True)
+    for area in areas:
+        area.pop("severity_score", None)
+
+    return {"areas": areas}
 
 
 @router.get("/emergency-contacts")

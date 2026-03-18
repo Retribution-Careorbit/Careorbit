@@ -7,7 +7,7 @@ import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
-import { Pill, FileText, Bell, Activity, Shield, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen } from "lucide-react";
+import { Pill, FileText, Bell, Activity, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen } from "lucide-react";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -29,7 +29,7 @@ const STAT_CONFIGS = [
   { title: "Health Records", icon: Activity, accent: "cyan" as const },
   { title: "Medications", icon: Pill, accent: "violet" as const },
   { title: "Reminders", icon: Bell, accent: "amber" as const },
-  { title: "Subscription", icon: Shield, accent: "emerald" as const },
+  { title: "Interaction Alerts", icon: AlertCircle, accent: "emerald" as const },
 ];
 
 const ACCENT_COLORS: Record<string, string> = {
@@ -47,7 +47,6 @@ function StatCard({
   description,
   isNumeric,
   loading,
-  isSubscription,
 }: {
   title: string;
   icon: any;
@@ -56,7 +55,6 @@ function StatCard({
   description: string;
   isNumeric: boolean;
   loading: boolean;
-  isSubscription?: boolean;
 }) {
   const color = ACCENT_COLORS[accent];
 
@@ -84,11 +82,7 @@ function StatCard({
               style={{ color: (isNumeric && value === 0) ? "var(--text-muted)" : "var(--text-primary)" }}
               data-testid={`text-stat-${title.toLowerCase().replace(/\s/g, "-")}`}
             >
-              {isSubscription ? (
-                <span style={{ color: "var(--accent-emerald)" }}>
-                  {String(value).toUpperCase()}
-                </span>
-              ) : isNumeric ? (
+              {isNumeric ? (
                 <CountUp end={value as number} />
               ) : (
                 <span className="capitalize">{String(value).replace("_", " ")}</span>
@@ -98,22 +92,6 @@ function StatCard({
           <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
             {description}
           </p>
-          {isSubscription && String(value).toLowerCase() === "free" && (
-            <div className="mt-auto pt-3">
-              <Link href="/settings">
-                <button
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white tracking-wide"
-                  style={{
-                    background: "linear-gradient(135deg, var(--accent-violet), color-mix(in srgb, var(--accent-violet) 80%, var(--accent-cyan)))",
-                    boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
-                  }}
-                  data-testid="button-upgrade"
-                >
-                  UPGRADE
-                </button>
-              </Link>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -125,10 +103,6 @@ export default function DashboardPage() {
 
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ["/api/patients/overview"],
-  });
-
-  const { data: subscription, isLoading: subLoading } = useQuery<any>({
-    queryKey: ["/api/subscriptions/current"],
   });
 
   const { data: reminders = [], isLoading: remLoading } = useQuery<any[]>({
@@ -151,7 +125,7 @@ export default function DashboardPage() {
     queryKey: ["/api/orbit/narrative"],
   });
 
-  const loading = overviewLoading || subLoading || remLoading;
+  const loading = overviewLoading || remLoading;
   const totalNodes = overview?.summary?.total_nodes || 0;
   const reminderList = Array.isArray(reminders) ? reminders : [];
 
@@ -159,7 +133,7 @@ export default function DashboardPage() {
     { ...STAT_CONFIGS[0], value: totalNodes, description: "Total nodes in your health graph", isNumeric: true },
     { ...STAT_CONFIGS[1], value: overview?.medications?.length || 0, description: "Active medications tracked", isNumeric: true },
     { ...STAT_CONFIGS[2], value: reminderList.length, description: "Active medication reminders", isNumeric: true },
-    { ...STAT_CONFIGS[3], value: subscription?.tier || "free", description: subscription?.features?.shows_ads ? "With ads" : "Ad-free", isNumeric: false, isSubscription: true },
+    { ...STAT_CONFIGS[3], value: overview?.interactions?.length || 0, description: "Drug interactions needing review", isNumeric: true },
   ];
 
   const vitals = vitalsData?.vitals || [];
@@ -449,12 +423,25 @@ export default function DashboardPage() {
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">
                 {narrativeData.narrative}
               </p>
-              <Link href="/orbit-score">
-                <Button variant="ghost" size="sm" className="mt-3 text-xs" style={{ color: "var(--accent-cyan)" }}>
-                  View full journey
-                  <ArrowRight className="h-3 w-3 ml-1" />
-                </Button>
-              </Link>
+
+              {Array.isArray(narrativeData.events) && narrativeData.events.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {narrativeData.events.map((event: any, i: number) => (
+                    <div
+                      key={i}
+                      className="flex items-start justify-between gap-3 p-3 rounded-lg"
+                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
+                      data-testid={`card-dashboard-narrative-event-${i}`}
+                    >
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{event.event}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{event.impact}</p>
+                      </div>
+                      <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{event.date}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </FadeIn>
         )}

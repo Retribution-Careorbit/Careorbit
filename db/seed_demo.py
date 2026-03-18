@@ -36,6 +36,81 @@ RAMESH_LABS = [
     {"name": "HbA1c", "value": 7.8, "unit": "%", "ref_low": None, "ref_high": 5.6, "loinc": "4548-4", "abnormal": True, "reference_range": "<5.7%", "node_type": "lab_value"},
     {"name": "Creatinine", "value": 1.4, "unit": "mg/dL", "ref_low": 0.7, "ref_high": 1.3, "loinc": "2160-0", "abnormal": True, "reference_range": "0.7-1.3 mg/dL", "node_type": "lab_value"},
     {"name": "eGFR", "value": 52, "unit": "mL/min", "ref_low": 90, "ref_high": None, "loinc": "33914-3", "abnormal": True, "reference_range": ">90 mL/min", "node_type": "lab_value"},
+    {"name": "TSH", "value": 6.2, "unit": "uIU/mL", "ref_low": 0.4, "ref_high": 4.5, "loinc": "3016-3", "abnormal": True, "reference_range": "0.4-4.5 uIU/mL", "node_type": "lab_value"},
+    {"name": "ALT", "value": 74, "unit": "U/L", "ref_low": 7, "ref_high": 55, "loinc": "1742-6", "abnormal": True, "reference_range": "7-55 U/L", "node_type": "lab_value"},
+]
+
+RAMESH_LAB_HISTORY = [
+    {
+        "area_key": "glycemic_control",
+        "area_label": "Glycemic Control",
+        "marker_name": "HbA1c",
+        "unit": "%",
+        "ref_low": None,
+        "ref_high": 5.6,
+        "points": [
+            {"date": "2025-09-10", "value": 8.6},
+            {"date": "2025-11-10", "value": 8.2},
+            {"date": "2026-01-10", "value": 8.0},
+            {"date": "2026-02-22", "value": 7.8},
+        ],
+    },
+    {
+        "area_key": "renal_function",
+        "area_label": "Renal Function",
+        "marker_name": "eGFR",
+        "unit": "mL/min",
+        "ref_low": 90,
+        "ref_high": None,
+        "points": [
+            {"date": "2025-09-10", "value": 66},
+            {"date": "2025-11-10", "value": 61},
+            {"date": "2026-01-10", "value": 56},
+            {"date": "2026-02-22", "value": 52},
+        ],
+    },
+    {
+        "area_key": "renal_marker",
+        "area_label": "Kidney Enzyme Marker",
+        "marker_name": "Creatinine",
+        "unit": "mg/dL",
+        "ref_low": 0.7,
+        "ref_high": 1.3,
+        "points": [
+            {"date": "2025-09-10", "value": 1.18},
+            {"date": "2025-11-10", "value": 1.26},
+            {"date": "2026-01-10", "value": 1.34},
+            {"date": "2026-02-22", "value": 1.40},
+        ],
+    },
+    {
+        "area_key": "thyroid",
+        "area_label": "Thyroid Function",
+        "marker_name": "TSH",
+        "unit": "uIU/mL",
+        "ref_low": 0.4,
+        "ref_high": 4.5,
+        "points": [
+            {"date": "2025-09-10", "value": 4.9},
+            {"date": "2025-11-10", "value": 5.3},
+            {"date": "2026-01-10", "value": 5.7},
+            {"date": "2026-02-22", "value": 6.2},
+        ],
+    },
+    {
+        "area_key": "liver_enzyme",
+        "area_label": "Liver Enzyme Load",
+        "marker_name": "ALT",
+        "unit": "U/L",
+        "ref_low": 7,
+        "ref_high": 55,
+        "points": [
+            {"date": "2025-09-10", "value": 58},
+            {"date": "2025-11-10", "value": 62},
+            {"date": "2026-01-10", "value": 68},
+            {"date": "2026-02-22", "value": 74},
+        ],
+    },
 ]
 
 RAMESH_INTERACTIONS = [

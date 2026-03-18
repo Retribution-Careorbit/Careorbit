@@ -1,7 +1,7 @@
 import ast
 import os
 from fastapi import APIRouter
-from db.seed_demo import RAMESH_TEST_SCENARIOS
+from db.seed_demo import RAMESH_LABS, RAMESH_VITALS, RAMESH_INTERACTIONS, RAMESH_REMINDERS
 
 router = APIRouter(prefix="/api/tests", tags=["tests"])
 
@@ -150,15 +150,100 @@ async def get_test_cases():
 
 @router.get("/scenarios")
 async def get_test_scenarios():
+    labs = {lab.get("name"): lab for lab in RAMESH_LABS}
+    latest_bp = [v for v in RAMESH_VITALS if v.get("type") == "blood_pressure"]
+    latest_bp_entry = latest_bp[-1] if latest_bp else None
+    latest_glucose = [v for v in RAMESH_VITALS if v.get("type") == "glucose"]
+    latest_glucose_entry = latest_glucose[-1] if latest_glucose else None
+
+    scenarios = []
+
+    hba1c = labs.get("HbA1c")
+    if hba1c and hba1c.get("ref_high") is not None and float(hba1c["value"]) > float(hba1c["ref_high"]):
+        scenarios.append({
+            "case_id": "scenario-hba1c-threshold",
+            "title": "HbA1c Above Clinical Threshold",
+            "potential_outcome": "Escalate diabetes intervention and tighten adherence monitoring.",
+            "limit_flag": "warning",
+            "threshold": f"HbA1c {hba1c['value']}{hba1c.get('unit', '')} > {hba1c['ref_high']}{hba1c.get('unit', '')}",
+        })
+
+    egfr = labs.get("eGFR")
+    if egfr and egfr.get("ref_low") is not None and float(egfr["value"]) < float(egfr["ref_low"]):
+        scenarios.append({
+            "case_id": "scenario-egfr-renal-risk",
+            "title": "Renal Reserve Reduction",
+            "potential_outcome": "Flag nephrology review and medication safety check.",
+            "limit_flag": "critical",
+            "threshold": f"eGFR {egfr['value']}{egfr.get('unit', '')} < {egfr['ref_low']}{egfr.get('unit', '')}",
+        })
+
+    creatinine = labs.get("Creatinine")
+    if creatinine and creatinine.get("ref_high") is not None and float(creatinine["value"]) > float(creatinine["ref_high"]):
+        scenarios.append({
+            "case_id": "scenario-creatinine-rise",
+            "title": "Creatinine Above Range",
+            "potential_outcome": "Increase kidney safety monitoring and evaluate nephrotoxic exposures.",
+            "limit_flag": "warning",
+            "threshold": f"Creatinine {creatinine['value']}{creatinine.get('unit', '')} > {creatinine['ref_high']}{creatinine.get('unit', '')}",
+        })
+
+    if latest_bp_entry and float(latest_bp_entry.get("systolic", 0)) >= 140:
+        scenarios.append({
+            "case_id": "scenario-systolic-elevation",
+            "title": "Systolic BP Persistently High",
+            "potential_outcome": "Prompt antihypertensive adherence and physician dosage reassessment.",
+            "limit_flag": "warning",
+            "threshold": f"Systolic {latest_bp_entry.get('systolic')} mmHg >= 140 mmHg",
+        })
+
+    if latest_glucose_entry and float(latest_glucose_entry.get("fasting", 0)) >= 140:
+        scenarios.append({
+            "case_id": "scenario-fasting-glucose-high",
+            "title": "Fasting Glucose Above Target",
+            "potential_outcome": "Add diet-control alert and repeat fasting panel planning.",
+            "limit_flag": "monitor",
+            "threshold": f"Fasting glucose {latest_glucose_entry.get('fasting')} mg/dL >= 140 mg/dL",
+        })
+
+    if any((ix.get("severity") or "").upper() in {"ELEVATED", "HIGH"} for ix in RAMESH_INTERACTIONS):
+        scenarios.append({
+            "case_id": "scenario-interaction-escalation",
+            "title": "High Interaction Burden",
+            "potential_outcome": "Require medication substitution discussion to reduce interaction risk.",
+            "limit_flag": "critical",
+            "threshold": "At least one interaction severity is ELEVATED/HIGH",
+        })
+
+    adherence_rate = 0.0
+    taken = 0
+    missed = 0
+    for reminder in RAMESH_REMINDERS:
+        taken += int(reminder.get("total_taken", 0) or 0)
+        missed += int(reminder.get("total_missed", 0) or 0)
+    if (taken + missed) > 0:
+        adherence_rate = taken / (taken + missed)
+    if adherence_rate < 0.85:
+        scenarios.append({
+            "case_id": "scenario-adherence-soft-failure",
+            "title": "Adherence Below Reliability Band",
+            "potential_outcome": "Reduce confidence of projected orbit gains until adherence improves.",
+            "limit_flag": "warning",
+            "threshold": f"Adherence {adherence_rate:.2f} < 0.85",
+        })
+
+    severity_rank = {"critical": 3, "warning": 2, "monitor": 1}
+    scenarios.sort(key=lambda s: severity_rank.get(s.get("limit_flag", "monitor"), 0), reverse=True)
+
     counts: dict[str, int] = {}
-    for scenario in RAMESH_TEST_SCENARIOS:
+    for scenario in scenarios:
         flag = scenario.get("limit_flag", "other")
         counts[flag] = counts.get(flag, 0) + 1
 
     return {
-        "scenarios": RAMESH_TEST_SCENARIOS,
+        "scenarios": scenarios,
         "summary": {
-            "total": len(RAMESH_TEST_SCENARIOS),
+            "total": len(scenarios),
             "by_limit_flag": counts,
         },
     }

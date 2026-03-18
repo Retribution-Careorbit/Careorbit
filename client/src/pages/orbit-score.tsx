@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart, CategoryBreakdownBar } from "@/components/charts";
@@ -14,6 +17,8 @@ const BADGES = [
 ];
 
 export default function OrbitScorePage() {
+  const [selectedAction, setSelectedAction] = useState<any | null>(null);
+
   const { data: scoreData, isLoading: scoreLoading } = useQuery<any>({
     queryKey: ["/api/orbit/score"],
   });
@@ -180,22 +185,6 @@ export default function OrbitScorePage() {
             </FadeIn>
           )}
 
-          {scoreData?.premium_required_for_breakdown && (
-            <FadeIn delay={0.2} className="lg:col-span-2">
-              <div
-                className="page-card p-8 text-center"
-                data-testid="card-premium-upsell"
-              >
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-violet-dim)" }}>
-                  <Shield className="h-7 w-7" style={{ color: "var(--accent-violet)" }} />
-                </div>
-                <p className="font-semibold text-lg" style={{ color: "var(--text-primary)" }}>Upgrade to Premium</p>
-                <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                  Get detailed score breakdowns, category insights, and personalized recommendations
-                </p>
-              </div>
-            </FadeIn>
-          )}
         </div>
 
         <FadeIn delay={0.25}>
@@ -254,6 +243,16 @@ export default function OrbitScorePage() {
                     </div>
                     <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{action.action}</p>
                     <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{action.why}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 px-0 text-xs"
+                      style={{ color: "var(--accent-cyan)" }}
+                      onClick={() => setSelectedAction(action)}
+                      data-testid={`button-improvement-detail-${i}`}
+                    >
+                      View details
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -289,6 +288,36 @@ export default function OrbitScorePage() {
             </div>
           </FadeIn>
         )}
+
+        <Dialog open={!!selectedAction} onOpenChange={(open) => !open && setSelectedAction(null)}>
+          <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: "var(--text-primary)" }}>
+                {selectedAction?.focus || "Orbit Improvement"}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedAction && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Expected impact: +{selectedAction.expected_impact}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Suggested action</p>
+                  <p className="text-sm mt-1" style={{ color: "var(--text-primary)" }}>{selectedAction.action}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Why this matters</p>
+                  <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{selectedAction.why}</p>
+                </div>
+                <div className="flex justify-end">
+                  <span className="text-xs font-medium" style={{ color: "var(--accent-amber)" }} data-testid="text-upgrade-note">
+                    + please upgrade subscription for better insights
+                  </span>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

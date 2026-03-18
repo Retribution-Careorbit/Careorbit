@@ -3,47 +3,45 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { HealthMetricsChart, Sparkline } from "@/components/charts";
-import { Heart, Droplets, Weight, Thermometer, TrendingDown, AlertCircle, Download, Lightbulb } from "lucide-react";
+import { Heart, Droplets, Weight, Thermometer, AlertCircle, Download, Lightbulb, TrendingUp } from "lucide-react";
+import { toApiUrl } from "@/lib/queryClient";
 
-const INSIGHTS = [
-  {
-    title: "Blood Pressure Improving",
-    description: "Your systolic BP has decreased from 148 to 128 mmHg over the past 6 weeks. Keep up the good work with your Amlodipine regimen.",
-    icon: TrendingDown,
-    color: "var(--accent-emerald)",
-    type: "positive",
-  },
-  {
-    title: "HbA1c Above Target",
-    description: "Your HbA1c is 7.8%, above the recommended <5.7%. Discuss with your doctor about adjusting your Metformin dosage or diet plan.",
-    icon: AlertCircle,
-    color: "var(--accent-amber)",
-    type: "warning",
-  },
-  {
-    title: "Weight Loss Progress",
-    description: "You've lost 2kg in the past month (82.5 → 80.5 kg). Steady weight loss supports your diabetes and BP management.",
-    icon: TrendingDown,
-    color: "var(--accent-cyan)",
-    type: "positive",
-  },
-  {
-    title: "Kidney Function Alert",
-    description: "Your eGFR is 52 mL/min (Stage 3a CKD). Avoid NSAIDs like Ibuprofen and ensure regular monitoring.",
-    icon: AlertCircle,
-    color: "var(--accent-rose)",
-    type: "critical",
-  },
-];
+interface LabTrendPoint {
+  date: string;
+  value: number;
+}
+
+interface AffectedAreaInsight {
+  area_key: string;
+  area_label: string;
+  marker_name: string;
+  latest_value: number;
+  unit: string;
+  threshold: string;
+  severity: "critical" | "warning" | "monitor";
+  trend_direction: "up" | "down" | "stable";
+  insight: string;
+  points: LabTrendPoint[];
+}
+
+interface LabInsightsResponse {
+  areas: AffectedAreaInsight[];
+}
 
 export default function HealthInsightsPage() {
   const [timeframe, setTimeframe] = useState<"weekly" | "monthly">("monthly");
+  const [selectedArea, setSelectedArea] = useState<AffectedAreaInsight | null>(null);
 
   const { data: vitalsData, isLoading } = useQuery<any>({
     queryKey: ["/api/patients/vitals"],
+  });
+
+  const { data: labInsightsData, isLoading: labInsightsLoading } = useQuery<LabInsightsResponse>({
+    queryKey: ["/api/patients/lab-insights"],
   });
 
   const allVitals = vitalsData?.vitals || [];
@@ -128,6 +126,19 @@ export default function HealthInsightsPage() {
     },
   ];
 
+  const severityColor: Record<string, string> = {
+    critical: "var(--accent-rose)",
+    warning: "var(--accent-amber)",
+    monitor: "var(--accent-cyan)",
+  };
+
+  const selectedChartData = selectedArea
+    ? selectedArea.points.map((point) => ({
+        date: new Date(point.date).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+        value: point.value,
+      }))
+    : [];
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -159,7 +170,7 @@ export default function HealthInsightsPage() {
                 Monthly
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <a href="/api/summary/generate" target="_blank" data-testid="button-download-summary">
+                <a href={toApiUrl("/api/summary/generate")} target="_blank" rel="noreferrer" data-testid="button-download-summary">
                   <Download className="h-4 w-4 mr-1" />
                   PDF
                 </a>
@@ -267,34 +278,73 @@ export default function HealthInsightsPage() {
               <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
                 <Lightbulb className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
               </div>
-              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>AI Health Insights</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Most Affected Areas</span>
             </div>
-            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {INSIGHTS.map((insight, i) => (
-                <StaggerItem key={i}>
-                  <div
-                    className="p-4 rounded-xl hover:bg-[var(--bg-hover)]"
-                    style={{ border: "1px solid var(--border-subtle)" }}
-                    data-testid={`card-insight-${i}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `color-mix(in srgb, ${insight.color} 12%, transparent)` }}
-                      >
-                        <insight.icon className="h-4 w-4" style={{ color: insight.color }} />
+            {labInsightsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2].map((k) => <Skeleton key={k} className="h-24 w-full" />)}
+              </div>
+            ) : (labInsightsData?.areas?.length || 0) > 0 ? (
+              <div className="flex gap-3 overflow-x-auto pb-2" data-testid="row-affected-areas">
+                {(labInsightsData?.areas || []).map((area, i) => {
+                  const color = severityColor[area.severity] || "var(--accent-cyan)";
+                  return (
+                    <button
+                      key={area.area_key}
+                      className="min-w-[280px] text-left p-4 rounded-xl"
+                      style={{ border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`, background: "var(--bg-elevated)" }}
+                      onClick={() => setSelectedArea(area)}
+                      data-testid={`button-affected-area-${i}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{area.area_label}</p>
+                        <Badge variant="outline" className="uppercase" style={{ color, borderColor: `color-mix(in srgb, ${color} 40%, transparent)` }}>
+                          {area.severity}
+                        </Badge>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>{insight.title}</p>
-                        <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>{insight.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                        {area.marker_name}: {area.latest_value} {area.unit} ({area.threshold})
+                      </p>
+                      <p className="text-xs mt-2 leading-relaxed" style={{ color: "var(--text-muted)" }}>{area.insight}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>No abnormal lab markers currently detected.</p>
+            )}
           </div>
         </FadeIn>
+
+        <Dialog open={!!selectedArea} onOpenChange={(open) => !open && setSelectedArea(null)}>
+          <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: "var(--text-primary)" }}>
+                {selectedArea?.area_label || "Area Trend"}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedArea && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{selectedArea.marker_name}</Badge>
+                  <Badge variant="outline">Latest: {selectedArea.latest_value} {selectedArea.unit}</Badge>
+                  <Badge variant="outline">Threshold: {selectedArea.threshold}</Badge>
+                </div>
+                {selectedChartData.length > 0 ? (
+                  <HealthMetricsChart data={selectedChartData} label={selectedArea.marker_name} color="#00D4FF" height={220} />
+                ) : (
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>No trend points available for this marker.</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{selectedArea.insight}</p>
+                  <span className="text-xs inline-flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                    <TrendingUp className="h-3 w-3" /> {selectedArea.trend_direction}
+                  </span>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

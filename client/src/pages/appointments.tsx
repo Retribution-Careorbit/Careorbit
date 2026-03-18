@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, toApiUrl } from "@/lib/queryClient";
 import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope, Download } from "lucide-react";
 
 export default function AppointmentsPage() {
@@ -64,6 +64,8 @@ export default function AppointmentsPage() {
       return dt;
     }
   };
+
+  const previsitUrl = (appointmentId: string) => toApiUrl(`/api/summary/previsit-brief/${appointmentId}`);
 
   return (
     <Layout>
@@ -185,7 +187,7 @@ export default function AppointmentsPage() {
                             Video Call
                           </Button>
                           <Button variant="outline" size="sm" className="text-xs" asChild data-testid={`button-brief-${i}`}>
-                            <a href={`/api/summary/previsit-brief/${appt.appointment_id}`} target="_blank" rel="noreferrer">
+                            <a href={previsitUrl(appt.appointment_id)} target="_blank" rel="noreferrer">
                               <Download className="h-3.5 w-3.5 mr-1" />
                               Brief PDF
                             </a>
