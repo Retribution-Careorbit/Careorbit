@@ -84,6 +84,17 @@ class Settings:
         self.AZURE_BLOB_CONNECTION_STRING: str = _get("AZURE_BLOB_CONNECTION_STRING", "")
         self.APPINSIGHTS_CONNECTION_STRING: str = _get("APPINSIGHTS_CONNECTION_STRING", "")
 
+        def _to_bool(value: str, default: bool) -> bool:
+            if value is None or value == "":
+                return default
+            return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+        # Strict chat mode: fail fast with explicit errors if required Azure dependencies fail.
+        self.CHAT_STRICT_AZURE_DEPENDENCIES: bool = _to_bool(_get("CHAT_STRICT_AZURE_DEPENDENCIES", "true"), True)
+        self.CHAT_REQUIRE_OPENAI: bool = _to_bool(_get("CHAT_REQUIRE_OPENAI", "true"), True)
+        self.CHAT_REQUIRE_SEARCH: bool = _to_bool(_get("CHAT_REQUIRE_SEARCH", "true"), True)
+        self.CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN: bool = _to_bool(_get("CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN", "false"), False)
+
 
 _settings = None
 
