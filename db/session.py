@@ -2,6 +2,7 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from collections import defaultdict
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 logger = logging.getLogger("careorbit.db.session")
 
@@ -13,6 +14,18 @@ def _is_postgres_url(url: str) -> bool:
     return url.startswith("postgresql")
 
 
+def _sanitize_asyncpg_url(db_url: str) -> str:
+    """Remove query params unsupported by asyncpg (e.g., sslmode)."""
+    if "sslmode=" not in db_url:
+        return db_url
+
+    parts = urlsplit(db_url)
+    query_items = parse_qsl(parts.query, keep_blank_values=True)
+    filtered_items = [(k, v) for (k, v) in query_items if k.lower() != "sslmode"]
+    new_query = urlencode(filtered_items)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+
+
 def _get_async_engine():
     global _engine
     if _engine is not None:
@@ -20,7 +33,7 @@ def _get_async_engine():
 
     from config import get_settings
     settings = get_settings()
-    db_url = settings.DATABASE_URL
+    db_url = _sanitize_asyncpg_url(settings.DATABASE_URL)
 
     if not _is_postgres_url(db_url):
         return None
