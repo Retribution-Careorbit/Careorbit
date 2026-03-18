@@ -15,13 +15,12 @@ def _is_postgres_url(url: str) -> bool:
 
 
 def _sanitize_asyncpg_url(db_url: str) -> str:
-    """Remove query params unsupported by asyncpg (e.g., sslmode)."""
-    if "sslmode=" not in db_url:
-        return db_url
-
+    """Remove query params unsupported by asyncpg (e.g., sslmode/SSLMODE)."""
     parts = urlsplit(db_url)
     query_items = parse_qsl(parts.query, keep_blank_values=True)
-    filtered_items = [(k, v) for (k, v) in query_items if k.lower() != "sslmode"]
+    filtered_items = [(k, v) for (k, v) in query_items if k.strip().lower() != "sslmode"]
+    if len(filtered_items) != len(query_items):
+        logger.info("Removed sslmode from DATABASE_URL query parameters for asyncpg compatibility")
     new_query = urlencode(filtered_items)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
