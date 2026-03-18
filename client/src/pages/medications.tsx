@@ -13,6 +13,7 @@ interface Medication {
   name: string;
   dosage?: string;
   frequency?: string;
+  prescribed_by_doctor?: string;
   confidence?: number;
   confidence_label?: string;
   interactions?: any[];
@@ -196,6 +197,14 @@ export default function MedicationsPage() {
                               <p>
                                 <span style={{ color: "var(--text-muted)" }}>Frequency:</span>{" "}
                                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.frequency}</span>
+                              </p>
+                            )}
+                            {med.prescribed_by_doctor && (
+                              <p>
+                                <span style={{ color: "var(--text-muted)" }}>Prescribed by:</span>{" "}
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }} data-testid={`text-prescriber-${i}`}>
+                                  {med.prescribed_by_doctor}
+                                </span>
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-2">

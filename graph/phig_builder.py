@@ -58,6 +58,7 @@ class PHIGBuilder:
                     "name": med["name"],
                     "dosage": med["dosage"],
                     "frequency": med["frequency"],
+                    "prescribed_by_doctor": med.get("prescribed_by_doctor"),
                     "confidence": med["confidence"],
                     "confidence_label": med["confidence_label"],
                     "interactions": [],

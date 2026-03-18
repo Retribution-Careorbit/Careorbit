@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { HealthMetricsChart, Sparkline } from "@/components/charts";
-import { Heart, Droplets, Weight, Thermometer, AlertCircle, Download, Lightbulb, TrendingUp } from "lucide-react";
+import { Heart, Weight, Thermometer, Download, Lightbulb, TrendingUp, AlertTriangle } from "lucide-react";
 import { toApiUrl } from "@/lib/queryClient";
 
 interface LabTrendPoint {
@@ -83,11 +83,28 @@ export default function HealthInsightsPage() {
     .map((v: any) => v.value);
 
   const latestBP = allVitals.filter((v: any) => v.type === "blood_pressure").slice(-1)[0];
-  const latestGlucose = allVitals.filter((v: any) => v.type === "glucose").slice(-1)[0];
   const latestWeight = allVitals.filter((v: any) => v.type === "weight").slice(-1)[0];
   const latestTemp = allVitals.filter((v: any) => v.type === "temperature").slice(-1)[0];
 
-  const vitalCards = [
+  const affectedCards = (labInsightsData?.areas || []).slice(0, 4).map((area) => {
+    const severityColor = area.severity === "critical"
+      ? "var(--accent-rose)"
+      : area.severity === "warning"
+        ? "var(--accent-amber)"
+        : "var(--accent-cyan)";
+    const sparkData = Array.isArray(area.points) ? area.points.map((p) => p.value) : [];
+    return {
+      title: area.area_label,
+      value: `${area.latest_value}`,
+      unit: `${area.marker_name} (${area.unit})`,
+      icon: AlertTriangle,
+      color: severityColor,
+      sparkData,
+      status: area.severity,
+    };
+  });
+
+  const fallbackCards = [
     {
       title: "Blood Pressure",
       value: latestBP ? `${latestBP.systolic}/${latestBP.diastolic}` : "—",
@@ -96,15 +113,6 @@ export default function HealthInsightsPage() {
       color: "#00D4FF",
       sparkData: hrData,
       status: latestBP && latestBP.systolic < 140 ? "normal" : "warning",
-    },
-    {
-      title: "Blood Glucose",
-      value: latestGlucose ? `${latestGlucose.fasting}` : "—",
-      unit: "mg/dL (fasting)",
-      icon: Droplets,
-      color: "#7C3AED",
-      sparkData: glucoseSparkline,
-      status: latestGlucose && latestGlucose.fasting < 140 ? "normal" : "warning",
     },
     {
       title: "Weight",
@@ -125,6 +133,8 @@ export default function HealthInsightsPage() {
       status: latestTemp && latestTemp.value <= 99.5 ? "normal" : "warning",
     },
   ];
+
+  const topCards = affectedCards.length > 0 ? affectedCards : fallbackCards;
 
   const severityColor: Record<string, string> = {
     critical: "var(--accent-rose)",
@@ -180,7 +190,7 @@ export default function HealthInsightsPage() {
         </FadeIn>
 
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {vitalCards.map((card) => (
+          {topCards.map((card) => (
             <StaggerItem key={card.title}>
               <div
                 className="page-card p-5"
@@ -205,14 +215,24 @@ export default function HealthInsightsPage() {
                       <Badge
                         className="mt-2 text-xs border"
                         style={{
-                          background: card.status === "normal" ? "var(--accent-emerald-dim)" : "var(--accent-amber-dim)",
-                          color: card.status === "normal" ? "var(--accent-emerald)" : "var(--accent-amber)",
-                          borderColor: card.status === "normal"
-                            ? "color-mix(in srgb, var(--accent-emerald) 30%, transparent)"
-                            : "color-mix(in srgb, var(--accent-amber) 30%, transparent)",
+                          background: card.status === "critical"
+                            ? "var(--accent-rose-dim)"
+                            : card.status === "warning"
+                              ? "var(--accent-amber-dim)"
+                              : "var(--accent-emerald-dim)",
+                          color: card.status === "critical"
+                            ? "var(--accent-rose)"
+                            : card.status === "warning"
+                              ? "var(--accent-amber)"
+                              : "var(--accent-emerald)",
+                          borderColor: card.status === "critical"
+                            ? "color-mix(in srgb, var(--accent-rose) 30%, transparent)"
+                            : card.status === "warning"
+                              ? "color-mix(in srgb, var(--accent-amber) 30%, transparent)"
+                              : "color-mix(in srgb, var(--accent-emerald) 30%, transparent)",
                         }}
                       >
-                        {card.status === "normal" ? "Normal" : "Monitor"}
+                        {String(card.status).toUpperCase()}
                       </Badge>
                     </div>
                     {card.sparkData.length > 1 && (
@@ -250,20 +270,22 @@ export default function HealthInsightsPage() {
           <FadeIn delay={0.2}>
             <div
               className="page-card p-6"
-              data-testid="card-glucose-chart"
+              data-testid="card-affected-trend-chart"
             >
               <div className="page-card-header">
                 <div className="card-icon" style={{ background: "var(--accent-violet-dim)" }}>
-                  <Droplets className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
+                  <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Blood Glucose Trends</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  {selectedArea ? `${selectedArea.area_label} Trend` : "Most Affected Marker Trend"}
+                </span>
               </div>
               {isLoading ? (
                 <Skeleton className="h-[250px] w-full" />
-              ) : glucoseData.length > 0 ? (
-                <HealthMetricsChart data={glucoseData} label="Fasting" label2="Post-meal" color="#10B981" color2="#F59E0B" />
+              ) : selectedChartData.length > 0 ? (
+                <HealthMetricsChart data={selectedChartData} label={selectedArea?.marker_name || "Marker"} color="#10B981" />
               ) : (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No glucose data available</p>
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>Select an affected area to view marker trend</p>
               )}
             </div>
           </FadeIn>

@@ -3,11 +3,29 @@ from fastapi import APIRouter, UploadFile, File, Request, HTTPException
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from pipeline.document_pipeline import document_pipeline
+from db.seed_demo import DEMO_USER_ID, RAMESH_VALID_PRESCRIPTION_DOCS
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"]
 MAX_SIZE = 10 * 1024 * 1024
+
+
+@router.get("/validated-prescriptions")
+async def list_validated_prescriptions(request: Request):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    if patient_id != DEMO_USER_ID:
+        return {"documents": []}
+
+    docs = [
+        doc for doc in RAMESH_VALID_PRESCRIPTION_DOCS
+        if doc.get("document_type") == "prescription" and doc.get("is_valid")
+    ]
+    docs.sort(key=lambda d: d.get("uploaded_at", ""), reverse=True)
+    return {"documents": docs}
 
 
 @router.post("/upload")

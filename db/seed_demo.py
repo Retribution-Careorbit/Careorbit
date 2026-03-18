@@ -25,11 +25,41 @@ RAMESH_CONDITIONS = [
 ]
 
 RAMESH_MEDICATIONS = [
-    {"name": "Metformin", "dosage": "500mg BD", "frequency": "twice daily", "rxnorm": "6809", "confidence": 0.85, "confidence_label": "HIGH", "node_type": "medication"},
-    {"name": "Amlodipine", "dosage": "5mg OD", "frequency": "once daily", "rxnorm": "17767", "confidence": 0.82, "confidence_label": "HIGH", "node_type": "medication"},
-    {"name": "Atorvastatin", "dosage": "10mg HS", "frequency": "once daily at bedtime", "rxnorm": "83367", "confidence": 0.78, "confidence_label": "MODERATE", "node_type": "medication"},
-    {"name": "Aspirin", "dosage": "75mg OD", "frequency": "once daily", "rxnorm": "1191", "confidence": 0.90, "confidence_label": "VERIFIED", "node_type": "medication"},
-    {"name": "Ibuprofen", "dosage": "400mg SOS", "frequency": "as needed", "rxnorm": "5640", "confidence": 0.65, "confidence_label": "MODERATE", "node_type": "medication"},
+    {"name": "Metformin", "dosage": "500mg BD", "frequency": "twice daily", "rxnorm": "6809", "confidence": 0.85, "confidence_label": "HIGH", "prescribed_by_doctor": "Dr. Anjali Sharma", "node_type": "medication"},
+    {"name": "Amlodipine", "dosage": "5mg OD", "frequency": "once daily", "rxnorm": "17767", "confidence": 0.82, "confidence_label": "HIGH", "prescribed_by_doctor": "Dr. Priya Gupta", "node_type": "medication"},
+    {"name": "Atorvastatin", "dosage": "10mg HS", "frequency": "once daily at bedtime", "rxnorm": "83367", "confidence": 0.78, "confidence_label": "MODERATE", "prescribed_by_doctor": "Dr. Rajesh Mehta", "node_type": "medication"},
+    {"name": "Aspirin", "dosage": "75mg OD", "frequency": "once daily", "rxnorm": "1191", "confidence": 0.90, "confidence_label": "VERIFIED", "prescribed_by_doctor": "Dr. Priya Gupta", "node_type": "medication"},
+    {"name": "Ibuprofen", "dosage": "400mg SOS", "frequency": "as needed", "rxnorm": "5640", "confidence": 0.65, "confidence_label": "MODERATE", "prescribed_by_doctor": "Dr. Rajesh Mehta", "node_type": "medication"},
+]
+
+RAMESH_VALID_PRESCRIPTION_DOCS = [
+    {
+        "document_id": "doc-rx-001",
+        "file_name": "prescription_endocrine_followup_2026_02_22.pdf",
+        "document_type": "prescription",
+        "is_valid": True,
+        "uploaded_at": "2026-02-22T09:10:00+05:30",
+        "prescribed_by": "Dr. Anjali Sharma",
+        "summary": "Metformin continued, Amlodipine maintained, HbA1c review advised.",
+    },
+    {
+        "document_id": "doc-rx-002",
+        "file_name": "prescription_nephro_review_2026_03_01.pdf",
+        "document_type": "prescription",
+        "is_valid": True,
+        "uploaded_at": "2026-03-01T11:40:00+05:30",
+        "prescribed_by": "Dr. Rajesh Mehta",
+        "summary": "Renal safety precautions advised, avoid frequent NSAID usage.",
+    },
+    {
+        "document_id": "doc-rx-003",
+        "file_name": "old_blurry_upload_2026_01_12.pdf",
+        "document_type": "prescription",
+        "is_valid": False,
+        "uploaded_at": "2026-01-12T08:10:00+05:30",
+        "prescribed_by": "Unknown",
+        "summary": "Low-confidence OCR result.",
+    },
 ]
 
 RAMESH_LABS = [

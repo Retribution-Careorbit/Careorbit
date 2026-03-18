@@ -113,6 +113,8 @@ async def get_test_cases():
             rel_path = os.path.relpath(filepath, os.path.join(tests_root, ".."))
             dir_name = os.path.basename(dirpath)
             category = _get_category(dir_name)
+            if category == "false_positive_negative":
+                continue
             stem = filename.replace(".py", "")
             feature = FEATURE_MAP.get(stem, stem.replace("test_", "").replace("_", " ").title())
             is_new = filename in NEW_TEST_FILES

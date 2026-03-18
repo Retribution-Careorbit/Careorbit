@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem, CountUp } from "@/components/animations";
-import { OrbitScoreRadial, HealthMetricsChart, CategoryBreakdownBar } from "@/components/charts";
+import { OrbitScoreRadial, CategoryBreakdownBar } from "@/components/charts";
 import { Trophy, TrendingUp, Target, Star, Upload, Shield, BookOpen } from "lucide-react";
 
 const BADGES = [
@@ -23,10 +23,6 @@ export default function OrbitScorePage() {
     queryKey: ["/api/orbit/score"],
   });
 
-  const { data: historyData, isLoading: historyLoading } = useQuery<any[]>({
-    queryKey: ["/api/orbit/score/history"],
-  });
-
   const { data: improvementPlan } = useQuery<any>({
     queryKey: ["/api/orbit/improvement-plan"],
   });
@@ -35,15 +31,9 @@ export default function OrbitScorePage() {
     queryKey: ["/api/orbit/narrative"],
   });
 
-  const loading = scoreLoading || historyLoading;
+  const loading = scoreLoading;
   const score = scoreData?.total_score || 0;
   const breakdown = scoreData?.breakdown;
-  const history = Array.isArray(historyData) ? historyData : [];
-
-  const historyChartData = history.map((h: any) => ({
-    date: new Date(h.computed_at).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
-    value: h.total_score,
-  }));
 
   const breakdownData = breakdown
     ? [
@@ -143,27 +133,6 @@ export default function OrbitScorePage() {
                       : "Upload more records and follow your care plan to improve."}
                   </p>
                 </>
-              )}
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={0.15} className="lg:col-span-2">
-            <div
-              className="page-card p-6"
-              data-testid="card-score-history"
-            >
-              <div className="page-card-header">
-                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
-                  <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
-                </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Score History</span>
-              </div>
-              {loading ? (
-                <Skeleton className="h-[250px] w-full" />
-              ) : historyChartData.length > 0 ? (
-                <HealthMetricsChart data={historyChartData} label="Orbit Score" color="#00D4FF" />
-              ) : (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No history data yet</p>
               )}
             </div>
           </FadeIn>

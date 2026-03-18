@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient, toApiUrl } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope, Download } from "lucide-react";
 
 export default function AppointmentsPage() {
@@ -19,6 +19,8 @@ export default function AppointmentsPage() {
   const [specialization, setSpecialization] = useState("");
   const [datetime, setDatetime] = useState("");
   const [clinicName, setClinicName] = useState("");
+  const [pastVisitOpen, setPastVisitOpen] = useState(false);
+  const [selectedPastVisit, setSelectedPastVisit] = useState<any | null>(null);
 
   const { data: appointments = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/orbit/appointments"],
@@ -65,7 +67,22 @@ export default function AppointmentsPage() {
     }
   };
 
-  const previsitUrl = (appointmentId: string) => toApiUrl(`/api/summary/previsit-brief/${appointmentId}`);
+  const openPrevisitBrief = async (appointmentId: string) => {
+    try {
+      const response = await apiRequest("GET", `/api/summary/previsit-brief/${appointmentId}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
+    } catch (err: any) {
+      toast({ title: "Unable to open brief", description: err?.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
+  const openPastVisit = (appointment: any) => {
+    setSelectedPastVisit(appointment);
+    setPastVisitOpen(true);
+  };
 
   return (
     <Layout>
@@ -186,11 +203,15 @@ export default function AppointmentsPage() {
                             <Video className="h-3.5 w-3.5 mr-1" />
                             Video Call
                           </Button>
-                          <Button variant="outline" size="sm" className="text-xs" asChild data-testid={`button-brief-${i}`}>
-                            <a href={previsitUrl(appt.appointment_id)} target="_blank" rel="noreferrer">
-                              <Download className="h-3.5 w-3.5 mr-1" />
-                              Brief PDF
-                            </a>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            data-testid={`button-brief-${i}`}
+                            onClick={() => openPrevisitBrief(appt.appointment_id)}
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            Brief PDF
                           </Button>
                         </div>
                       </div>
@@ -224,7 +245,18 @@ export default function AppointmentsPage() {
                             </div>
                             <p className="text-sm font-mono text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(appt.appointment_datetime)}</p>
                           </div>
-                          <Badge variant="secondary" className="text-xs">Completed</Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => openPastVisit(appt)}
+                              data-testid={`button-view-past-visit-${i}`}
+                            >
+                              View Past Visit
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </StaggerItem>
@@ -232,6 +264,31 @@ export default function AppointmentsPage() {
                 </StaggerContainer>
               </>
             )}
+
+            <Dialog open={pastVisitOpen} onOpenChange={setPastVisitOpen}>
+              <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+                <DialogHeader>
+                  <DialogTitle>Past Visit Details</DialogTitle>
+                </DialogHeader>
+                {selectedPastVisit && (
+                  <div className="space-y-3" data-testid="dialog-past-visit-details">
+                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Doctor:</span> {selectedPastVisit.doctor_name}</p>
+                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Specialization:</span> {selectedPastVisit.specialization || "General"}</p>
+                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Date:</span> {formatDate(selectedPastVisit.appointment_datetime)}</p>
+                    <p className="text-sm"><span style={{ color: "var(--text-muted)" }}>Clinic:</span> {selectedPastVisit.clinic_name || "N/A"}</p>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      Visit summary and prescription brief can be reopened anytime from the secured PDF endpoint.
+                    </p>
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={() => openPrevisitBrief(selectedPastVisit.appointment_id)} data-testid="button-open-past-visit-pdf">
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        Open Visit PDF
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </div>

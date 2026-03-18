@@ -44,6 +44,20 @@ interface TestScenariosResponse {
   };
 }
 
+interface ValidPrescriptionDoc {
+  document_id: string;
+  file_name: string;
+  document_type: string;
+  is_valid: boolean;
+  uploaded_at: string;
+  prescribed_by: string;
+  summary: string;
+}
+
+interface ValidPrescriptionsResponse {
+  documents: ValidPrescriptionDoc[];
+}
+
 interface FilterState {
   search: string;
   nameFilter: string;
@@ -527,14 +541,18 @@ export default function TestCasesPage() {
     queryKey: ["/api/tests/scenarios"],
   });
 
+  const { data: validDocsData } = useQuery<ValidPrescriptionsResponse>({
+    queryKey: ["/api/documents/validated-prescriptions"],
+  });
+
   const categories = useMemo(() => {
     if (!data) return [];
-    return [...new Set(data.tests.map((t) => t.category))].sort();
+    return Array.from(new Set(data.tests.map((t) => t.category))).sort();
   }, [data]);
 
   const featureAreas = useMemo(() => {
     if (!data) return [];
-    return [...new Set(data.tests.map((t) => t.feature_area))].sort();
+    return Array.from(new Set(data.tests.map((t) => t.feature_area))).sort();
   }, [data]);
 
   const filtered = useMemo(() => {
@@ -690,6 +708,37 @@ export default function TestCasesPage() {
             </div>
           </div>
         ) : null}
+
+        {(validDocsData?.documents?.length || 0) > 0 && (
+          <div className="page-card p-4" data-testid="card-valid-prescriptions">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                Valid Uploaded Prescription PDFs
+              </p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Total: {validDocsData?.documents?.length || 0}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {(validDocsData?.documents || []).map((doc, i) => (
+                <div key={doc.document_id} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }} data-testid={`card-valid-prescription-${i}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{doc.file_name}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        Uploaded {new Date(doc.uploaded_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} • Prescribed by {doc.prescribed_by}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="uppercase" style={{ color: "var(--accent-emerald)", borderColor: "color-mix(in srgb, var(--accent-emerald) 40%, transparent)" }}>
+                      valid
+                    </Badge>
+                  </div>
+                  <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>{doc.summary}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {activeChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
