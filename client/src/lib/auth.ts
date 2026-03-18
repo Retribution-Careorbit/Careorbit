@@ -46,7 +46,14 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   if (!(options.body instanceof FormData)) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
-  return fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers });
+  if (response.status === 401) {
+    useAuthStore.getState().logout();
+    if (window.location.pathname !== "/") {
+      window.location.assign("/");
+    }
+  }
+  return response;
 }
 
 export async function authPost(url: string, data: unknown): Promise<Response> {

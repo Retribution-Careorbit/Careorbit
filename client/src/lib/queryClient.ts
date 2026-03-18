@@ -4,7 +4,22 @@ function getToken(): string | null {
   return localStorage.getItem("careorbit_token");
 }
 
+function clearAuthState() {
+  localStorage.removeItem("careorbit_token");
+  localStorage.removeItem("careorbit_refresh_token");
+  localStorage.removeItem("careorbit_user");
+}
+
 async function throwIfResNotOk(res: Response) {
+  if (res.status === 401) {
+    clearAuthState();
+    // Redirect to login so the user can obtain a fresh token after deployments/secret rotations.
+    if (window.location.pathname !== "/") {
+      window.location.assign("/");
+    }
+    throw new Error("Session expired. Please log in again.");
+  }
+
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
