@@ -253,10 +253,10 @@ jobs:
       - name: Install and build frontend
         run: |
           npm ci
-          if [ "${GITHUB_REF}" = "refs/heads/dev" ] || [ "${GITHUB_REF}" = "refs/heads/develop" ]; then
-            export VITE_API_BASE_URL=https://careorbit-api-dev.azurewebsites.net
-          else
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
             export VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net
+          else
+            unset VITE_API_BASE_URL
           fi
           npm run build
 
