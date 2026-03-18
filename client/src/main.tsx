@@ -3,10 +3,7 @@ import App from "./App";
 import "./index.css";
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
-const isLocalHost =
-	window.location.hostname === "localhost" ||
-	window.location.hostname === "127.0.0.1";
-const apiBase = isLocalHost ? configuredApiBase : "";
+const apiBase = configuredApiBase;
 
 const originalFetch = window.fetch.bind(window);
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
