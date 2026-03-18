@@ -44,6 +44,33 @@ class DocumentPipeline:
         self._drug_db = DrugDatabase()
         self._lab_extractor = LabReportExtractor()
 
+    def _extract_text_locally(self, image_bytes: bytes, file_extension: str) -> str:
+        import io
+
+        ext = (file_extension or "").lower().strip(".")
+        if ext == "pdf":
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(io.BytesIO(image_bytes))
+                page_text = []
+                for page in reader.pages:
+                    page_text.append(page.extract_text() or "")
+                text = "\n".join(page_text).strip()
+                if text:
+                    return text
+            except Exception:
+                pass
+
+        # Last-resort decode for simple text-like files mislabeled as PDFs.
+        try:
+            decoded = image_bytes.decode("utf-8", errors="ignore").strip()
+            if decoded:
+                return decoded
+        except Exception:
+            pass
+        return ""
+
     def _infer_document_type_from_filename(self, filename: str) -> str:
         lower = (filename or "").lower()
         if "lab" in lower or "report" in lower:
@@ -150,8 +177,14 @@ class DocumentPipeline:
             classified = await self._vision.classify_document_type(ocr_result)
             if classified and classified != "unknown":
                 doc_type = classified
-        except Exception as e:
+        except Exception:
             full_text = ""
+
+        if not (full_text or "").strip():
+            local_text = self._extract_text_locally(image_bytes, file_extension)
+            if local_text:
+                full_text = local_text
+                avg_confidence = max(avg_confidence, 0.45)
 
         if doc_type == "unreadable" or avg_confidence < 0.30:
             return DocumentProcessingResult(
@@ -248,10 +281,14 @@ class DocumentPipeline:
 
         if not nodes:
             text_len = len((full_text or "").strip())
-            if text_len >= 20 and doc_type in {"prescription", "lab_report", "medical_document", "unknown"}:
+            if doc_type in {"prescription", "lab_report", "medicine_strip", "medical_document", "unknown"}:
+                inferred_type = "medical_document" if doc_type == "unknown" else doc_type
+                summary = "Partial clinical text detected. Please confirm extracted details manually."
+                if text_len < 20:
+                    summary = "Document received but extraction confidence is low. Please upload a clearer image or confirm details manually."
                 return DocumentProcessingResult(
                     document_id=f"doc-{patient_id}",
-                    document_type="medical_document" if doc_type == "unknown" else doc_type,
+                    document_type=inferred_type,
                     processing_status="needs_confirmation",
                     nodes_created=[],
                     interaction_alerts=[],
@@ -268,7 +305,7 @@ class DocumentPipeline:
                     extracted_data={
                         "medications": [],
                         "labs": [],
-                        "summary": "Partial clinical text detected. Please confirm extracted details manually.",
+                        "summary": summary,
                     },
                 )
 
