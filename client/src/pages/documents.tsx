@@ -10,11 +10,15 @@ import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { FileUp, Upload, CheckCircle, AlertTriangle, XCircle, Loader2 } from "lucide-react";
 
 interface UploadResult {
+  document_id?: string;
+  file_name?: string;
   document_type: string;
   status: string;
   nodes_created: number;
   interaction_alerts: any[];
   confirmation_needed: any[];
+  error_message?: string;
+  summary?: string;
 }
 
 export default function DocumentsPage() {
@@ -39,7 +43,7 @@ export default function DocumentsPage() {
       }
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: UploadResult) => {
       setResults((prev) => [data, ...prev]);
       queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
@@ -48,7 +52,27 @@ export default function DocumentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
-      toast({ title: "Document Uploaded", description: `${data.document_type || "Document"} processed` });
+      if (data.status === "failed") {
+        toast({
+          title: "Extraction Failed",
+          description: data.error_message || "Could not extract clinical data. Please upload a clearer document.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.status === "needs_confirmation") {
+        toast({
+          title: "Review Needed",
+          description: data.summary || `${data.document_type || "Document"} needs confirmation before finalizing.`,
+        });
+        return;
+      }
+
+      toast({
+        title: "Document Processed",
+        description: data.summary || `${data.document_type || "Document"} extracted successfully.`,
+      });
     },
     onError: (err: Error) => {
       toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
@@ -177,11 +201,28 @@ export default function DocumentsPage() {
                       </div>
                       <Badge variant={result.status === "success" ? "default" : "outline"}>{result.status}</Badge>
                     </div>
+                    {result.file_name && (
+                      <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                        File: <span className="font-mono">{result.file_name}</span>
+                      </p>
+                    )}
                     <div className="text-sm space-y-1.5">
                       <p>
                         <span style={{ color: "var(--text-muted)" }}>Nodes created:</span>{" "}
                         <span className="font-mono font-medium" style={{ color: "var(--text-primary)" }}>{result.nodes_created}</span>
                       </p>
+                      {result.error_message && (
+                        <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>
+                          <p className="text-sm" style={{ color: "var(--accent-rose)" }}>
+                            {result.error_message}
+                          </p>
+                        </div>
+                      )}
+                      {!result.error_message && result.summary && (
+                        <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+                          {result.summary}
+                        </p>
+                      )}
                       {result.interaction_alerts?.length > 0 && (
                         <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>
                           <p className="font-medium text-sm" style={{ color: "var(--accent-rose)" }}>

@@ -88,11 +88,23 @@ async def upload_document(
     if extracted_meds:
         add_extracted_medications(patient_id, extracted_meds)
 
+    notif_title = "Document Processed"
+    notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
+    if result.processing_status == "failed":
+        notif_title = "Document Processing Failed"
+        notif_message = result.error_message or f"Could not extract data from {doc_record['file_name']}."
+    elif result.processing_status == "needs_confirmation":
+        notif_title = "Document Needs Confirmation"
+        notif_message = (
+            (result.extracted_data or {}).get("summary")
+            or f"Please review extracted details from {doc_record['file_name']}."
+        )
+
     push_notification(
         patient_id,
         "document",
-        "Document Processed",
-        f"{doc_record['file_name']} processed as {doc_record['document_type']}",
+        notif_title,
+        notif_message,
         path="/documents",
         metadata={"document_id": document_id, "status": result.processing_status},
     )
@@ -109,6 +121,7 @@ async def upload_document(
 
     return {
         "document_id": document_id,
+        "file_name": doc_record["file_name"],
         "document_type": result.document_type,
         "processing_status": result.processing_status,
         "status": result.processing_status,
