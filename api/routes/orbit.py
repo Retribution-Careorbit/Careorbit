@@ -41,11 +41,29 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     graph_data = await phig_builder.get_full_patient_graph(patient_id)
     nodes = []
     for med in graph_data.get("medications", []):
-        nodes.append({"type": "medication", "name": med.get("name"), "confidence": med.get("confidence", 0.7)})
+        nodes.append({
+            "type": "medication",
+            "name": med.get("name"),
+            "confidence": med.get("confidence", 0.7),
+            "condition_code": med.get("condition_code"),
+            "rxnorm": med.get("rxnorm"),
+        })
     for cond in graph_data.get("conditions", []):
-        nodes.append({"type": "condition", "name": cond.get("name"), "confidence": cond.get("confidence", 0.7)})
+        nodes.append({
+            "type": "condition",
+            "name": cond.get("name"),
+            "confidence": cond.get("confidence", 0.7),
+            "icd10": cond.get("icd10") or cond.get("code"),
+        })
     for lab in graph_data.get("labs", []):
-        nodes.append({"type": "lab_value", "name": lab.get("name"), "value": lab.get("value"), "confidence": 0.9})
+        nodes.append({
+            "type": "lab_value",
+            "name": lab.get("name"),
+            "value": lab.get("value"),
+            "confidence": float(lab.get("confidence", 0.9)),
+            "condition_code": lab.get("condition_code"),
+            "loinc": lab.get("loinc") or lab.get("loinc_code"),
+        })
 
     phig = {
         "nodes": nodes,

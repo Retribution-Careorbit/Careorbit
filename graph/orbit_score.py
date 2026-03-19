@@ -10,6 +10,11 @@ WEIGHTS = {
 
 CORE_TYPES = {"medication", "condition", "lab_value"}
 BONUS_TYPES = {"care_gap", "provider"}
+EXPECTED_NODES_PER_CONDITION = {
+    "E11.9": {"medications": 1, "lab_results": 2, "screenings": 1},
+    "I10": {"medications": 1, "lab_results": 1, "screenings": 0},
+    "I48": {"medications": 1, "lab_results": 1, "screenings": 0},
+}
 SEVERITY_PENALTIES = {
     "elevated": 25,
     "moderate": 15,
@@ -22,8 +27,7 @@ class OrbitScoreCalculator:
         self.phig = phig
         self._score = None
 
-    def _compute_completeness(self) -> float:
-        nodes = self.phig.get("nodes", [])
+    def _legacy_type_completeness(self, nodes: list[dict]) -> float:
         present_types = {n.get("type") for n in nodes}
         core_count = len(CORE_TYPES & present_types)
         base = (core_count / len(CORE_TYPES)) * 100.0
@@ -32,6 +36,64 @@ class OrbitScoreCalculator:
             if bt in present_types:
                 bonus += 5.0
         return min(base + bonus, 100.0)
+
+    def _code_for_condition(self, node: dict) -> str | None:
+        value = node.get("icd10") or node.get("code") or node.get("condition_code")
+        if not value:
+            return None
+        return str(value).upper()
+
+    def _count_nodes_for_condition(self, nodes: list[dict], node_type: str, icd_code: str) -> int:
+        typed = [n for n in nodes if n.get("type") == node_type]
+        if not typed:
+            return 0
+
+        tagged = [
+            n for n in typed
+            if str(n.get("condition_code") or n.get("icd10") or "").upper() == icd_code
+        ]
+        if tagged:
+            return len(tagged)
+
+        # Fallback when extraction does not provide explicit condition linkage.
+        return len(typed)
+
+    def _compute_completeness(self) -> float:
+        nodes = self.phig.get("nodes", [])
+        conditions = [n for n in nodes if n.get("type") == "condition"]
+        condition_codes = [self._code_for_condition(c) for c in conditions if self._code_for_condition(c)]
+
+        # Backward compatible fallback for payloads that do not carry condition coding.
+        if not condition_codes:
+            return self._legacy_type_completeness(nodes)
+
+        care_gaps = self.phig.get("care_gaps", [])
+        total_expected = 0
+        total_present = 0
+
+        for icd_code in condition_codes:
+            expected = EXPECTED_NODES_PER_CONDITION.get(
+                icd_code,
+                {"medications": 1, "lab_results": 1, "screenings": 0},
+            )
+            total_expected += sum(expected.values())
+
+            meds = self._count_nodes_for_condition(nodes, "medication", icd_code)
+            labs = self._count_nodes_for_condition(nodes, "lab_value", icd_code)
+            screenings = sum(
+                1
+                for g in care_gaps
+                if (str(g.get("condition_code") or "").upper() in {"", icd_code})
+                and str(g.get("status", "")).lower() in {"resolved", "closed", "completed"}
+            )
+
+            total_present += min(meds, expected["medications"])
+            total_present += min(labs, expected["lab_results"])
+            total_present += min(screenings, expected["screenings"])
+
+        if total_expected == 0:
+            return 100.0
+        return round((total_present / total_expected) * 100.0, 2)
 
     def _compute_avg_confidence(self) -> float:
         nodes = self.phig.get("nodes", [])

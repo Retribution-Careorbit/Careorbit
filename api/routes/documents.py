@@ -71,7 +71,8 @@ async def upload_document(
 
     nodes_count = len(result.nodes_created) if isinstance(result.nodes_created, list) else result.nodes_created
 
-    document_id = result.document_id or f"doc-{uuid4().hex[:8]}"
+    # Always assign a unique document id at API boundary to prevent collisions across uploads.
+    document_id = f"doc-{uuid4().hex[:10]}"
     doc_record = {
         "document_id": document_id,
         "file_name": file.filename or f"upload.{ext}",
