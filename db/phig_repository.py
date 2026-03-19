@@ -3,6 +3,80 @@ from uuid import uuid4
 
 from db.session import async_session
 
+_phig_schema_checked = False
+
+
+async def ensure_phig_schema():
+    global _phig_schema_checked
+    if _phig_schema_checked:
+        return
+    try:
+        async with async_session() as session:
+            await session.execute(
+                """
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'node_type') THEN
+                        CREATE TYPE node_type AS ENUM ('medication', 'condition', 'lab_result', 'allergy', 'procedure');
+                    END IF;
+                END$$;
+                """,
+                {},
+            )
+            await session.execute(
+                """
+                CREATE TABLE IF NOT EXISTS phig_nodes (
+                    id UUID PRIMARY KEY,
+                    patient_id VARCHAR(255) NOT NULL,
+                    document_id UUID NULL,
+                    node_type node_type NOT NULL,
+                    display_name VARCHAR(255) NOT NULL,
+                    rxnorm_code VARCHAR(20),
+                    loinc_code VARCHAR(20),
+                    icd10_code VARCHAR(20),
+                    dosage VARCHAR(100),
+                    frequency VARCHAR(100),
+                    value FLOAT,
+                    unit VARCHAR(50),
+                    reference_range_low FLOAT,
+                    reference_range_high FLOAT,
+                    is_abnormal BOOLEAN,
+                    confidence_score FLOAT NOT NULL,
+                    confidence_source VARCHAR(50),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    metadata JSONB,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """,
+                {},
+            )
+            await session.execute(
+                """
+                CREATE TABLE IF NOT EXISTS phig_edges (
+                    id UUID PRIMARY KEY,
+                    patient_id VARCHAR(255) NOT NULL,
+                    source_node_id UUID NOT NULL,
+                    target_node_id UUID NOT NULL,
+                    edge_type VARCHAR(50) NOT NULL,
+                    severity VARCHAR(20),
+                    description TEXT,
+                    clinical_action TEXT,
+                    metadata JSONB,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """,
+                {},
+            )
+            await session.execute("CREATE INDEX IF NOT EXISTS idx_phig_nodes_patient ON phig_nodes(patient_id)", {})
+            await session.execute("CREATE INDEX IF NOT EXISTS idx_phig_edges_source ON phig_edges(source_node_id)", {})
+            await session.execute("CREATE INDEX IF NOT EXISTS idx_phig_edges_target ON phig_edges(target_node_id)", {})
+            await session.commit()
+            _phig_schema_checked = True
+    except Exception:
+        return
+
 
 async def _fetchone_dict(session, query: str, params: dict):
     result = await session.execute(query, params)
@@ -36,6 +110,7 @@ async def persist_document_graph(
     interaction_alerts = interaction_alerts or []
 
     try:
+        await ensure_phig_schema()
         async with async_session() as session:
             med_node_ids = {}
             lab_node_ids = {}
@@ -326,6 +401,7 @@ async def persist_document_graph(
 
 async def update_document_medication_confidence(document_id: str, medications: list[dict]):
     try:
+        await ensure_phig_schema()
         async with async_session() as session:
             for med in medications:
                 node_id = med.get("phig_node_id")
@@ -375,6 +451,7 @@ async def update_document_medication_confidence(document_id: str, medications: l
 
 async def load_patient_graph_from_db(patient_id: str) -> dict:
     try:
+        await ensure_phig_schema()
         async with async_session() as session:
             node_rows = (await session.execute(
                 """
