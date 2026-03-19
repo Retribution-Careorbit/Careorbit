@@ -17,6 +17,8 @@ interface UploadResult {
   nodes_created: number;
   interaction_alerts: any[];
   confirmation_needed: any[];
+  extracted_medications?: Array<{ name?: string; dosage?: string; frequency?: string }>;
+  extracted_markers?: Array<{ name?: string; value?: number | string; unit?: string }>;
   error_message?: string;
   summary?: string;
 }
@@ -41,6 +43,8 @@ export default function DocumentsPage() {
       nodes_created: Number(doc.nodes_created || 0),
       interaction_alerts: doc.interaction_alerts || [],
       confirmation_needed: doc.confirmation_needed || [],
+      extracted_medications: doc.extracted_medications || [],
+      extracted_markers: doc.extracted_markers || [],
       error_message: status === "failed" ? (doc.error_message || doc.summary) : undefined,
       summary: doc.summary,
     };
@@ -51,15 +55,37 @@ export default function DocumentsPage() {
       const res = await apiRequest("POST", `/api/documents/sync/${documentId}`);
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/list"] });
-      toast({ title: "Synced to PHIG", description: "Document data has been synced and other tabs are updated." });
+    onSuccess: async (data: { medications_synced?: number; markers_available?: number }) => {
+      const keys = [
+        ["/api/patients/medications"],
+        ["/api/patients/overview"],
+        ["/api/patients/lab-insights"],
+        ["/api/tests/scenarios"],
+        ["/api/orbit/score"],
+        ["/api/system/notifications"],
+        ["/api/documents/list"],
+      ] as const;
+
+      for (const key of keys) {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
+      await Promise.all(keys.map((key) => queryClient.refetchQueries({ queryKey: key, type: "active" })));
+
+      const meds = Number(data?.medications_synced || 0);
+      const markers = Number(data?.markers_available || 0);
+      if (meds === 0 && markers === 0) {
+        toast({
+          title: "No Extracted Data Found",
+          description: "This document has no extracted medications or lab markers to apply yet.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Synced to PHIG",
+        description: `Applied ${meds} medication(s) and found ${markers} lab marker(s).`,
+      });
     },
     onError: (err: Error) => {
       toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
@@ -273,6 +299,37 @@ export default function DocumentsPage() {
                         >
                           {syncMutation.isPending ? "Syncing..." : "Apply To PHIG"}
                         </Button>
+                      )}
+                      {result.extracted_medications && result.extracted_medications.length > 0 && (
+                        <div className="mt-3 p-3 rounded-lg" style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: "var(--accent-cyan)" }}>
+                            Extracted Medications
+                          </p>
+                          <div className="space-y-1">
+                            {result.extracted_medications.slice(0, 4).map((med, medIdx) => (
+                              <p key={medIdx} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                                {(med.name || "Unknown").trim()}
+                                {med.dosage ? ` - ${med.dosage}` : ""}
+                                {med.frequency ? ` (${med.frequency})` : ""}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {result.extracted_markers && result.extracted_markers.length > 0 && (
+                        <div className="mt-3 p-3 rounded-lg" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
+                          <p className="text-xs font-medium mb-1" style={{ color: "var(--accent-emerald)" }}>
+                            Extracted Lab Markers
+                          </p>
+                          <div className="space-y-1">
+                            {result.extracted_markers.slice(0, 4).map((marker, markerIdx) => (
+                              <p key={markerIdx} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                                {(marker.name || "Marker").trim()}: {String(marker.value ?? "-")}
+                                {marker.unit ? ` ${marker.unit}` : ""}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
                       )}
                       {result.interaction_alerts?.length > 0 && (
                         <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>

@@ -51,9 +51,10 @@ class PHIGBuilder:
         return []
 
     async def get_medication_subgraph(self, patient_id: str) -> dict:
+        meds = []
+
         # DEMO SEED — remove when Azure + DB available
         if patient_id == DEMO_USER_ID:
-            meds = []
             for med in RAMESH_MEDICATIONS:
                 med_entry = {
                     "name": med["name"],
@@ -68,66 +69,69 @@ class PHIGBuilder:
                     if med["name"] in ix["drug_pair"]:
                         med_entry["interactions"].append(ix)
                 meds.append(med_entry)
-
-            # Runtime extracted medications from uploaded documents.
-            for med in get_extracted_medications(patient_id):
-                exists = next((m for m in meds if m.get("name", "").lower() == med.get("name", "").lower()), None)
-                if exists:
-                    exists.update({k: v for k, v in med.items() if k != "interactions" and v})
-                else:
-                    meds.append(dict(med))
-            return {"medications": meds}
         # END DEMO SEED
-        return {"medications": []}
+
+        # Runtime extracted medications from uploaded documents should be visible for all users.
+        for med in get_extracted_medications(patient_id):
+            exists = next((m for m in meds if m.get("name", "").lower() == med.get("name", "").lower()), None)
+            if exists:
+                exists.update({k: v for k, v in med.items() if k != "interactions" and v})
+            else:
+                meds.append(dict(med))
+
+        return {"medications": meds}
 
     async def get_full_patient_graph(self, patient_id: str) -> dict:
+        meds_sub = await self.get_medication_subgraph(patient_id)
+        dynamic_markers = get_latest_lab_markers(patient_id)
+
         # DEMO SEED — remove when Azure + DB available
-        if patient_id == DEMO_USER_ID:
-            meds_sub = await self.get_medication_subgraph(patient_id)
-            dynamic_markers = get_latest_lab_markers(patient_id)
-
-            merged_labs = {lab.get("name"): dict(lab) for lab in RAMESH_LABS}
-            for marker_name, marker in dynamic_markers.items():
-                merged_labs[marker_name] = {
-                    "name": marker_name,
-                    "value": marker.get("value"),
-                    "unit": marker.get("unit", ""),
-                    "ref_low": marker.get("ref_low"),
-                    "ref_high": marker.get("ref_high"),
-                    "abnormal": True,
-                    "reference_range": "",
-                    "node_type": "lab_value",
-                }
-
-            merged_interactions = list(RAMESH_INTERACTIONS)
-            med_names = {m.get("name", "").lower() for m in meds_sub["medications"]}
-            if "metformin" in med_names and "ibuprofen" in med_names:
-                has_met_ibuprofen = any("Metformin + Ibuprofen" == ix.get("drug_pair") for ix in merged_interactions)
-                if not has_met_ibuprofen:
-                    merged_interactions.append({
-                        "drug_pair": "Metformin + Ibuprofen",
-                        "severity": "ELEVATED",
-                        "description": "Potential renal stress risk when used together.",
-                        "clinical_action": "Review with physician and monitor renal panel.",
-                        "acknowledged": False,
-                    })
-
-            total = len(meds_sub["medications"]) + len(RAMESH_CONDITIONS) + len(merged_labs)
-            return {
-                "summary": {
-                    "total_nodes": total,
-                    "conditions_count": len(RAMESH_CONDITIONS),
-                    "medications_count": len(meds_sub["medications"]),
-                    "labs_count": len(merged_labs),
-                },
-                "medications": meds_sub["medications"],
-                "conditions": RAMESH_CONDITIONS,
-                "labs": list(merged_labs.values()),
-                "interactions": merged_interactions,
-                "care_gaps": list(RAMESH_CARE_GAPS),
-            }
+        base_labs = list(RAMESH_LABS) if patient_id == DEMO_USER_ID else []
+        base_conditions = list(RAMESH_CONDITIONS) if patient_id == DEMO_USER_ID else []
+        base_interactions = list(RAMESH_INTERACTIONS) if patient_id == DEMO_USER_ID else []
+        base_care_gaps = list(RAMESH_CARE_GAPS) if patient_id == DEMO_USER_ID else []
         # END DEMO SEED
-        return {"summary": {"total_nodes": 0}}
+
+        merged_labs = {lab.get("name"): dict(lab) for lab in base_labs if lab.get("name")}
+        for marker_name, marker in dynamic_markers.items():
+            merged_labs[marker_name] = {
+                "name": marker_name,
+                "value": marker.get("value"),
+                "unit": marker.get("unit", ""),
+                "ref_low": marker.get("ref_low"),
+                "ref_high": marker.get("ref_high"),
+                "abnormal": True,
+                "reference_range": "",
+                "node_type": "lab_value",
+            }
+
+        merged_interactions = list(base_interactions)
+        med_names = {m.get("name", "").lower() for m in meds_sub["medications"]}
+        if patient_id == DEMO_USER_ID and "metformin" in med_names and "ibuprofen" in med_names:
+            has_met_ibuprofen = any("Metformin + Ibuprofen" == ix.get("drug_pair") for ix in merged_interactions)
+            if not has_met_ibuprofen:
+                merged_interactions.append({
+                    "drug_pair": "Metformin + Ibuprofen",
+                    "severity": "ELEVATED",
+                    "description": "Potential renal stress risk when used together.",
+                    "clinical_action": "Review with physician and monitor renal panel.",
+                    "acknowledged": False,
+                })
+
+        total = len(meds_sub["medications"]) + len(base_conditions) + len(merged_labs)
+        return {
+            "summary": {
+                "total_nodes": total,
+                "conditions_count": len(base_conditions),
+                "medications_count": len(meds_sub["medications"]),
+                "labs_count": len(merged_labs),
+            },
+            "medications": meds_sub["medications"],
+            "conditions": base_conditions,
+            "labs": list(merged_labs.values()),
+            "interactions": merged_interactions,
+            "care_gaps": base_care_gaps,
+        }
 
 
 phig_builder = PHIGBuilder()
