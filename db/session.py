@@ -239,6 +239,37 @@ async def check_db_connection() -> str:
         return "error"
 
 
+async def check_core_security_schema() -> dict:
+    engine = _get_async_engine()
+    if engine is None:
+        return {"checked": False, "ready": True, "missing": []}
+
+    from sqlalchemy import text
+
+    expected = ["refresh_tokens", "audit_log"]
+    missing = []
+
+    try:
+        async with engine.connect() as conn:
+            for table_name in expected:
+                result = await conn.execute(
+                    text("SELECT to_regclass(:table_name)"),
+                    {"table_name": f"public.{table_name}"},
+                )
+                if result.scalar() is None:
+                    missing.append(table_name)
+    except Exception as exc:
+        logger.warning(f"Core schema readiness check failed: {exc}")
+        return {
+            "checked": True,
+            "ready": False,
+            "missing": expected,
+            "error": str(exc),
+        }
+
+    return {"checked": True, "ready": len(missing) == 0, "missing": missing}
+
+
 async def ensure_core_security_schema() -> None:
     global _core_schema_initialized
 
