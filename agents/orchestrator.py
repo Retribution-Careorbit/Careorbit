@@ -5,6 +5,7 @@ from services.azure_openai import AzureOpenAIService
 from services.azure_search import AzureSearchService
 from services.azure_translator import AzureTranslatorService
 from graph.phig_builder import phig_builder
+from agents.contracts import InteractionAlertContract, CareGapContract
 
 openai_service = AzureOpenAIService()
 search_service = AzureSearchService()
@@ -78,6 +79,30 @@ class Orchestrator:
             unique.append(ix)
         return unique
 
+    @staticmethod
+    def _validate_interactions(interactions: list) -> list:
+        validated = []
+        for item in interactions if isinstance(interactions, list) else []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                validated.append(InteractionAlertContract.model_validate(item).model_dump())
+            except Exception as exc:
+                logger.warning(f"Dropped invalid interaction payload: {exc}")
+        return validated
+
+    @staticmethod
+    def _validate_care_gaps(care_gaps: list) -> list:
+        validated = []
+        for item in care_gaps if isinstance(care_gaps, list) else []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                validated.append(CareGapContract.model_validate(item).model_dump())
+            except Exception as exc:
+                logger.warning(f"Dropped invalid care gap payload: {exc}")
+        return validated
+
     async def _collect_phig_context(self, patient_id: str) -> dict:
         try:
             graph = await phig_builder.get_full_patient_graph(patient_id)
@@ -102,9 +127,26 @@ class Orchestrator:
             "medications": medications if isinstance(medications, list) else [],
             "conditions": conditions if isinstance(conditions, list) else [],
             "labs": labs if isinstance(labs, list) else [],
-            "care_gaps": care_gaps if isinstance(care_gaps, list) else [],
-            "interactions": self._dedupe_interactions(interactions),
+            "care_gaps": self._validate_care_gaps(care_gaps if isinstance(care_gaps, list) else []),
+            "interactions": self._validate_interactions(self._dedupe_interactions(interactions)),
         }
+
+    async def run_post_phig_update(self, patient_id: str, document_id: str | None = None) -> OrchestratorResponse:
+        phig = await self._collect_phig_context(patient_id)
+        trigger = "document sync" if document_id else "PHIG update"
+        response_text = (
+            f"Post-{trigger} automation complete: {len(phig.get('medications', []))} medication(s), "
+            f"{len(phig.get('interactions', []))} interaction alert(s), "
+            f"{len(phig.get('care_gaps', []))} care gap(s)."
+        )
+        return OrchestratorResponse(
+            message=response_text,
+            language="en",
+            agents_used=["medication_agent", "care_gap_agent", "history_agent"],
+            alerts=phig.get("interactions", []),
+            care_gaps=phig.get("care_gaps", []),
+            confidence=0.8,
+        )
 
     def _build_grounded_text(self, query: str, phig: dict) -> str:
         query_lower = (query or "").lower()
@@ -182,8 +224,8 @@ class Orchestrator:
             message=response_text,
             language=language,
             agents_used=agents_used,
-            alerts=phig.get("interactions", []),
-            care_gaps=phig.get("care_gaps", []),
+            alerts=self._validate_interactions(phig.get("interactions", [])),
+            care_gaps=self._validate_care_gaps(phig.get("care_gaps", [])),
             confidence=0.72,
         )
 
@@ -285,8 +327,8 @@ class Orchestrator:
             message=response_text,
             language=language,
             agents_used=agents_used,
-            alerts=interactions if isinstance(interactions, list) else [],
-            care_gaps=(guidelines if isinstance(guidelines, list) and guidelines else phig.get("care_gaps", [])),
+            alerts=self._validate_interactions(interactions if isinstance(interactions, list) else []),
+            care_gaps=self._validate_care_gaps(guidelines if isinstance(guidelines, list) and guidelines else phig.get("care_gaps", [])),
             confidence=confidence,
         )
 

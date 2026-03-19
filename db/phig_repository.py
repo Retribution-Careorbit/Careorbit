@@ -101,6 +101,7 @@ async def persist_document_graph(
     source_type: str,
     medications: list[dict],
     labs: list[dict],
+    conditions: list[dict] | None = None,
     interaction_alerts: list[dict] | None = None,
 ):
     """
@@ -108,14 +109,114 @@ async def persist_document_graph(
     Returns counts and mutates medication/lab items with generated phig_node_id.
     """
     interaction_alerts = interaction_alerts or []
+    conditions = conditions or []
 
     try:
         await ensure_phig_schema()
         async with async_session() as session:
             med_node_ids = {}
             lab_node_ids = {}
+            condition_node_ids = {}
             created_nodes = 0
             created_edges = 0
+
+            for cond in conditions:
+                cond_name = (cond.get("name") or "").strip()
+                cond_code = (cond.get("code") or cond.get("icd10") or "").strip().upper() or None
+                if not cond_name and not cond_code:
+                    continue
+
+                display_name = cond_name or cond_code
+                metadata = {
+                    "document_id": document_id,
+                    "source_type": source_type,
+                    "verified": bool(cond.get("verified", False)),
+                }
+
+                existing = None
+                if cond_code:
+                    existing = await _fetchone_dict(
+                        session,
+                        """
+                        SELECT id
+                        FROM phig_nodes
+                        WHERE patient_id = :pid
+                          AND node_type = 'condition'
+                          AND upper(coalesce(icd10_code, '')) = :code
+                          AND is_active = TRUE
+                        LIMIT 1
+                        """,
+                        {"pid": patient_id, "code": cond_code},
+                    )
+
+                if not existing:
+                    existing = await _fetchone_dict(
+                        session,
+                        """
+                        SELECT id
+                        FROM phig_nodes
+                        WHERE patient_id = :pid
+                          AND node_type = 'condition'
+                          AND lower(display_name) = lower(:name)
+                          AND is_active = TRUE
+                        LIMIT 1
+                        """,
+                        {"pid": patient_id, "name": display_name},
+                    )
+
+                if existing:
+                    node_id = existing["id"]
+                    await session.execute(
+                        """
+                        UPDATE phig_nodes
+                        SET display_name = :name,
+                            icd10_code = :icd10,
+                            confidence_score = :confidence,
+                            confidence_source = :source,
+                            metadata = CAST(:metadata AS jsonb),
+                            updated_at = NOW()
+                        WHERE id = :id
+                        """,
+                        {
+                            "id": node_id,
+                            "name": display_name,
+                            "icd10": cond_code,
+                            "confidence": float(cond.get("confidence") or 0.82),
+                            "source": source_type,
+                            "metadata": json.dumps(metadata),
+                        },
+                    )
+                else:
+                    node_id = str(uuid4())
+                    await session.execute(
+                        """
+                        INSERT INTO phig_nodes (
+                            id, patient_id, node_type, display_name,
+                            icd10_code, confidence_score, confidence_source,
+                            metadata, is_active
+                        ) VALUES (
+                            :id, :pid, 'condition', :name,
+                            :icd10, :confidence, :source,
+                            CAST(:metadata AS jsonb), TRUE
+                        )
+                        """,
+                        {
+                            "id": node_id,
+                            "pid": patient_id,
+                            "name": display_name,
+                            "icd10": cond_code,
+                            "confidence": float(cond.get("confidence") or 0.82),
+                            "source": source_type,
+                            "metadata": json.dumps(metadata),
+                        },
+                    )
+                    created_nodes += 1
+
+                cond["phig_node_id"] = node_id
+                if cond_code:
+                    condition_node_ids[cond_code] = node_id
+                if display_name:
+                    condition_node_ids[display_name.lower()] = node_id
 
             for med in medications:
                 name = (med.get("name") or "").strip()
@@ -130,6 +231,7 @@ async def persist_document_graph(
                     "verified": bool(med.get("verified", False)),
                     "dosage": med.get("dosage"),
                     "frequency": med.get("frequency"),
+                    "condition_code": med.get("condition_code"),
                     "prescribed_by_doctor": med.get("prescribed_by_doctor"),
                     "prescribed_on": med.get("prescribed_on"),
                     "duration_days": med.get("duration_days"),
@@ -216,6 +318,7 @@ async def persist_document_graph(
                     "document_id": document_id,
                     "source_type": source_type,
                     "verified": False,
+                    "condition_code": lab.get("condition_code"),
                     "unit": lab.get("unit"),
                     "ref_low": lab.get("ref_low"),
                     "ref_high": lab.get("ref_high"),
@@ -304,6 +407,93 @@ async def persist_document_graph(
 
                 lab["phig_node_id"] = node_id
                 lab_node_ids[name.lower()] = node_id
+
+            # Link conditions to medications and labs for explicit persisted traversal.
+            for med in medications:
+                med_id = med.get("phig_node_id")
+                if not med_id:
+                    continue
+                cond_key = str(med.get("condition_code") or med.get("condition") or "").strip()
+                cond_id = condition_node_ids.get(cond_key.upper()) or condition_node_ids.get(cond_key.lower())
+                if not cond_id:
+                    continue
+                existing_edge = await _fetchone_dict(
+                    session,
+                    """
+                    SELECT id
+                    FROM phig_edges
+                    WHERE patient_id = :pid
+                      AND source_node_id = :src
+                      AND target_node_id = :dst
+                      AND edge_type = 'CONDITION_HAS_MEDICATION'
+                      AND is_active = TRUE
+                    LIMIT 1
+                    """,
+                    {"pid": patient_id, "src": cond_id, "dst": med_id},
+                )
+                if not existing_edge:
+                    await session.execute(
+                        """
+                        INSERT INTO phig_edges (
+                            id, patient_id, source_node_id, target_node_id,
+                            edge_type, is_active, metadata
+                        ) VALUES (
+                            :id, :pid, :src, :dst,
+                            'CONDITION_HAS_MEDICATION', TRUE, CAST(:metadata AS jsonb)
+                        )
+                        """,
+                        {
+                            "id": str(uuid4()),
+                            "pid": patient_id,
+                            "src": cond_id,
+                            "dst": med_id,
+                            "metadata": json.dumps({"document_id": document_id}),
+                        },
+                    )
+                    created_edges += 1
+
+            for lab in labs:
+                lab_id = lab.get("phig_node_id")
+                if not lab_id:
+                    continue
+                cond_key = str(lab.get("condition_code") or lab.get("condition") or "").strip()
+                cond_id = condition_node_ids.get(cond_key.upper()) or condition_node_ids.get(cond_key.lower())
+                if not cond_id:
+                    continue
+                existing_edge = await _fetchone_dict(
+                    session,
+                    """
+                    SELECT id
+                    FROM phig_edges
+                    WHERE patient_id = :pid
+                      AND source_node_id = :src
+                      AND target_node_id = :dst
+                      AND edge_type = 'CONDITION_HAS_LAB'
+                      AND is_active = TRUE
+                    LIMIT 1
+                    """,
+                    {"pid": patient_id, "src": cond_id, "dst": lab_id},
+                )
+                if not existing_edge:
+                    await session.execute(
+                        """
+                        INSERT INTO phig_edges (
+                            id, patient_id, source_node_id, target_node_id,
+                            edge_type, is_active, metadata
+                        ) VALUES (
+                            :id, :pid, :src, :dst,
+                            'CONDITION_HAS_LAB', TRUE, CAST(:metadata AS jsonb)
+                        )
+                        """,
+                        {
+                            "id": str(uuid4()),
+                            "pid": patient_id,
+                            "src": cond_id,
+                            "dst": lab_id,
+                            "metadata": json.dumps({"document_id": document_id}),
+                        },
+                    )
+                    created_edges += 1
 
             # Link medications to current labs for traversal (HAS_LAB)
             for med_id in med_node_ids.values():
@@ -474,11 +664,12 @@ async def load_patient_graph_from_db(patient_id: str) -> dict:
                     "conditions": [],
                     "interactions": [],
                     "care_gaps": [],
+                    "edges": [],
                 }
 
             by_id = {}
-            medications = []
-            labs = []
+            medications_by_id = {}
+            labs_by_id = {}
             conditions = []
 
             for row in node_rows:
@@ -488,39 +679,37 @@ async def load_patient_graph_from_db(patient_id: str) -> dict:
                 node_type = entry.get("node_type")
 
                 if node_type == "medication":
-                    medications.append(
-                        {
-                            "name": entry.get("display_name"),
-                            "dosage": entry.get("dosage") or meta.get("dosage") or "",
-                            "frequency": entry.get("frequency") or meta.get("frequency") or "",
-                            "rxnorm": entry.get("rxnorm_code"),
-                            "confidence": float(entry.get("confidence_score") or 0.0),
-                            "confidence_label": "VERIFIED" if float(entry.get("confidence_score") or 0.0) >= 0.8 else ("HIGH" if float(entry.get("confidence_score") or 0.0) >= 0.65 else "MODERATE"),
-                            "prescribed_by_doctor": meta.get("prescribed_by_doctor"),
-                            "prescribed_on": meta.get("prescribed_on"),
-                            "duration_days": meta.get("duration_days"),
-                            "is_ongoing": meta.get("is_ongoing"),
-                            "source_type": entry.get("confidence_source") or meta.get("source_type"),
-                            "ocr_confidence": meta.get("ocr_confidence"),
-                            "ner_match": meta.get("ner_match"),
-                            "verified": meta.get("verified", False),
-                            "phig_node_id": entry.get("id"),
-                            "interactions": [],
-                        }
-                    )
+                    medications_by_id[entry.get("id")] = {
+                        "name": entry.get("display_name"),
+                        "dosage": entry.get("dosage") or meta.get("dosage") or "",
+                        "frequency": entry.get("frequency") or meta.get("frequency") or "",
+                        "rxnorm": entry.get("rxnorm_code"),
+                        "confidence": float(entry.get("confidence_score") or 0.0),
+                        "confidence_label": "VERIFIED" if float(entry.get("confidence_score") or 0.0) >= 0.8 else ("HIGH" if float(entry.get("confidence_score") or 0.0) >= 0.65 else "MODERATE"),
+                        "prescribed_by_doctor": meta.get("prescribed_by_doctor"),
+                        "prescribed_on": meta.get("prescribed_on"),
+                        "duration_days": meta.get("duration_days"),
+                        "is_ongoing": meta.get("is_ongoing"),
+                        "source_type": entry.get("confidence_source") or meta.get("source_type"),
+                        "ocr_confidence": meta.get("ocr_confidence"),
+                        "ner_match": meta.get("ner_match"),
+                        "verified": meta.get("verified", False),
+                        "condition_code": meta.get("condition_code"),
+                        "phig_node_id": entry.get("id"),
+                        "interactions": [],
+                    }
                 elif node_type == "lab_result":
-                    labs.append(
-                        {
-                            "name": entry.get("display_name"),
-                            "value": entry.get("value"),
-                            "unit": entry.get("unit"),
-                            "ref_low": entry.get("reference_range_low"),
-                            "ref_high": entry.get("reference_range_high"),
-                            "confidence": float(entry.get("confidence_score") or 0.0),
-                            "loinc": entry.get("loinc_code"),
-                            "phig_node_id": entry.get("id"),
-                        }
-                    )
+                    labs_by_id[entry.get("id")] = {
+                        "name": entry.get("display_name"),
+                        "value": entry.get("value"),
+                        "unit": entry.get("unit"),
+                        "ref_low": entry.get("reference_range_low"),
+                        "ref_high": entry.get("reference_range_high"),
+                        "confidence": float(entry.get("confidence_score") or 0.0),
+                        "loinc": entry.get("loinc_code"),
+                        "condition_code": meta.get("condition_code"),
+                        "phig_node_id": entry.get("id"),
+                    }
                 elif node_type == "condition":
                     conditions.append(
                         {
@@ -541,12 +730,36 @@ async def load_patient_graph_from_db(patient_id: str) -> dict:
             )).mappings().all()
 
             interactions = []
+            normalized_edges = []
             for edge in edge_rows:
                 edge_type = str(edge.get("edge_type") or "").upper()
-                if edge_type != "INTERACTS_WITH":
-                    continue
                 src = by_id.get(edge.get("source_node_id"))
                 dst = by_id.get(edge.get("target_node_id"))
+                normalized_edges.append(
+                    {
+                        "edge_type": edge_type,
+                        "source_node_id": edge.get("source_node_id"),
+                        "target_node_id": edge.get("target_node_id"),
+                        "source_node_type": (src or {}).get("node_type"),
+                        "target_node_type": (dst or {}).get("node_type"),
+                        "severity": edge.get("severity"),
+                    }
+                )
+
+                if edge_type in {"CONDITION_HAS_MEDICATION", "HAS_MEDICATION"} and (src or {}).get("node_type") == "condition" and (dst or {}).get("node_type") == "medication":
+                    code = (src or {}).get("icd10_code")
+                    dst_id = (dst or {}).get("id")
+                    if code and dst_id in medications_by_id:
+                        medications_by_id[dst_id]["condition_code"] = code
+
+                if edge_type in {"CONDITION_HAS_LAB", "HAS_LAB"} and (src or {}).get("node_type") == "condition" and (dst or {}).get("node_type") == "lab_result":
+                    code = (src or {}).get("icd10_code")
+                    dst_id = (dst or {}).get("id")
+                    if code and dst_id in labs_by_id:
+                        labs_by_id[dst_id]["condition_code"] = code
+
+                if edge_type != "INTERACTS_WITH":
+                    continue
                 interactions.append(
                     {
                         "drug_pair": f"{(src or {}).get('display_name', 'Drug A')} + {(dst or {}).get('display_name', 'Drug B')}",
@@ -559,11 +772,12 @@ async def load_patient_graph_from_db(patient_id: str) -> dict:
 
             return {
                 "from_db": True,
-                "medications": medications,
-                "labs": labs,
+                "medications": list(medications_by_id.values()),
+                "labs": list(labs_by_id.values()),
                 "conditions": conditions,
                 "interactions": interactions,
                 "care_gaps": [],
+                "edges": normalized_edges,
             }
     except Exception:
         return {
@@ -573,4 +787,5 @@ async def load_patient_graph_from_db(patient_id: str) -> dict:
             "conditions": [],
             "interactions": [],
             "care_gaps": [],
+            "edges": [],
         }

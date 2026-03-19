@@ -220,6 +220,70 @@ class DocumentPipeline:
             "is_ongoing": is_ongoing,
         }
 
+    def _extract_conditions(self, structured_data: dict, text: str) -> list[dict]:
+        condition_map = {
+            "diabetes": ("Type 2 Diabetes Mellitus", "E11.9"),
+            "t2dm": ("Type 2 Diabetes Mellitus", "E11.9"),
+            "dm": ("Type 2 Diabetes Mellitus", "E11.9"),
+            "hypertension": ("Essential Hypertension", "I10"),
+            "htn": ("Essential Hypertension", "I10"),
+            "dyslipidemia": ("Dyslipidemia", "E78.5"),
+            "lipid": ("Dyslipidemia", "E78.5"),
+            "ckd": ("Chronic Kidney Disease", "N18.9"),
+            "kidney disease": ("Chronic Kidney Disease", "N18.9"),
+            "hypothyroid": ("Hypothyroidism", "E03.9"),
+            "thyroid": ("Hypothyroidism", "E03.9"),
+        }
+
+        discovered: dict[str, dict] = {}
+
+        def add_condition(raw_name: str | None, raw_code: str | None = None, confidence: float = 0.8):
+            name = (raw_name or "").strip()
+            code = (raw_code or "").strip().upper()
+            if not name and not code:
+                return
+
+            canonical_name = name
+            canonical_code = code or None
+
+            lowered = name.lower()
+            for key, mapped in condition_map.items():
+                if key in lowered:
+                    canonical_name, canonical_code = mapped
+                    break
+
+            if canonical_code:
+                key = canonical_code
+            else:
+                key = canonical_name.lower()
+
+            if key not in discovered:
+                discovered[key] = {
+                    "name": canonical_name,
+                    "code": canonical_code,
+                    "confidence": confidence,
+                    "verified": False,
+                }
+
+        diagnoses = structured_data.get("diagnoses") if isinstance(structured_data, dict) else None
+        if isinstance(diagnoses, list):
+            for item in diagnoses:
+                if isinstance(item, dict):
+                    add_condition(item.get("name") or item.get("condition"), item.get("code") or item.get("icd10"), 0.84)
+                elif isinstance(item, str):
+                    add_condition(item, None, 0.8)
+        elif isinstance(diagnoses, dict):
+            add_condition(diagnoses.get("name") or diagnoses.get("condition"), diagnoses.get("code") or diagnoses.get("icd10"), 0.84)
+        elif isinstance(diagnoses, str):
+            add_condition(diagnoses, None, 0.8)
+
+        raw_text = (text or "").lower()
+        for token, mapped in condition_map.items():
+            if token in raw_text:
+                add_condition(mapped[0], mapped[1], 0.76)
+
+        return list(discovered.values())
+
     async def process_document(self, image_bytes, patient_id, uploaded_by, file_extension="jpg", filename="upload"):
         import time
         start = time.time()
@@ -284,6 +348,7 @@ class DocumentPipeline:
 
         medications = structured_data.get("medications", []) if isinstance(structured_data, dict) else []
         labs = structured_data.get("labs", []) if isinstance(structured_data, dict) else []
+        conditions = self._extract_conditions(structured_data, full_text)
         interaction_alerts = []
 
         if doc_type == "unknown":
@@ -351,6 +416,25 @@ class DocumentPipeline:
                 "confidence": 0.86,
             })
 
+        for condition in conditions:
+            cond_name = condition.get("name") or condition.get("code") or "Condition"
+            nodes.append(
+                {
+                    "id": f"node-condition-{str(cond_name).lower().replace(' ', '-')}",
+                    "node_type": "condition",
+                    "name": cond_name,
+                    "confidence": float(condition.get("confidence") or 0.8),
+                }
+            )
+
+        if len(conditions) == 1:
+            cond_code = conditions[0].get("code")
+            if cond_code:
+                for med in medications:
+                    med["condition_code"] = med.get("condition_code") or cond_code
+                for lab in labs:
+                    lab["condition_code"] = lab.get("condition_code") or cond_code
+
         med_names = {str(m.get("name", "")).lower() for m in medications}
         if "metformin" in med_names and "ibuprofen" in med_names:
             interaction_alerts.append({
@@ -417,6 +501,7 @@ class DocumentPipeline:
             extracted_data={
                 "medications": medications,
                 "labs": labs,
+                "conditions": conditions,
                 "summary": structured_data.get("summary") if isinstance(structured_data, dict) else None,
                 "context": context,
                 "quality": {

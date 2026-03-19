@@ -46,6 +46,15 @@ def add_patient_document(patient_id: str, doc: dict[str, Any]) -> None:
     _patient_documents[patient_id].insert(0, doc)
 
 
+def update_patient_document(patient_id: str, document_id: str, patch: dict[str, Any]) -> bool:
+    _ensure_patient(patient_id)
+    for item in _patient_documents[patient_id]:
+        if item.get("document_id") == document_id:
+            item.update(patch)
+            return True
+    return False
+
+
 def get_valid_lab_reports(patient_id: str) -> list[dict[str, Any]]:
     docs = [
         d for d in get_patient_documents(patient_id)

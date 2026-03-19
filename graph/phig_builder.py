@@ -94,6 +94,7 @@ class PHIGBuilder:
             labs = db_graph.get("labs", [])
             interactions = db_graph.get("interactions", [])
             care_gaps = db_graph.get("care_gaps", [])
+            edges = db_graph.get("edges", [])
             total = len(medications) + len(conditions) + len(labs)
             return {
                 "summary": {
@@ -107,6 +108,7 @@ class PHIGBuilder:
                 "labs": labs,
                 "interactions": interactions,
                 "care_gaps": care_gaps,
+                "edges": edges,
             }
 
         meds_sub = await self.get_medication_subgraph(patient_id)
@@ -158,6 +160,7 @@ class PHIGBuilder:
             "labs": list(merged_labs.values()),
             "interactions": merged_interactions,
             "care_gaps": base_care_gaps,
+            "edges": [],
         }
 
 

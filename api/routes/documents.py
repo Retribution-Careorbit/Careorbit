@@ -1,6 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, Request, HTTPException
+from fastapi import APIRouter, UploadFile, File, Request, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 import io
+import asyncio
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -12,12 +13,14 @@ from utils.pdf_generator import generate_uploaded_document_pdf
 from db.runtime_store import (
     get_patient_documents,
     add_patient_document,
+    update_patient_document,
     get_valid_lab_reports,
     add_extracted_medications,
     push_notification,
     add_runtime_appointment,
 )
 from db.phig_repository import persist_document_graph
+from agents.orchestrator import orchestrator
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -25,9 +28,59 @@ ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "applica
 MAX_SIZE = 10 * 1024 * 1024
 
 
+async def _run_post_upload_automation(patient_id: str, document_id: str, max_attempts: int = 3):
+    for attempt in range(1, max_attempts + 1):
+        update_patient_document(
+            patient_id,
+            document_id,
+            {
+                "pipeline_status": "agents_running" if attempt == 1 else "retrying",
+                "pipeline_attempt": attempt,
+                "pipeline_error": None,
+            },
+        )
+        try:
+            result = await orchestrator.run_post_phig_update(patient_id=patient_id, document_id=document_id)
+            update_patient_document(
+                patient_id,
+                document_id,
+                {
+                    "pipeline_status": "complete",
+                    "pipeline_completed_at": datetime.now(timezone.utc).isoformat(),
+                    "pipeline_summary": result.message,
+                    "pipeline_alert_count": len(result.alerts or []),
+                    "pipeline_care_gap_count": len(result.care_gaps or []),
+                },
+            )
+
+            if (result.alerts or []) or (result.care_gaps or []):
+                push_notification(
+                    patient_id,
+                    "analysis",
+                    "PHIG Analysis Updated",
+                    result.message,
+                    path="/orbit-score",
+                    metadata={"document_id": document_id, "automation": True},
+                )
+            return
+        except Exception as exc:
+            update_patient_document(
+                patient_id,
+                document_id,
+                {
+                    "pipeline_status": "failed" if attempt >= max_attempts else "retrying",
+                    "pipeline_error": str(exc),
+                    "pipeline_attempt": attempt,
+                },
+            )
+            if attempt < max_attempts:
+                await asyncio.sleep(min(1.5 * attempt, 5.0))
+
+
 @router.post("/upload")
 async def upload_document(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(None),
 ):
     current_user = await auth_mod.get_current_user(request)
@@ -97,6 +150,9 @@ async def upload_document(
         "file_url": f"/api/documents/file/{document_id}",
         "extracted_markers": (result.extracted_data or {}).get("labs", []),
         "extracted_medications": (result.extracted_data or {}).get("medications", []),
+        "extracted_conditions": (result.extracted_data or {}).get("conditions", []),
+        "pipeline_status": "pending",
+        "pipeline_attempt": 0,
     }
     add_patient_document(patient_id, doc_record)
 
@@ -111,9 +167,12 @@ async def upload_document(
         source_type=doc_record.get("source_type", "prescription_photo"),
         medications=doc_record.get("extracted_medications", []),
         labs=doc_record.get("extracted_markers", []),
+        conditions=doc_record.get("extracted_conditions", []),
         interaction_alerts=result.interaction_alerts,
     )
     doc_record["phig_persistence"] = phig_persist
+
+    background_tasks.add_task(_run_post_upload_automation, patient_id, document_id)
 
     notif_title = "Document Processed"
     notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
@@ -161,6 +220,7 @@ async def upload_document(
         "summary": doc_record["summary"],
         "file_url": doc_record["file_url"],
         "phig_persistence": phig_persist,
+        "pipeline_status": doc_record.get("pipeline_status", "pending"),
     }
 
 
@@ -174,7 +234,7 @@ async def list_documents(request: Request):
 
 
 @router.post("/sync/{document_id}")
-async def sync_document_to_phig(document_id: str, request: Request):
+async def sync_document_to_phig(document_id: str, request: Request, background_tasks: BackgroundTasks):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
@@ -196,8 +256,11 @@ async def sync_document_to_phig(document_id: str, request: Request):
         source_type=doc.get("source_type", "prescription_photo"),
         medications=meds,
         labs=markers,
+        conditions=doc.get("extracted_conditions") or [],
         interaction_alerts=doc.get("interaction_alerts") or [],
     )
+
+    background_tasks.add_task(_run_post_upload_automation, patient_id, document_id)
 
     # When a prescription references follow-up context, reflect it in the appointments timeline.
     prescribed_on = doc.get("prescribed_on")
@@ -262,6 +325,7 @@ async def sync_document_to_phig(document_id: str, request: Request):
         "markers_available": len(markers),
         "appointments_created": appointments_created,
         "phig_persistence": phig_persist,
+        "pipeline_status": (next((d for d in get_patient_documents(patient_id) if d.get("document_id") == document_id), {}) or {}).get("pipeline_status", "pending"),
     }
 
 
