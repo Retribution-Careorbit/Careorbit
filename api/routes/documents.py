@@ -105,7 +105,7 @@ async def upload_document(
         add_extracted_medications(patient_id, extracted_meds)
 
     # Persist graph rows into PostgreSQL PHIG tables (with graceful fallback).
-    await persist_document_graph(
+    phig_persist = await persist_document_graph(
         patient_id=patient_id,
         document_id=document_id,
         source_type=doc_record.get("source_type", "prescription_photo"),
@@ -113,6 +113,7 @@ async def upload_document(
         labs=doc_record.get("extracted_markers", []),
         interaction_alerts=result.interaction_alerts,
     )
+    doc_record["phig_persistence"] = phig_persist
 
     notif_title = "Document Processed"
     notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
@@ -159,6 +160,7 @@ async def upload_document(
         "error_message": result.error_message,
         "summary": doc_record["summary"],
         "file_url": doc_record["file_url"],
+        "phig_persistence": phig_persist,
     }
 
 
@@ -188,7 +190,7 @@ async def sync_document_to_phig(document_id: str, request: Request):
     markers = doc.get("extracted_markers") or []
     appointments_created = 0
 
-    await persist_document_graph(
+    phig_persist = await persist_document_graph(
         patient_id=patient_id,
         document_id=document_id,
         source_type=doc.get("source_type", "prescription_photo"),
@@ -259,6 +261,7 @@ async def sync_document_to_phig(document_id: str, request: Request):
         "medications_synced": len(meds),
         "markers_available": len(markers),
         "appointments_created": appointments_created,
+        "phig_persistence": phig_persist,
     }
 
 

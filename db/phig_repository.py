@@ -318,10 +318,10 @@ async def persist_document_graph(
                     created_edges += 1
 
             await session.commit()
-            return {"created_nodes": created_nodes, "created_edges": created_edges}
-    except Exception:
+            return {"created_nodes": created_nodes, "created_edges": created_edges, "error": None}
+    except Exception as exc:
         # Hard fallback: keep application functional even when DB graph tables are unavailable.
-        return {"created_nodes": 0, "created_edges": 0}
+        return {"created_nodes": 0, "created_edges": 0, "error": str(exc)}
 
 
 async def update_document_medication_confidence(document_id: str, medications: list[dict]):
