@@ -37,6 +37,7 @@ def create_access_token(user_id: str) -> str:
 async def create_refresh_token(user_id: str, ip_address: str = None) -> str:
     raw_token = secrets.token_urlsafe(48)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
 
     try:
         async with async_session() as session:
@@ -46,7 +47,7 @@ async def create_refresh_token(user_id: str, ip_address: str = None) -> str:
                     "uid": user_id,
                     "hash": token_hash,
                     "ip": ip_address or "unknown",
-                    "exp": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                    "exp": expires_at,
                 }
             )
             await session.commit()
