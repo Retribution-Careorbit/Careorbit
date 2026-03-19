@@ -4,13 +4,20 @@ from config import get_settings
 from services.azure_openai import AzureOpenAIService
 from services.azure_search import AzureSearchService
 from services.azure_translator import AzureTranslatorService
+from services.translation_validation import validate_translation_integrity
 from graph.phig_builder import phig_builder
 from agents.contracts import InteractionAlertContract, CareGapContract
+from db.session import async_session as db_session
 
 openai_service = AzureOpenAIService()
 search_service = AzureSearchService()
 translator_service = AzureTranslatorService()
 logger = logging.getLogger("careorbit.agents.orchestrator")
+
+DISCLAIMER_TEXT = (
+    "CareOrbit is a care coordination assistant, not a diagnostic or prescribing system. "
+    "Always consult your doctor before changing medications or treatment."
+)
 
 
 class OrchestratorResponse:
@@ -48,8 +55,14 @@ class Orchestrator:
             return text
         try:
             if source_lang:
-                return await self._translator.translate(text, target_lang, source=source_lang)
-            return await self._translator.translate(text, target_lang)
+                translated = await self._translator.translate(text, target_lang, source_lang=source_lang)
+            else:
+                translated = await self._translator.translate(text, target_lang)
+
+            if validate_translation_integrity(text, translated):
+                return translated
+            logger.warning("Rejected translation due to integrity check failure; returning source text")
+            return text
         except Exception as exc:
             logger.info(f"Translator unavailable; returning original text: {exc}")
             return text
@@ -131,6 +144,15 @@ class Orchestrator:
             "interactions": self._validate_interactions(self._dedupe_interactions(interactions)),
         }
 
+    @staticmethod
+    def _append_disclaimer(text: str) -> str:
+        base = str(text or "").strip()
+        if not base:
+            return DISCLAIMER_TEXT
+        if DISCLAIMER_TEXT in base:
+            return base
+        return f"{base}\n\n{DISCLAIMER_TEXT}"
+
     async def run_post_phig_update(self, patient_id: str, document_id: str | None = None) -> OrchestratorResponse:
         phig = await self._collect_phig_context(patient_id)
         trigger = "document sync" if document_id else "PHIG update"
@@ -174,13 +196,14 @@ class Orchestrator:
                 for ix in interactions:
                     pair = ix.get("drug_pair") or "Unknown pair"
                     severity = ix.get("severity") or "unknown severity"
-                    items.append(f"{pair} ({severity})")
+                    source = ix.get("source") or "unspecified source"
+                    items.append(f"{pair} ({severity}, source: {source})")
                 return "Medication interaction alerts from your PHIG profile: " + "; ".join(items) + "."
             return "No medication interaction alerts are currently present in your PHIG profile."
 
         if any(k in query_lower for k in ["screening", "care gap", "checkup", "preventive", "immunization", "vaccination"]):
             if care_gaps:
-                names = [cg.get("name", "Unnamed care gap") for cg in care_gaps]
+                names = [f"{cg.get('name', 'Unnamed care gap')} (source: {cg.get('source', 'unspecified')})" for cg in care_gaps]
                 return "Open care gaps from your PHIG profile: " + ", ".join(names) + "."
             return "No open care gaps are currently present in your PHIG profile."
 
@@ -221,7 +244,7 @@ class Orchestrator:
             response_text = await self._translate_best_effort(response_text, language)
 
         return OrchestratorResponse(
-            message=response_text,
+            message=self._append_disclaimer(response_text),
             language=language,
             agents_used=agents_used,
             alerts=self._validate_interactions(phig.get("interactions", [])),
@@ -324,7 +347,7 @@ class Orchestrator:
             response_text = await self._translate_best_effort(response_text, language)
 
         return OrchestratorResponse(
-            message=response_text,
+            message=self._append_disclaimer(response_text),
             language=language,
             agents_used=agents_used,
             alerts=self._validate_interactions(interactions if isinstance(interactions, list) else []),

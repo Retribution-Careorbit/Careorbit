@@ -8,6 +8,7 @@ from graph.confidence import ConfidenceCalculator
 from graph.orbit_score import OrbitScoreCalculator
 from utils.drug_database import DrugDatabase
 from pipeline.lab_report_extractor import LabReportExtractor
+from pipeline.contracts import validate_extraction_payload
 
 openai_service = AzureOpenAIService()
 vision_service = AzureVisionService()
@@ -349,6 +350,18 @@ class DocumentPipeline:
         medications = structured_data.get("medications", []) if isinstance(structured_data, dict) else []
         labs = structured_data.get("labs", []) if isinstance(structured_data, dict) else []
         conditions = self._extract_conditions(structured_data, full_text)
+
+        validated_payload = validate_extraction_payload(
+            {
+                "medications": medications,
+                "labs": labs,
+                "conditions": conditions,
+            }
+        )
+        medications = validated_payload.get("medications", [])
+        labs = validated_payload.get("labs", [])
+        conditions = validated_payload.get("conditions", [])
+
         interaction_alerts = []
 
         if doc_type == "unknown":

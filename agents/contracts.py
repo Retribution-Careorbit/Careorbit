@@ -13,6 +13,9 @@ class InteractionAlertContract(BaseModel):
     description: str = Field(min_length=3)
     clinical_action: str = Field(default="Review with physician")
     acknowledged: bool = False
+    source: str = Field(default="unknown source")
+    source_query: Optional[str] = None
+    retrieved_at: Optional[str] = None
 
     @field_validator("severity")
     @classmethod
@@ -28,6 +31,9 @@ class CareGapContract(BaseModel):
     status: str = Field(default="open")
     condition_code: Optional[str] = None
     guideline_source: Optional[str] = None
+    source: str = Field(default="unknown source")
+    source_query: Optional[str] = None
+    retrieved_at: Optional[str] = None
 
     @field_validator("status")
     @classmethod

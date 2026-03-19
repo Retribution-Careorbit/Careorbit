@@ -31,7 +31,6 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "phase2: Phase 2 features (not in Phase 1 MVP)",

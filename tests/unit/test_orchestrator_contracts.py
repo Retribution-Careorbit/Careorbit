@@ -70,3 +70,8 @@ class TestOrchestratorDeterminism:
         ]
 
         assert all(text == outputs[0] for text in outputs)
+
+    def test_disclaimer_is_always_appended(self):
+        orchestrator = Orchestrator()
+        response = orchestrator._append_disclaimer("Your PHIG profile has 2 active medications.")
+        assert "not a diagnostic or prescribing system" in response

@@ -129,7 +129,7 @@ def mock_search():
 def mock_translator():
     service = AsyncMock()
     service.translate = AsyncMock(
-        side_effect=lambda text, target, source=None: f"[{target}] {text}"
+        side_effect=lambda text, target, source=None, source_lang=None: f"[{target}] {text}"
     )
     service.detect_language = AsyncMock(
         return_value={"language": "hi", "confidence": 0.95}
