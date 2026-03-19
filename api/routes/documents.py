@@ -15,6 +15,7 @@ from db.runtime_store import (
     get_valid_lab_reports,
     add_extracted_medications,
     push_notification,
+    add_runtime_appointment,
 )
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -82,7 +83,14 @@ async def upload_document(
         "confirmation_needed": result.confirmation_needed,
         "error_message": result.error_message,
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "doctor_name": "Uploaded Document",
+        "doctor_name": ((result.extracted_data or {}).get("context") or {}).get("doctor_name") or "Uploaded Document",
+        "doctor_specialty": ((result.extracted_data or {}).get("context") or {}).get("doctor_specialty"),
+        "prescribed_on": ((result.extracted_data or {}).get("context") or {}).get("prescribed_on"),
+        "duration_days": ((result.extracted_data or {}).get("context") or {}).get("duration_days"),
+        "is_ongoing": ((result.extracted_data or {}).get("context") or {}).get("is_ongoing"),
+        "follow_up_date": ((result.extracted_data or {}).get("context") or {}).get("follow_up_date"),
+        "source_type": ((result.extracted_data or {}).get("quality") or {}).get("source_type", "prescription_photo"),
+        "ocr_confidence": ((result.extracted_data or {}).get("quality") or {}).get("ocr_confidence", 0.72),
         "summary": (result.extracted_data or {}).get("summary") or (result.error_message or "Document parsed."),
         "file_url": f"/api/documents/file/{document_id}",
         "extracted_markers": (result.extracted_data or {}).get("labs", []),
@@ -166,6 +174,54 @@ async def sync_document_to_phig(document_id: str, request: Request):
         add_extracted_medications(patient_id, meds)
 
     markers = doc.get("extracted_markers") or []
+    appointments_created = 0
+
+    # When a prescription references follow-up context, reflect it in the appointments timeline.
+    prescribed_on = doc.get("prescribed_on")
+    follow_up_date = doc.get("follow_up_date")
+    doctor_name = doc.get("doctor_name") or "Uploaded Doctor"
+    specialty = doc.get("doctor_specialty") or "General Physician"
+    if prescribed_on:
+        add_runtime_appointment(
+            patient_id,
+            {
+                "appointment_id": f"doc-visit-{document_id}",
+                "source_marker": f"doc-visit-{document_id}",
+                "doctor_name": doctor_name,
+                "specialization": specialty,
+                "appointment_datetime": f"{prescribed_on}T10:00:00+05:30",
+                "clinic_name": "Imported from document",
+                "status": "completed",
+                "brief_scheduled": False,
+                "visit_summary": doc.get("summary") or "Prescription uploaded and confirmed.",
+                "doctor_notes": "Auto-created from confirmed prescription document.",
+                "visit_prescriptions": [
+                    {
+                        "name": m.get("name"),
+                        "dosage": m.get("dosage"),
+                    }
+                    for m in meds
+                ],
+            },
+        )
+        appointments_created += 1
+
+    if follow_up_date:
+        add_runtime_appointment(
+            patient_id,
+            {
+                "appointment_id": f"doc-followup-{document_id}",
+                "source_marker": f"doc-followup-{document_id}",
+                "doctor_name": doctor_name,
+                "specialization": specialty,
+                "appointment_datetime": f"{follow_up_date}T10:00:00+05:30",
+                "clinic_name": "Follow-up from prescription",
+                "status": "upcoming",
+                "brief_scheduled": True,
+                "follow_up_from_document": True,
+            },
+        )
+        appointments_created += 1
 
     push_notification(
         patient_id,
@@ -181,6 +237,7 @@ async def sync_document_to_phig(document_id: str, request: Request):
         "document_id": document_id,
         "medications_synced": len(meds),
         "markers_available": len(markers),
+        "appointments_created": appointments_created,
     }
 
 

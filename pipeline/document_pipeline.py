@@ -162,6 +162,64 @@ class DocumentPipeline:
 
         return structured
 
+    def _extract_prescription_context(self, text: str) -> dict:
+        import re
+        from datetime import datetime
+
+        raw = text or ""
+        lower = raw.lower()
+
+        doctor_name = None
+        doctor_specialty = None
+        follow_up_date = None
+        prescribed_on = None
+        duration_days = None
+        is_ongoing = True
+
+        m_doc = re.search(r"(?:dr\.?\s*)([A-Za-z][A-Za-z .]{2,40})", raw, re.IGNORECASE)
+        if m_doc:
+            doctor_name = f"Dr. {m_doc.group(1).strip().title()}"
+
+        m_spec = re.search(r"(general physician|endocrinologist|cardiologist|nephrologist|diabetologist)", lower)
+        if m_spec:
+            doctor_specialty = m_spec.group(1).title()
+
+        m_date = re.search(r"(?:date|prescribed on)\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", raw, re.IGNORECASE)
+        if m_date:
+            parsed = m_date.group(1).replace("-", "/")
+            for fmt in ("%d/%m/%Y", "%d/%m/%y"):
+                try:
+                    prescribed_on = datetime.strptime(parsed, fmt).date().isoformat()
+                    break
+                except ValueError:
+                    continue
+
+        m_follow = re.search(r"(?:follow\s*up|review)\s*(?:on)?\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", raw, re.IGNORECASE)
+        if m_follow:
+            parsed = m_follow.group(1).replace("-", "/")
+            for fmt in ("%d/%m/%Y", "%d/%m/%y"):
+                try:
+                    follow_up_date = datetime.strptime(parsed, fmt).date().isoformat()
+                    break
+                except ValueError:
+                    continue
+
+        m_days = re.search(r"(?:for\s+)?(\d{1,3})\s*(?:days|day)", lower)
+        if m_days:
+            duration_days = int(m_days.group(1))
+
+        if any(token in lower for token in ["stopped", "stop", "discontinue", "completed"]):
+            is_ongoing = False
+
+        return {
+            "doctor_name": doctor_name,
+            "doctor_specialty": doctor_specialty,
+            "prescribed_on": prescribed_on,
+            "follow_up_date": follow_up_date,
+            "duration_days": duration_days,
+            "is_ongoing": is_ongoing,
+        }
+
     async def process_document(self, image_bytes, patient_id, uploaded_by, file_extension="jpg", filename="upload"):
         import time
         start = time.time()
@@ -203,6 +261,8 @@ class DocumentPipeline:
         if not isinstance(structured_data, dict):
             structured_data = {}
 
+        context = self._extract_prescription_context(full_text)
+
         # If AI output is sparse, enrich with deterministic fallback extraction.
         ai_meds = structured_data.get("medications", []) if isinstance(structured_data.get("medications"), list) else []
         ai_labs = structured_data.get("labs", []) if isinstance(structured_data.get("labs"), list) else []
@@ -236,23 +296,46 @@ class DocumentPipeline:
         for med in medications:
             med_name = med.get("name", "")
             drug_match = self._drug_db.fuzzy_match(med_name)
+            source_type = "prescription_digital" if file_extension.lower() == "pdf" else "prescription_photo"
 
             conf = ConfidenceCalculator.calculate_medication_confidence(
-                source_type="prescription_photo",
+                source_type=source_type,
                 ocr_avg_confidence=avg_confidence,
                 drug_match_score=drug_match.confidence,
                 dosage_parsed=bool(med.get("dosage")),
-                date_found=bool(structured_data.get("date")),
+                date_found=bool(context.get("prescribed_on") or structured_data.get("date")),
                 patient_confirmed=False,
             )
 
+            resolved_name = drug_match.generic_name if drug_match.confidence > 0.5 else med_name
+            prescribed_by = (
+                med.get("prescribed_by")
+                or med.get("prescribed_by_doctor")
+                or context.get("doctor_name")
+                or "Uploaded Document"
+            )
+
             node = {
-                "id": f"node-{med_name.lower().replace(' ', '-')}",
+                "id": f"node-{resolved_name.lower().replace(' ', '-')}",
                 "node_type": "medication",
-                "name": drug_match.generic_name if drug_match.confidence > 0.5 else med_name,
+                "name": resolved_name,
                 "confidence": conf.final_score,
             }
             nodes.append(node)
+
+            med["name"] = resolved_name
+            med["confidence"] = conf.final_score
+            med["confidence_label"] = conf.confidence_label
+            med["rxnorm"] = drug_match.rxnorm_code or med.get("rxnorm")
+            med["ner_match"] = bool(drug_match.rxnorm_code)
+            med["verified"] = False
+            med["source_type"] = source_type
+            med["ocr_confidence"] = round(float(avg_confidence or 0.0), 4)
+            med["prescribed_by_doctor"] = prescribed_by
+            med["doctor_specialty"] = med.get("prescribed_by_specialty") or context.get("doctor_specialty")
+            med["prescribed_on"] = med.get("prescribed_on") or context.get("prescribed_on")
+            med["duration_days"] = med.get("duration_days") or context.get("duration_days")
+            med["is_ongoing"] = med.get("is_ongoing") if med.get("is_ongoing") is not None else context.get("is_ongoing", True)
 
             if conf.final_score < CONFIDENCE_THRESHOLD:
                 needs_confirm = True
@@ -335,6 +418,11 @@ class DocumentPipeline:
                 "medications": medications,
                 "labs": labs,
                 "summary": structured_data.get("summary") if isinstance(structured_data, dict) else None,
+                "context": context,
+                "quality": {
+                    "source_type": "prescription_digital" if file_extension.lower() == "pdf" else "prescription_photo",
+                    "ocr_confidence": round(float(avg_confidence or 0.0), 4),
+                },
             },
         )
 

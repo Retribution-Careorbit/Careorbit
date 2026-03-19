@@ -19,6 +19,13 @@ interface UploadResult {
   confirmation_needed: any[];
   extracted_medications?: Array<{ name?: string; dosage?: string; frequency?: string }>;
   extracted_markers?: Array<{ name?: string; value?: number | string; unit?: string }>;
+  doctor_name?: string;
+  prescribed_on?: string;
+  duration_days?: number;
+  is_ongoing?: boolean;
+  follow_up_date?: string;
+  ocr_confidence?: number;
+  source_type?: string;
   error_message?: string;
   summary?: string;
 }
@@ -45,9 +52,46 @@ export default function DocumentsPage() {
       confirmation_needed: doc.confirmation_needed || [],
       extracted_medications: doc.extracted_medications || [],
       extracted_markers: doc.extracted_markers || [],
+      doctor_name: doc.doctor_name,
+      prescribed_on: doc.prescribed_on,
+      duration_days: doc.duration_days,
+      is_ongoing: doc.is_ongoing,
+      follow_up_date: doc.follow_up_date,
+      ocr_confidence: doc.ocr_confidence,
+      source_type: doc.source_type,
       error_message: status === "failed" ? (doc.error_message || doc.summary) : undefined,
       summary: doc.summary,
     };
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const res = await apiRequest("POST", "/api/confirmations/confirm", {
+        node_id: documentId,
+        document_id: documentId,
+        confirmed: true,
+      });
+      return res.json();
+    },
+    onSuccess: async (data: { new_confidence?: number }) => {
+      const keys = [
+        ["/api/documents/list"],
+        ["/api/patients/medications"],
+        ["/api/patients/overview"],
+        ["/api/orbit/score"],
+      ] as const;
+      for (const key of keys) {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
+      await Promise.all(keys.map((key) => queryClient.refetchQueries({ queryKey: key, type: "active" })));
+      toast({
+        title: "Document Confirmed",
+        description: `Confidence updated deterministically. New average confidence: ${Number(data?.new_confidence || 0).toFixed(2)}`,
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Confirmation Failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const syncMutation = useMutation({
@@ -55,7 +99,7 @@ export default function DocumentsPage() {
       const res = await apiRequest("POST", `/api/documents/sync/${documentId}`);
       return res.json();
     },
-    onSuccess: async (data: { medications_synced?: number; markers_available?: number }) => {
+    onSuccess: async (data: { medications_synced?: number; markers_available?: number; appointments_created?: number }) => {
       const keys = [
         ["/api/patients/medications"],
         ["/api/patients/overview"],
@@ -73,6 +117,7 @@ export default function DocumentsPage() {
 
       const meds = Number(data?.medications_synced || 0);
       const markers = Number(data?.markers_available || 0);
+      const appts = Number(data?.appointments_created || 0);
       if (meds === 0 && markers === 0) {
         toast({
           title: "No Extracted Data Found",
@@ -84,7 +129,7 @@ export default function DocumentsPage() {
 
       toast({
         title: "Synced to PHIG",
-        description: `Applied ${meds} medication(s) and found ${markers} lab marker(s).`,
+        description: `Applied ${meds} medication(s), found ${markers} lab marker(s), created ${appts} appointment update(s).`,
       });
     },
     onError: (err: Error) => {
@@ -271,10 +316,37 @@ export default function DocumentsPage() {
                       </p>
                     )}
                     <div className="text-sm space-y-1.5">
+                      {result.doctor_name && (
+                        <p><span style={{ color: "var(--text-muted)" }}>Doctor:</span> <span style={{ color: "var(--text-primary)" }}>{result.doctor_name}</span></p>
+                      )}
+                      {result.prescribed_on && (
+                        <p><span style={{ color: "var(--text-muted)" }}>Prescription Date:</span> <span style={{ color: "var(--text-primary)" }}>{result.prescribed_on}</span></p>
+                      )}
+                      {typeof result.duration_days === "number" && (
+                        <p><span style={{ color: "var(--text-muted)" }}>Duration:</span> <span style={{ color: "var(--text-primary)" }}>{result.duration_days} day(s)</span></p>
+                      )}
+                      {typeof result.is_ongoing === "boolean" && (
+                        <p><span style={{ color: "var(--text-muted)" }}>Ongoing:</span> <span style={{ color: "var(--text-primary)" }}>{result.is_ongoing ? "Yes" : "No"}</span></p>
+                      )}
+                      {result.follow_up_date && (
+                        <p><span style={{ color: "var(--text-muted)" }}>Follow-up Date:</span> <span style={{ color: "var(--text-primary)" }}>{result.follow_up_date}</span></p>
+                      )}
                       <p>
                         <span style={{ color: "var(--text-muted)" }}>Nodes created:</span>{" "}
                         <span className="font-mono font-medium" style={{ color: "var(--text-primary)" }}>{result.nodes_created}</span>
                       </p>
+                      {typeof result.ocr_confidence === "number" && (
+                        <p>
+                          <span style={{ color: "var(--text-muted)" }}>OCR Confidence:</span>{" "}
+                          <span className="font-mono font-medium" style={{ color: "var(--text-primary)" }}>{result.ocr_confidence.toFixed(2)}</span>
+                        </p>
+                      )}
+                      {result.source_type && (
+                        <p>
+                          <span style={{ color: "var(--text-muted)" }}>Source:</span>{" "}
+                          <span style={{ color: "var(--text-primary)" }}>{result.source_type}</span>
+                        </p>
+                      )}
                       {result.error_message && (
                         <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>
                           <p className="text-sm" style={{ color: "var(--accent-rose)" }}>
@@ -288,17 +360,29 @@ export default function DocumentsPage() {
                         </p>
                       )}
                       {!!result.document_id && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => syncMutation.mutate(result.document_id!)}
-                          disabled={syncMutation.isPending}
-                          data-testid={`button-sync-phig-${result.document_id}`}
-                        >
-                          {syncMutation.isPending ? "Syncing..." : "Apply To PHIG"}
-                        </Button>
+                        <div className="mt-2 flex gap-2">
+                          {result.status === "needs_confirmation" && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => confirmMutation.mutate(result.document_id!)}
+                              disabled={confirmMutation.isPending}
+                              data-testid={`button-confirm-${result.document_id}`}
+                            >
+                              {confirmMutation.isPending ? "Confirming..." : "Confirm Extraction"}
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => syncMutation.mutate(result.document_id!)}
+                            disabled={syncMutation.isPending}
+                            data-testid={`button-sync-phig-${result.document_id}`}
+                          >
+                            {syncMutation.isPending ? "Syncing..." : "Apply To PHIG"}
+                          </Button>
+                        </div>
                       )}
                       {result.extracted_medications && result.extracted_medications.length > 0 && (
                         <div className="mt-3 p-3 rounded-lg" style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>

@@ -16,6 +16,9 @@ interface Medication {
   confidence?: number;
   confidence_label?: string;
   prescribed_by_doctor?: string;
+  prescribed_on?: string;
+  duration_days?: number;
+  is_ongoing?: boolean;
   interactions?: any[];
 }
 
@@ -206,6 +209,24 @@ export default function MedicationsPage() {
                               <p>
                                 <span style={{ color: "var(--text-muted)" }}>Prescribed by:</span>{" "}
                                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.prescribed_by_doctor}</span>
+                              </p>
+                            )}
+                            {med.prescribed_on && (
+                              <p>
+                                <span style={{ color: "var(--text-muted)" }}>Prescribed on:</span>{" "}
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.prescribed_on}</span>
+                              </p>
+                            )}
+                            {typeof med.duration_days === "number" && (
+                              <p>
+                                <span style={{ color: "var(--text-muted)" }}>Duration:</span>{" "}
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.duration_days} day(s)</span>
+                              </p>
+                            )}
+                            {typeof med.is_ongoing === "boolean" && (
+                              <p>
+                                <span style={{ color: "var(--text-muted)" }}>Ongoing:</span>{" "}
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.is_ongoing ? "Yes" : "No"}</span>
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-2">

@@ -203,6 +203,9 @@ export default function AppointmentsPage() {
                               Pre-visit Brief
                             </Badge>
                           )}
+                          {appt.follow_up_from_document && (
+                            <Badge variant="outline" className="text-xs">Follow-up</Badge>
+                          )}
                           <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
                             <Video className="h-3.5 w-3.5 mr-1" />
                             Video Call
@@ -244,6 +247,7 @@ export default function AppointmentsPage() {
                               <User className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
                               <span className="font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</span>
                               {appt.specialization && <Badge variant="outline" className="text-xs">{appt.specialization}</Badge>}
+                              {appt.source_marker && <Badge variant="secondary" className="text-xs">From Document</Badge>}
                             </div>
                             <p className="text-sm font-mono text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(appt.appointment_datetime)}</p>
                           </div>

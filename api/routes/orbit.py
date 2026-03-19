@@ -12,6 +12,7 @@ from db.seed_demo import (
 )
 from api.routes.reminders import get_adherence_snapshot_for_patient
 from graph.phig_builder import phig_builder
+from db.runtime_store import get_runtime_appointments
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
@@ -259,10 +260,32 @@ _appointments_store: dict[str, list] = {DEMO_USER_ID: list(RAMESH_APPOINTMENTS)}
 
 @router.get("/appointments")
 async def list_appointments(request: Request):
+    from datetime import datetime, timezone
+
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    return _appointments_store.get(patient_id, [])
+    seeded = list(_appointments_store.get(patient_id, []))
+    runtime = list(get_runtime_appointments(patient_id))
+    merged = seeded + runtime
+
+    now = datetime.now(timezone.utc)
+    for appt in merged:
+        if appt.get("status") == "completed":
+            continue
+        dt_raw = appt.get("appointment_datetime")
+        if not dt_raw:
+            continue
+        try:
+            dt = datetime.fromisoformat(str(dt_raw).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            appt["status"] = "completed" if dt < now else "upcoming"
+        except ValueError:
+            continue
+
+    merged.sort(key=lambda a: a.get("appointment_datetime", ""), reverse=False)
+    return merged
 
 
 @router.get("/narrative")
