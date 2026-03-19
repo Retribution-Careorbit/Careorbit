@@ -4,6 +4,7 @@ from db.seed_demo import (
     RAMESH_LABS, RAMESH_INTERACTIONS, RAMESH_CARE_GAPS,
 )
 from db.runtime_store import get_extracted_medications, get_latest_lab_markers
+from db.phig_repository import load_patient_graph_from_db
 
 search_service = AzureSearchService()
 
@@ -51,6 +52,10 @@ class PHIGBuilder:
         return []
 
     async def get_medication_subgraph(self, patient_id: str) -> dict:
+        db_graph = await load_patient_graph_from_db(patient_id)
+        if db_graph.get("from_db") and db_graph.get("medications"):
+            return {"medications": db_graph.get("medications", [])}
+
         meds = []
 
         # DEMO SEED — remove when Azure + DB available
@@ -82,6 +87,28 @@ class PHIGBuilder:
         return {"medications": meds}
 
     async def get_full_patient_graph(self, patient_id: str) -> dict:
+        db_graph = await load_patient_graph_from_db(patient_id)
+        if db_graph.get("from_db"):
+            medications = db_graph.get("medications", [])
+            conditions = db_graph.get("conditions", [])
+            labs = db_graph.get("labs", [])
+            interactions = db_graph.get("interactions", [])
+            care_gaps = db_graph.get("care_gaps", [])
+            total = len(medications) + len(conditions) + len(labs)
+            return {
+                "summary": {
+                    "total_nodes": total,
+                    "conditions_count": len(conditions),
+                    "medications_count": len(medications),
+                    "labs_count": len(labs),
+                },
+                "medications": medications,
+                "conditions": conditions,
+                "labs": labs,
+                "interactions": interactions,
+                "care_gaps": care_gaps,
+            }
+
         meds_sub = await self.get_medication_subgraph(patient_id)
         dynamic_markers = get_latest_lab_markers(patient_id)
 

@@ -11,6 +11,7 @@ from db.runtime_store import (
     push_notification,
 )
 from graph.confidence import ConfidenceCalculator
+from db.phig_repository import update_document_medication_confidence
 
 router = APIRouter(prefix="/api/confirmations", tags=["confirmations"])
 
@@ -79,6 +80,8 @@ async def confirm_node(body: ConfirmRequest, request: Request):
         doc["valid"] = bool(body.confirmed)
         doc["confirmed_at"] = datetime.now(timezone.utc).isoformat() if body.confirmed else None
         doc["extracted_medications"] = meds
+
+        await update_document_medication_confidence(body.document_id, meds)
 
         # Keep runtime medication list aligned with confirmed values.
         existing_meds = get_extracted_medications(patient_id)

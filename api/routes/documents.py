@@ -17,6 +17,7 @@ from db.runtime_store import (
     push_notification,
     add_runtime_appointment,
 )
+from db.phig_repository import persist_document_graph
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -103,6 +104,16 @@ async def upload_document(
     if extracted_meds:
         add_extracted_medications(patient_id, extracted_meds)
 
+    # Persist graph rows into PostgreSQL PHIG tables (with graceful fallback).
+    await persist_document_graph(
+        patient_id=patient_id,
+        document_id=document_id,
+        source_type=doc_record.get("source_type", "prescription_photo"),
+        medications=doc_record.get("extracted_medications", []),
+        labs=doc_record.get("extracted_markers", []),
+        interaction_alerts=result.interaction_alerts,
+    )
+
     notif_title = "Document Processed"
     notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
     if result.processing_status == "failed":
@@ -176,6 +187,15 @@ async def sync_document_to_phig(document_id: str, request: Request):
 
     markers = doc.get("extracted_markers") or []
     appointments_created = 0
+
+    await persist_document_graph(
+        patient_id=patient_id,
+        document_id=document_id,
+        source_type=doc.get("source_type", "prescription_photo"),
+        medications=meds,
+        labs=markers,
+        interaction_alerts=doc.get("interaction_alerts") or [],
+    )
 
     # When a prescription references follow-up context, reflect it in the appointments timeline.
     prescribed_on = doc.get("prescribed_on")
