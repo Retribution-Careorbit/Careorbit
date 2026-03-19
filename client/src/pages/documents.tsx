@@ -65,11 +65,14 @@ export default function DocumentsPage() {
   });
 
   const confirmMutation = useMutation({
-    mutationFn: async (documentId: string) => {
+    mutationFn: async (payload: { documentId: string; askedDoctor?: boolean; doctorClarification?: string; frequency?: string }) => {
       const res = await apiRequest("POST", "/api/confirmations/confirm", {
-        node_id: documentId,
-        document_id: documentId,
+        node_id: payload.documentId,
+        document_id: payload.documentId,
         confirmed: true,
+        asked_doctor: payload.askedDoctor,
+        doctor_clarification: payload.doctorClarification,
+        frequency: payload.frequency,
       });
       return res.json();
     },
@@ -93,6 +96,43 @@ export default function DocumentsPage() {
       toast({ title: "Confirmation Failed", description: err.message, variant: "destructive" });
     },
   });
+
+  const requestDoctorReconfirmation = (documentId: string) => {
+    const asked = window.confirm(
+      "Before confirming, please re-ask your doctor for exact medicine name, dosage, and frequency. Have you asked your doctor?"
+    );
+    if (!asked) {
+      toast({
+        title: "Doctor Clarification Required",
+        description: "Please re-ask your doctor first, then confirm with the exact details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const clarification = window.prompt(
+      "Enter what your doctor confirmed (medicine name + dosage + exact schedule):"
+    );
+    if (!clarification || !clarification.trim()) {
+      toast({
+        title: "Clarification Missing",
+        description: "Doctor clarification is required before adding this medicine.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const frequency = window.prompt(
+      "Enter exact frequency advised by doctor (for example: once daily, twice daily). Leave blank if not provided."
+    );
+
+    confirmMutation.mutate({
+      documentId,
+      askedDoctor: true,
+      doctorClarification: clarification.trim(),
+      frequency: (frequency || "").trim() || undefined,
+    });
+  };
 
   const syncMutation = useMutation({
     mutationFn: async (documentId: string) => {
@@ -377,11 +417,11 @@ export default function DocumentsPage() {
                             <Button
                               type="button"
                               size="sm"
-                              onClick={() => confirmMutation.mutate(result.document_id!)}
+                              onClick={() => requestDoctorReconfirmation(result.document_id!)}
                               disabled={confirmMutation.isPending}
                               data-testid={`button-confirm-${result.document_id}`}
                             >
-                              {confirmMutation.isPending ? "Confirming..." : "Confirm Extraction"}
+                              {confirmMutation.isPending ? "Confirming..." : "Re-asked Doctor: Confirm Details"}
                             </Button>
                           )}
                           <Button

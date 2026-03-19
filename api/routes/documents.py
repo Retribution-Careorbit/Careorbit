@@ -44,6 +44,7 @@ def _apply_document_runtime_updates(
     document_id: str,
     document: dict,
     medications: list[dict],
+    allow_reminders: bool = True,
 ) -> dict[str, int]:
     appointments_created = 0
 
@@ -95,11 +96,13 @@ def _apply_document_runtime_updates(
         )
         appointments_created += 1
 
-    reminders_created = upsert_document_reminders(
-        patient_id=patient_id,
-        document_id=document_id,
-        medications=medications,
-    )
+    reminders_created = 0
+    if allow_reminders:
+        reminders_created = upsert_document_reminders(
+            patient_id=patient_id,
+            document_id=document_id,
+            medications=medications,
+        )
 
     return {
         "appointments_created": appointments_created,
@@ -239,7 +242,7 @@ async def upload_document(
     }
     add_patient_document(patient_id, doc_record)
 
-    if extracted_meds:
+    if extracted_meds and result.processing_status == "success":
         add_extracted_medications(patient_id, extracted_meds)
 
     # Persist graph rows into PostgreSQL PHIG tables (with graceful fallback).
@@ -259,6 +262,7 @@ async def upload_document(
         document_id=document_id,
         document=doc_record,
         medications=doc_record.get("extracted_medications", []),
+        allow_reminders=result.processing_status == "success",
     )
 
     background_tasks.add_task(_run_post_upload_automation, patient_id, document_id)
@@ -272,7 +276,10 @@ async def upload_document(
         notif_title = "Document Needs Confirmation"
         notif_message = (
             (result.extracted_data or {}).get("summary")
-            or f"Please review extracted details from {doc_record['file_name']}."
+            or (
+                f"Prescription details are unclear in {doc_record['file_name']}. "
+                "Please re-ask your doctor, then confirm the exact medicine instructions in Documents before we add it to Medications."
+            )
         )
 
     push_notification(
@@ -359,8 +366,14 @@ async def sync_document_to_phig(document_id: str, request: Request, background_t
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    if doc.get("processing_status") == "needs_confirmation" and not doc.get("confirmed_at"):
+        raise HTTPException(
+            status_code=409,
+            detail="This document needs doctor clarification before medications can be synced. Confirm it from Documents first.",
+        )
+
     meds = doc.get("extracted_medications") or []
-    if meds:
+    if meds and doc.get("processing_status") == "success":
         add_extracted_medications(patient_id, meds)
 
     markers = doc.get("extracted_markers") or []
@@ -380,6 +393,7 @@ async def sync_document_to_phig(document_id: str, request: Request, background_t
         document_id=document_id,
         document=doc,
         medications=meds,
+        allow_reminders=doc.get("processing_status") == "success",
     )
 
     push_notification(

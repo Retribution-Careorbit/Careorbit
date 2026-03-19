@@ -7,6 +7,7 @@ from main import app
 from uuid import uuid4
 
 from db.runtime_store import get_runtime_appointments
+from db.runtime_store import get_extracted_medications
 from api.routes.reminders import _reminders_store
 
 client = TestClient(app)
@@ -23,6 +24,40 @@ def _rbac_allow():
 
 
 class TestDocumentUpload:
+
+    def test_needs_confirmation_upload_does_not_auto_add_medications(self):
+        test_patient = f"patient-{uuid4().hex[:8]}"
+        with _auth(user_id=test_patient), _rbac_allow(), \
+             patch("api.routes.documents.document_pipeline") as mock_pipeline, \
+             patch("api.routes.documents.persist_document_graph", new=AsyncMock(return_value={"status": "ok"})):
+            mock_pipeline.process_document = AsyncMock(return_value=MagicMock(
+                document_id=str(uuid4()),
+                document_type="prescription",
+                processing_status="needs_confirmation",
+                nodes_created=[{"id": "n1", "node_type": "medication"}],
+                interaction_alerts=[],
+                care_gap_alerts=[],
+                confirmation_needed=[{"id": "n1", "node_type": "medication"}],
+                processing_time_ms=900,
+                error_message=None,
+                extracted_data={
+                    "medications": [{"name": "Metformin", "dosage": "500 mg", "frequency": ""}],
+                    "labs": [],
+                    "conditions": [],
+                    "summary": "Low confidence extraction",
+                    "context": {},
+                    "quality": {"source_type": "prescription_digital", "ocr_confidence": 0.48},
+                },
+            ))
+            response = client.post(
+                "/api/documents/upload",
+                files={"file": ("unclear.pdf", b"fake", "application/pdf")}
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "needs_confirmation"
+        meds_after = get_extracted_medications(test_patient)
+        assert all(str(m.get("name", "")).lower() != "metformin" for m in meds_after)
 
     def test_upload_auto_updates_appointments_and_reminders(self):
         test_patient = f"patient-{uuid4().hex[:8]}"

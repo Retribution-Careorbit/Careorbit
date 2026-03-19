@@ -164,12 +164,17 @@ def _is_known_med_node(node_id: str) -> bool:
 def _default_times_for_frequency(frequency: str | None) -> list[str]:
     text = (frequency or "").strip().lower()
     if not text:
-        return ["08:00"]
-    if any(token in text for token in ["tid", "thrice", "3", "three"]):
+        # Do not infer reminder cadence when prescription frequency is unclear.
+        return []
+    if any(token in text for token in ["tid", "thrice", "three times"]):
         return ["08:00", "14:00", "20:00"]
-    if any(token in text for token in ["bid", "twice", "2", "two", "morning and evening"]):
+    if any(token in text for token in ["bid", "twice", "two times", "morning and evening"]):
         return ["08:00", "20:00"]
-    return ["08:00"]
+    if any(token in text for token in ["once", "daily", "every day", "morning", "night", "bedtime"]):
+        if "night" in text or "bedtime" in text:
+            return ["21:00"]
+        return ["08:00"]
+    return []
 
 
 def upsert_document_reminders(patient_id: str, document_id: str, medications: list[dict]) -> int:

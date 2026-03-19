@@ -229,19 +229,10 @@ export default function MedicationsPage() {
                                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.is_ongoing ? "Yes" : "No"}</span>
                               </p>
                             )}
-                            <div className="flex items-center gap-2 mt-2">
-                              {[1, 2, 3].map((pill) => (
-                                <div
-                                  key={pill}
-                                  className="w-6 h-8 rounded-full"
-                                  style={{
-                                    background: pill <= 2 ? "var(--accent-cyan-dim)" : "var(--bg-elevated)",
-                                    border: pill <= 2 ? "2px solid color-mix(in srgb, var(--accent-cyan) 40%, transparent)" : "2px solid var(--border-subtle)",
-                                  }}
-                                  title={pill <= 2 ? "Taken" : "Pending"}
-                                />
-                              ))}
-                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>2/3 taken today</span>
+                            <div className="mt-2">
+                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                                Dose adherence appears in Reminders after you mark doses as taken or missed.
+                              </span>
                             </div>
                           </div>
                           {med.interactions && med.interactions.length > 0 && (
