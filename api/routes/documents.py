@@ -21,11 +21,90 @@ from db.runtime_store import (
 )
 from db.phig_repository import persist_document_graph
 from agents.orchestrator import orchestrator
+from api.routes.reminders import upsert_document_reminders
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"]
 MAX_SIZE = 10 * 1024 * 1024
+
+
+def _resolve_document_type(raw_type: str | None, medications: list[dict], labs: list[dict]) -> str:
+    doc_type = (raw_type or "unknown").strip().lower() or "unknown"
+    if doc_type in {"unknown", "medical_document"}:
+        if labs:
+            return "lab_report"
+        if medications:
+            return "prescription"
+    return doc_type
+
+
+def _apply_document_runtime_updates(
+    patient_id: str,
+    document_id: str,
+    document: dict,
+    medications: list[dict],
+) -> dict[str, int]:
+    appointments_created = 0
+
+    # When a prescription references follow-up context, reflect it in the appointments timeline.
+    prescribed_on = document.get("prescribed_on")
+    follow_up_date = document.get("follow_up_date")
+    doctor_name = document.get("doctor_name") or "Uploaded Doctor"
+    specialty = document.get("doctor_specialty") or "General Physician"
+
+    if prescribed_on:
+        add_runtime_appointment(
+            patient_id,
+            {
+                "appointment_id": f"doc-visit-{document_id}",
+                "source_marker": f"doc-visit-{document_id}",
+                "doctor_name": doctor_name,
+                "specialization": specialty,
+                "appointment_datetime": f"{prescribed_on}T10:00:00+05:30",
+                "clinic_name": "Imported from document",
+                "status": "completed",
+                "brief_scheduled": False,
+                "visit_summary": document.get("summary") or "Prescription uploaded and confirmed.",
+                "doctor_notes": "Auto-created from confirmed prescription document.",
+                "visit_prescriptions": [
+                    {
+                        "name": m.get("name"),
+                        "dosage": m.get("dosage"),
+                    }
+                    for m in medications
+                ],
+            },
+        )
+        appointments_created += 1
+
+    if follow_up_date:
+        add_runtime_appointment(
+            patient_id,
+            {
+                "appointment_id": f"doc-followup-{document_id}",
+                "source_marker": f"doc-followup-{document_id}",
+                "doctor_name": doctor_name,
+                "specialization": specialty,
+                "appointment_datetime": f"{follow_up_date}T10:00:00+05:30",
+                "clinic_name": "Follow-up from prescription",
+                "status": "upcoming",
+                "brief_scheduled": True,
+                "follow_up_from_document": True,
+            },
+        )
+        appointments_created += 1
+
+    reminders_created = upsert_document_reminders(
+        patient_id=patient_id,
+        document_id=document_id,
+        medications=medications,
+    )
+
+    return {
+        "appointments_created": appointments_created,
+        "reminders_created": reminders_created,
+    }
 
 
 async def _run_post_upload_automation(patient_id: str, document_id: str, max_attempts: int = 3):
@@ -127,10 +206,14 @@ async def upload_document(
 
     # Always assign a unique document id at API boundary to prevent collisions across uploads.
     document_id = f"doc-{uuid4().hex[:10]}"
+    extracted_meds = (result.extracted_data or {}).get("medications", [])
+    extracted_markers = (result.extracted_data or {}).get("labs", [])
+    resolved_document_type = _resolve_document_type(result.document_type, extracted_meds, extracted_markers)
+
     doc_record = {
         "document_id": document_id,
         "file_name": file.filename or f"upload.{ext}",
-        "document_type": result.document_type or "unknown",
+        "document_type": resolved_document_type,
         "valid": result.processing_status in {"success", "needs_confirmation"},
         "processing_status": result.processing_status,
         "nodes_created": nodes_count,
@@ -148,15 +231,14 @@ async def upload_document(
         "ocr_confidence": ((result.extracted_data or {}).get("quality") or {}).get("ocr_confidence", 0.72),
         "summary": (result.extracted_data or {}).get("summary") or (result.error_message or "Document parsed."),
         "file_url": f"/api/documents/file/{document_id}",
-        "extracted_markers": (result.extracted_data or {}).get("labs", []),
-        "extracted_medications": (result.extracted_data or {}).get("medications", []),
+        "extracted_markers": extracted_markers,
+        "extracted_medications": extracted_meds,
         "extracted_conditions": (result.extracted_data or {}).get("conditions", []),
         "pipeline_status": "pending",
         "pipeline_attempt": 0,
     }
     add_patient_document(patient_id, doc_record)
 
-    extracted_meds = (result.extracted_data or {}).get("medications", [])
     if extracted_meds:
         add_extracted_medications(patient_id, extracted_meds)
 
@@ -171,6 +253,13 @@ async def upload_document(
         interaction_alerts=result.interaction_alerts,
     )
     doc_record["phig_persistence"] = phig_persist
+
+    runtime_updates = _apply_document_runtime_updates(
+        patient_id=patient_id,
+        document_id=document_id,
+        document=doc_record,
+        medications=doc_record.get("extracted_medications", []),
+    )
 
     background_tasks.add_task(_run_post_upload_automation, patient_id, document_id)
 
@@ -192,8 +281,33 @@ async def upload_document(
         notif_title,
         notif_message,
         path="/documents",
-        metadata={"document_id": document_id, "status": result.processing_status},
+        metadata={
+            "document_id": document_id,
+            "status": result.processing_status,
+            "appointments_created": runtime_updates["appointments_created"],
+            "reminders_created": runtime_updates["reminders_created"],
+        },
     )
+
+    if runtime_updates["appointments_created"] > 0:
+        push_notification(
+            patient_id,
+            "appointment",
+            "Appointments Updated",
+            f"{runtime_updates['appointments_created']} appointment timeline update(s) added from uploaded document.",
+            path="/appointments",
+            metadata={"document_id": document_id},
+        )
+
+    if runtime_updates["reminders_created"] > 0:
+        push_notification(
+            patient_id,
+            "reminder",
+            "Reminders Suggested",
+            f"{runtime_updates['reminders_created']} medication reminder(s) generated from uploaded document.",
+            path="/reminders",
+            metadata={"document_id": document_id},
+        )
 
     if result.interaction_alerts:
         push_notification(
@@ -208,7 +322,7 @@ async def upload_document(
     return {
         "document_id": document_id,
         "file_name": doc_record["file_name"],
-        "document_type": result.document_type,
+        "document_type": resolved_document_type,
         "processing_status": result.processing_status,
         "status": result.processing_status,
         "nodes_created": nodes_count,
@@ -221,6 +335,8 @@ async def upload_document(
         "file_url": doc_record["file_url"],
         "phig_persistence": phig_persist,
         "pipeline_status": doc_record.get("pipeline_status", "pending"),
+        "appointments_created": runtime_updates["appointments_created"],
+        "reminders_created": runtime_updates["reminders_created"],
     }
 
 
@@ -248,8 +364,6 @@ async def sync_document_to_phig(document_id: str, request: Request, background_t
         add_extracted_medications(patient_id, meds)
 
     markers = doc.get("extracted_markers") or []
-    appointments_created = 0
-
     phig_persist = await persist_document_graph(
         patient_id=patient_id,
         document_id=document_id,
@@ -261,53 +375,12 @@ async def sync_document_to_phig(document_id: str, request: Request, background_t
     )
 
     background_tasks.add_task(_run_post_upload_automation, patient_id, document_id)
-
-    # When a prescription references follow-up context, reflect it in the appointments timeline.
-    prescribed_on = doc.get("prescribed_on")
-    follow_up_date = doc.get("follow_up_date")
-    doctor_name = doc.get("doctor_name") or "Uploaded Doctor"
-    specialty = doc.get("doctor_specialty") or "General Physician"
-    if prescribed_on:
-        add_runtime_appointment(
-            patient_id,
-            {
-                "appointment_id": f"doc-visit-{document_id}",
-                "source_marker": f"doc-visit-{document_id}",
-                "doctor_name": doctor_name,
-                "specialization": specialty,
-                "appointment_datetime": f"{prescribed_on}T10:00:00+05:30",
-                "clinic_name": "Imported from document",
-                "status": "completed",
-                "brief_scheduled": False,
-                "visit_summary": doc.get("summary") or "Prescription uploaded and confirmed.",
-                "doctor_notes": "Auto-created from confirmed prescription document.",
-                "visit_prescriptions": [
-                    {
-                        "name": m.get("name"),
-                        "dosage": m.get("dosage"),
-                    }
-                    for m in meds
-                ],
-            },
-        )
-        appointments_created += 1
-
-    if follow_up_date:
-        add_runtime_appointment(
-            patient_id,
-            {
-                "appointment_id": f"doc-followup-{document_id}",
-                "source_marker": f"doc-followup-{document_id}",
-                "doctor_name": doctor_name,
-                "specialization": specialty,
-                "appointment_datetime": f"{follow_up_date}T10:00:00+05:30",
-                "clinic_name": "Follow-up from prescription",
-                "status": "upcoming",
-                "brief_scheduled": True,
-                "follow_up_from_document": True,
-            },
-        )
-        appointments_created += 1
+    runtime_updates = _apply_document_runtime_updates(
+        patient_id=patient_id,
+        document_id=document_id,
+        document=doc,
+        medications=meds,
+    )
 
     push_notification(
         patient_id,
@@ -323,7 +396,8 @@ async def sync_document_to_phig(document_id: str, request: Request, background_t
         "document_id": document_id,
         "medications_synced": len(meds),
         "markers_available": len(markers),
-        "appointments_created": appointments_created,
+        "appointments_created": runtime_updates["appointments_created"],
+        "reminders_created": runtime_updates["reminders_created"],
         "phig_persistence": phig_persist,
         "pipeline_status": (next((d for d in get_patient_documents(patient_id) if d.get("document_id") == document_id), {}) or {}).get("pipeline_status", "pending"),
     }

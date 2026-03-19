@@ -104,8 +104,14 @@ export default function DocumentsPage() {
         ["/api/patients/medications"],
         ["/api/patients/overview"],
         ["/api/patients/lab-insights"],
+        ["/api/orbit/appointments"],
+        ["/api/reminders/list"],
+        ["/api/reminders/due"],
+        ["/api/reminders/adherence/summary"],
         ["/api/tests/scenarios"],
         ["/api/orbit/score"],
+        ["/api/orbit/improvement-plan"],
+        ["/api/orbit/narrative"],
         ["/api/system/notifications"],
         ["/api/documents/list"],
       ] as const;
@@ -157,10 +163,16 @@ export default function DocumentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
       queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/due"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders/adherence/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/narrative"] });
       if (data.status === "failed") {
         toast({
           title: "Extraction Failed",
