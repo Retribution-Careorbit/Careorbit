@@ -2,9 +2,6 @@ import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
 
-pytestmark = pytest.mark.anyio
-
-
 @pytest.fixture
 def mock_phig_nodes():
     return [

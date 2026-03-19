@@ -5,9 +5,6 @@ import pytest
 from unittest.mock import patch, AsyncMock
 
 
-pytestmark = pytest.mark.anyio
-
-
 class TestInteractionWiringFN:
     """
     WIRING TESTS: Verify the API correctly surfaces interaction alerts

@@ -4,7 +4,6 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
-from contextlib import asynccontextmanager
 
 
 class TestJWTTokens:
@@ -79,27 +78,3 @@ class TestJWTTokens:
                     scheme="Bearer", credentials=tampered
                 ))
             )
-
-    @pytest.mark.anyio
-    async def test_refresh_token_persists_datetime_expiry(self):
-        from api.middleware.auth import create_refresh_token
-
-        captured = {}
-
-        class DummySession:
-            async def execute(self, _query, params=None):
-                captured.update(params or {})
-
-            async def commit(self):
-                return None
-
-        @asynccontextmanager
-        async def fake_session():
-            yield DummySession()
-
-        with patch("api.middleware.auth.async_session", fake_session):
-            token = await create_refresh_token("user-abc-123", ip_address="127.0.0.1")
-
-        assert isinstance(token, str)
-        assert isinstance(captured.get("exp"), datetime)
-        assert captured.get("exp").tzinfo is not None

@@ -42,12 +42,3 @@ class TestHealthEndpoint:
         response = client.get("/health")
         assert response.status_code == 200, \
             "Health endpoint must be accessible without auth"
-
-    def test_health_includes_security_schema_readiness(self):
-        """Health payload should include auth/audit schema readiness signal."""
-        response = client.get("/health")
-        data = response.json()
-        assert "security_schema" in data
-        assert isinstance(data["security_schema"], dict)
-        assert "ready" in data["security_schema"]
-        assert "missing" in data["security_schema"]

@@ -7,7 +7,7 @@
 #         TODO: Fix confirmations.py to raise HTTPException(404) for consistency.
 
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
 from uuid import uuid4
@@ -21,26 +21,6 @@ def _auth(user_id="ramesh-id"):
 
 
 class TestPatientConfirmation:
-
-    def test_document_confirmation_requires_doctor_reask_for_unclear_prescription(self):
-        with _auth(), \
-             patch("api.routes.confirmations.get_patient_documents", return_value=[
-                 {
-                     "document_id": "doc-unclear-1",
-                     "processing_status": "needs_confirmation",
-                     "source_type": "prescription_digital",
-                     "ocr_confidence": 0.52,
-                     "extracted_medications": [{"name": "Metformin", "frequency": ""}],
-                 }
-             ]), \
-             patch("api.routes.confirmations.update_document_medication_confidence", new=AsyncMock(return_value=None)):
-            response = client.post("/api/confirmations/confirm", json={
-                "node_id": "doc-unclear-1",
-                "document_id": "doc-unclear-1",
-                "confirmed": True
-            })
-            assert response.status_code == 400
-            assert "re-asked your doctor" in response.json().get("detail", "")
 
     def test_confirm_without_correction(self):
         """confirmed=True -> status='confirmed', new_confidence=0.85."""

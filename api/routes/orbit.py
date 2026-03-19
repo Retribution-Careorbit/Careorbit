@@ -12,27 +12,8 @@ from db.seed_demo import (
 )
 from api.routes.reminders import get_adherence_snapshot_for_patient
 from graph.phig_builder import phig_builder
-from db.runtime_store import get_runtime_appointments
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
-
-PROFILE_COMPLETENESS_FIELDS = [
-    "date_of_birth",
-    "gender",
-    "medical_literacy_level",
-    "city",
-    "state",
-]
-
-
-def _get_profile_completeness_ratio(patient_id: str) -> float:
-    from api.routes.auth import _users_store
-
-    user_data = _users_store.get(patient_id, {})
-    if not user_data:
-        return 0.0
-    filled = sum(1 for field in PROFILE_COMPLETENESS_FIELDS if user_data.get(field))
-    return filled / len(PROFILE_COMPLETENESS_FIELDS)
 
 
 async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
@@ -41,62 +22,24 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     graph_data = await phig_builder.get_full_patient_graph(patient_id)
     nodes = []
     for med in graph_data.get("medications", []):
-        nodes.append({
-            "type": "medication",
-            "name": med.get("name"),
-            "confidence": med.get("confidence", 0.7),
-            "condition_code": med.get("condition_code"),
-            "rxnorm": med.get("rxnorm"),
-        })
+        nodes.append({"type": "medication", "name": med.get("name"), "confidence": med.get("confidence", 0.7)})
     for cond in graph_data.get("conditions", []):
-        nodes.append({
-            "type": "condition",
-            "name": cond.get("name"),
-            "confidence": cond.get("confidence", 0.7),
-            "icd10": cond.get("icd10") or cond.get("code"),
-        })
+        nodes.append({"type": "condition", "name": cond.get("name"), "confidence": cond.get("confidence", 0.7)})
     for lab in graph_data.get("labs", []):
-        nodes.append({
-            "type": "lab_value",
-            "name": lab.get("name"),
-            "value": lab.get("value"),
-            "confidence": float(lab.get("confidence", 0.9)),
-            "condition_code": lab.get("condition_code"),
-            "loinc": lab.get("loinc") or lab.get("loinc_code"),
-        })
+        nodes.append({"type": "lab_value", "name": lab.get("name"), "value": lab.get("value"), "confidence": 0.9})
 
     phig = {
         "nodes": nodes,
         "interactions": graph_data.get("interactions", []),
         "care_gaps": graph_data.get("care_gaps", []),
-        "edges": graph_data.get("edges", []),
-        "reminders": get_adherence_snapshot_for_patient(patient_id),
+        "reminders": None,
     }
-
-    # New users with no clinical graph should start at 0 and rise as profile details are completed.
-    has_clinical_data = bool(nodes)
-    if not has_clinical_data:
-        profile_ratio = _get_profile_completeness_ratio(patient_id)
-        completeness = round(profile_ratio * 100.0, 1)
-        breakdown = {
-            "completeness": completeness,
-            "avg_confidence": 0.0,
-            "interaction_risk": 0.0,
-            "care_gap_status": 0.0,
-            "adherence_rate": 0.0,
-        }
-        total = round(0.25 * completeness, 2)
-        return {
-            "total_score": total,
-            "breakdown": breakdown,
-            "delta": None,
-            "computed_at": datetime.now(timezone.utc).isoformat(),
-            "premium_required_for_breakdown": False,
-        }
 
     calc = OrbitScoreCalculator(phig)
     score = calc.compute()
-    score["premium_required_for_breakdown"] = False
+    if user_tier == "free":
+        score["breakdown"] = None
+        score["premium_required_for_breakdown"] = True
     return score
 
 
@@ -279,32 +222,10 @@ _appointments_store: dict[str, list] = {DEMO_USER_ID: list(RAMESH_APPOINTMENTS)}
 
 @router.get("/appointments")
 async def list_appointments(request: Request):
-    from datetime import datetime, timezone
-
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    seeded = list(_appointments_store.get(patient_id, []))
-    runtime = list(get_runtime_appointments(patient_id))
-    merged = seeded + runtime
-
-    now = datetime.now(timezone.utc)
-    for appt in merged:
-        if appt.get("status") == "completed":
-            continue
-        dt_raw = appt.get("appointment_datetime")
-        if not dt_raw:
-            continue
-        try:
-            dt = datetime.fromisoformat(str(dt_raw).replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            appt["status"] = "completed" if dt < now else "upcoming"
-        except ValueError:
-            continue
-
-    merged.sort(key=lambda a: a.get("appointment_datetime", ""), reverse=False)
-    return merged
+    return _appointments_store.get(patient_id, [])
 
 
 @router.get("/narrative")

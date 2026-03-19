@@ -1,6 +1,6 @@
 import os
 from fastapi import APIRouter
-from db.session import check_db_connection, check_core_security_schema
+from db.session import check_db_connection
 from config import get_settings
 from services.azure_openai import AzureOpenAIService
 from services.azure_search import AzureSearchService
@@ -13,7 +13,6 @@ router = APIRouter(tags=["health"])
 async def health_check():
     environment = os.environ.get("ENVIRONMENT", "development")
     db_status = await check_db_connection()
-    security_schema = await check_core_security_schema()
 
     return {
         "status": "healthy",
@@ -21,7 +20,6 @@ async def health_check():
         "version": "0.3.0",
         "environment": environment,
         "database": db_status,
-        "security_schema": security_schema,
     }
 
 

@@ -11,7 +11,6 @@ _patient_documents: dict[str, list[dict[str, Any]]] = {
 }
 
 _patient_extracted_medications: dict[str, list[dict[str, Any]]] = {}
-_patient_runtime_appointments: dict[str, list[dict[str, Any]]] = {}
 
 _patient_notifications: dict[str, list[dict[str, Any]]] = {
     DEMO_USER_ID: [
@@ -33,7 +32,6 @@ def _ensure_patient(patient_id: str) -> None:
     _patient_documents.setdefault(patient_id, [])
     _patient_notifications.setdefault(patient_id, [])
     _patient_extracted_medications.setdefault(patient_id, [])
-    _patient_runtime_appointments.setdefault(patient_id, [])
 
 
 def get_patient_documents(patient_id: str) -> list[dict[str, Any]]:
@@ -44,15 +42,6 @@ def get_patient_documents(patient_id: str) -> list[dict[str, Any]]:
 def add_patient_document(patient_id: str, doc: dict[str, Any]) -> None:
     _ensure_patient(patient_id)
     _patient_documents[patient_id].insert(0, doc)
-
-
-def update_patient_document(patient_id: str, document_id: str, patch: dict[str, Any]) -> bool:
-    _ensure_patient(patient_id)
-    for item in _patient_documents[patient_id]:
-        if item.get("document_id") == document_id:
-            item.update(patch)
-            return True
-    return False
 
 
 def get_valid_lab_reports(patient_id: str) -> list[dict[str, Any]]:
@@ -101,13 +90,6 @@ def add_extracted_medications(patient_id: str, meds: list[dict[str, Any]]) -> No
             "confidence": float(med.get("confidence") or 0.72),
             "confidence_label": med.get("confidence_label") or "MODERATE",
             "prescribed_by_doctor": med.get("prescribed_by_doctor") or "Uploaded Document",
-            "prescribed_on": med.get("prescribed_on"),
-            "duration_days": med.get("duration_days"),
-            "is_ongoing": med.get("is_ongoing"),
-            "source_type": med.get("source_type", "prescription_photo"),
-            "ocr_confidence": float(med.get("ocr_confidence") or 0.72),
-            "ner_match": bool(med.get("ner_match", False)),
-            "verified": bool(med.get("verified", False)),
             "interactions": [],
         }
         if key in index:
@@ -120,23 +102,6 @@ def add_extracted_medications(patient_id: str, meds: list[dict[str, Any]]) -> No
 def get_extracted_medications(patient_id: str) -> list[dict[str, Any]]:
     _ensure_patient(patient_id)
     return _patient_extracted_medications[patient_id]
-
-
-def add_runtime_appointment(patient_id: str, appointment: dict[str, Any]) -> None:
-    _ensure_patient(patient_id)
-    existing = _patient_runtime_appointments[patient_id]
-    marker = appointment.get("source_marker")
-    if marker:
-        for item in existing:
-            if item.get("source_marker") == marker:
-                item.update(appointment)
-                return
-    existing.append(appointment)
-
-
-def get_runtime_appointments(patient_id: str) -> list[dict[str, Any]]:
-    _ensure_patient(patient_id)
-    return _patient_runtime_appointments[patient_id]
 
 
 def push_notification(patient_id: str, notif_type: str, title: str, message: str, path: str = "/", metadata: dict[str, Any] | None = None) -> dict[str, Any]:

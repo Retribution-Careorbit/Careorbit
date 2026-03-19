@@ -57,9 +57,7 @@ class TestSourceCeilingsPhase1:
         """
         known_all_sources = set(PHASE1_SOURCES) | {
             # Phase 2 sources (no ceiling defined yet — speculative):
-            "fhir_api", "doctor_portal", "voice_input",
-            # Digital ingestion sources currently emitted by document_pipeline for PDFs.
-            "prescription_digital", "lab_report_digital",
+            "fhir_api", "doctor_portal", "patient_voice_input",
         }
         for source in ConfidenceCalculator.SOURCE_CEILINGS:
             assert source in known_all_sources, (

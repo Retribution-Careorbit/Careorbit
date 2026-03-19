@@ -4,20 +4,12 @@ from config import get_settings
 from services.azure_openai import AzureOpenAIService
 from services.azure_search import AzureSearchService
 from services.azure_translator import AzureTranslatorService
-from services.translation_validation import validate_translation_integrity
 from graph.phig_builder import phig_builder
-from agents.contracts import InteractionAlertContract, CareGapContract
-from db.session import async_session as db_session
 
 openai_service = AzureOpenAIService()
 search_service = AzureSearchService()
 translator_service = AzureTranslatorService()
 logger = logging.getLogger("careorbit.agents.orchestrator")
-
-DISCLAIMER_TEXT = (
-    "CareOrbit is a care coordination assistant, not a diagnostic or prescribing system. "
-    "Always consult your doctor before changing medications or treatment."
-)
 
 
 class OrchestratorResponse:
@@ -55,14 +47,8 @@ class Orchestrator:
             return text
         try:
             if source_lang:
-                translated = await self._translator.translate(text, target_lang, source_lang=source_lang)
-            else:
-                translated = await self._translator.translate(text, target_lang)
-
-            if validate_translation_integrity(text, translated):
-                return translated
-            logger.warning("Rejected translation due to integrity check failure; returning source text")
-            return text
+                return await self._translator.translate(text, target_lang, source=source_lang)
+            return await self._translator.translate(text, target_lang)
         except Exception as exc:
             logger.info(f"Translator unavailable; returning original text: {exc}")
             return text
@@ -92,30 +78,6 @@ class Orchestrator:
             unique.append(ix)
         return unique
 
-    @staticmethod
-    def _validate_interactions(interactions: list) -> list:
-        validated = []
-        for item in interactions if isinstance(interactions, list) else []:
-            if not isinstance(item, dict):
-                continue
-            try:
-                validated.append(InteractionAlertContract.model_validate(item).model_dump())
-            except Exception as exc:
-                logger.warning(f"Dropped invalid interaction payload: {exc}")
-        return validated
-
-    @staticmethod
-    def _validate_care_gaps(care_gaps: list) -> list:
-        validated = []
-        for item in care_gaps if isinstance(care_gaps, list) else []:
-            if not isinstance(item, dict):
-                continue
-            try:
-                validated.append(CareGapContract.model_validate(item).model_dump())
-            except Exception as exc:
-                logger.warning(f"Dropped invalid care gap payload: {exc}")
-        return validated
-
     async def _collect_phig_context(self, patient_id: str) -> dict:
         try:
             graph = await phig_builder.get_full_patient_graph(patient_id)
@@ -140,35 +102,9 @@ class Orchestrator:
             "medications": medications if isinstance(medications, list) else [],
             "conditions": conditions if isinstance(conditions, list) else [],
             "labs": labs if isinstance(labs, list) else [],
-            "care_gaps": self._validate_care_gaps(care_gaps if isinstance(care_gaps, list) else []),
-            "interactions": self._validate_interactions(self._dedupe_interactions(interactions)),
+            "care_gaps": care_gaps if isinstance(care_gaps, list) else [],
+            "interactions": self._dedupe_interactions(interactions),
         }
-
-    @staticmethod
-    def _append_disclaimer(text: str) -> str:
-        base = str(text or "").strip()
-        if not base:
-            return DISCLAIMER_TEXT
-        if DISCLAIMER_TEXT in base:
-            return base
-        return f"{base}\n\n{DISCLAIMER_TEXT}"
-
-    async def run_post_phig_update(self, patient_id: str, document_id: str | None = None) -> OrchestratorResponse:
-        phig = await self._collect_phig_context(patient_id)
-        trigger = "document sync" if document_id else "PHIG update"
-        response_text = (
-            f"Post-{trigger} automation complete: {len(phig.get('medications', []))} medication(s), "
-            f"{len(phig.get('interactions', []))} interaction alert(s), "
-            f"{len(phig.get('care_gaps', []))} care gap(s)."
-        )
-        return OrchestratorResponse(
-            message=response_text,
-            language="en",
-            agents_used=["medication_agent", "care_gap_agent", "history_agent"],
-            alerts=phig.get("interactions", []),
-            care_gaps=phig.get("care_gaps", []),
-            confidence=0.8,
-        )
 
     def _build_grounded_text(self, query: str, phig: dict) -> str:
         query_lower = (query or "").lower()
@@ -196,14 +132,13 @@ class Orchestrator:
                 for ix in interactions:
                     pair = ix.get("drug_pair") or "Unknown pair"
                     severity = ix.get("severity") or "unknown severity"
-                    source = ix.get("source") or "unspecified source"
-                    items.append(f"{pair} ({severity}, source: {source})")
+                    items.append(f"{pair} ({severity})")
                 return "Medication interaction alerts from your PHIG profile: " + "; ".join(items) + "."
             return "No medication interaction alerts are currently present in your PHIG profile."
 
         if any(k in query_lower for k in ["screening", "care gap", "checkup", "preventive", "immunization", "vaccination"]):
             if care_gaps:
-                names = [f"{cg.get('name', 'Unnamed care gap')} (source: {cg.get('source', 'unspecified')})" for cg in care_gaps]
+                names = [cg.get("name", "Unnamed care gap") for cg in care_gaps]
                 return "Open care gaps from your PHIG profile: " + ", ".join(names) + "."
             return "No open care gaps are currently present in your PHIG profile."
 
@@ -244,11 +179,11 @@ class Orchestrator:
             response_text = await self._translate_best_effort(response_text, language)
 
         return OrchestratorResponse(
-            message=self._append_disclaimer(response_text),
+            message=response_text,
             language=language,
             agents_used=agents_used,
-            alerts=self._validate_interactions(phig.get("interactions", [])),
-            care_gaps=self._validate_care_gaps(phig.get("care_gaps", [])),
+            alerts=phig.get("interactions", []),
+            care_gaps=phig.get("care_gaps", []),
             confidence=0.72,
         )
 
@@ -347,11 +282,11 @@ class Orchestrator:
             response_text = await self._translate_best_effort(response_text, language)
 
         return OrchestratorResponse(
-            message=self._append_disclaimer(response_text),
+            message=response_text,
             language=language,
             agents_used=agents_used,
-            alerts=self._validate_interactions(interactions if isinstance(interactions, list) else []),
-            care_gaps=self._validate_care_gaps(guidelines if isinstance(guidelines, list) and guidelines else phig.get("care_gaps", [])),
+            alerts=interactions if isinstance(interactions, list) else [],
+            care_gaps=(guidelines if isinstance(guidelines, list) and guidelines else phig.get("care_gaps", [])),
             confidence=confidence,
         )
 

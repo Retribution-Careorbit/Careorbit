@@ -3,7 +3,6 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.middleware.security import SecurityHeadersMiddleware
-from db.session import ensure_core_security_schema
 
 environment = os.environ.get("ENVIRONMENT", "development")
 
@@ -78,11 +77,6 @@ app.include_router(tests_router)
 app.include_router(orbit_router)
 app.include_router(dpdp_router)
 app.include_router(system_router)
-
-
-@app.on_event("startup")
-async def _startup_schema_bootstrap():
-    await ensure_core_security_schema()
 
 if __name__ == "__main__":
     import uvicorn

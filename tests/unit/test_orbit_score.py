@@ -10,14 +10,10 @@ class TestCompletenessComponent:
     def test_completeness_all_node_types_present(self):
         phig = {
             "nodes": [
-                {"type": "medication", "name": "Metformin", "phig_node_id": "m1"},
-                {"type": "condition", "name": "Hypertension", "icd10": "I10", "phig_node_id": "c1"},
-                {"type": "lab_value", "name": "Creatinine", "value": 1.1, "phig_node_id": "l1"},
-            ],
-            "edges": [
-                {"edge_type": "CONDITION_HAS_MEDICATION", "source_node_id": "c1", "target_node_id": "m1", "source_node_type": "condition", "target_node_type": "medication"},
-                {"edge_type": "CONDITION_HAS_LAB", "source_node_id": "c1", "target_node_id": "l1", "source_node_type": "condition", "target_node_type": "lab_result"},
-            ],
+                {"type": "medication", "name": "Metformin"},
+                {"type": "condition", "name": "Diabetes"},
+                {"type": "lab_value", "name": "HbA1c", "value": 7.8},
+            ]
         }
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()
@@ -26,16 +22,13 @@ class TestCompletenessComponent:
     def test_completeness_partial_node_types(self):
         phig = {
             "nodes": [
-                {"type": "medication", "name": "Amlodipine", "phig_node_id": "m1"},
-                {"type": "condition", "name": "Hypertension", "icd10": "I10", "phig_node_id": "c1"},
-            ],
-            "edges": [
-                {"edge_type": "CONDITION_HAS_MEDICATION", "source_node_id": "c1", "target_node_id": "m1", "source_node_type": "condition", "target_node_type": "medication"},
-            ],
+                {"type": "medication", "name": "Metformin"},
+                {"type": "condition", "name": "Diabetes"},
+            ]
         }
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()
-        assert score == 50.0
+        assert abs(score - 66.7) < 1.0
 
     def test_completeness_no_nodes(self):
         phig = {"nodes": []}
@@ -46,20 +39,11 @@ class TestCompletenessComponent:
     def test_completeness_bonus_care_gap_nodes(self):
         phig = {
             "nodes": [
-                {"type": "medication", "name": "Metformin", "phig_node_id": "m1"},
-                {"type": "condition", "name": "Type 2 Diabetes Mellitus", "icd10": "E11.9", "phig_node_id": "c1"},
-                {"type": "lab_value", "name": "HbA1c", "value": 7.8, "phig_node_id": "l1"},
-                {"type": "lab_value", "name": "Creatinine", "value": 1.4, "phig_node_id": "l2"},
+                {"type": "medication", "name": "Metformin"},
+                {"type": "condition", "name": "Diabetes"},
+                {"type": "lab_value", "name": "HbA1c", "value": 7.8},
                 {"type": "care_gap", "name": "Retinopathy Screening"},
-            ],
-            "edges": [
-                {"edge_type": "CONDITION_HAS_MEDICATION", "source_node_id": "c1", "target_node_id": "m1", "source_node_type": "condition", "target_node_type": "medication"},
-                {"edge_type": "CONDITION_HAS_LAB", "source_node_id": "c1", "target_node_id": "l1", "source_node_type": "condition", "target_node_type": "lab_result"},
-                {"edge_type": "CONDITION_HAS_LAB", "source_node_id": "c1", "target_node_id": "l2", "source_node_type": "condition", "target_node_type": "lab_result"},
-            ],
-            "care_gaps": [
-                {"condition_code": "E11.9", "status": "resolved"}
-            ],
+            ]
         }
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()

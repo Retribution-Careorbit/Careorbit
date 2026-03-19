@@ -8,9 +8,6 @@ import pytest
 from unittest.mock import patch, AsyncMock
 
 
-pytestmark = pytest.mark.anyio
-
-
 @pytest.fixture
 def orchestrator(mock_openai, mock_search, mock_translator):
     with patch("agents.orchestrator.openai_service", mock_openai), \

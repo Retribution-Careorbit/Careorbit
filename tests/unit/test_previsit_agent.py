@@ -3,9 +3,6 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from uuid import uuid4
 
 
-pytestmark = pytest.mark.anyio
-
-
 REQUIRED_BRIEF_KEYS = [
     "tell_doctor",
     "ask_doctor",

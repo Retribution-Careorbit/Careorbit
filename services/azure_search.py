@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 from config import get_settings
 
 logger = logging.getLogger("careorbit.services.search")
@@ -50,9 +49,6 @@ class AzureSearchService:
                     "description": result.get("description", ""),
                     "mechanism": result.get("mechanism", ""),
                     "score": result.get("@search.score", 0),
-                    "source": result.get("source") or "Azure AI Search interaction index",
-                    "source_query": f"drug interaction {drug_name}",
-                    "retrieved_at": datetime.now(timezone.utc).isoformat(),
                 })
             return interactions
         except Exception as e:
@@ -74,12 +70,9 @@ class AzureSearchService:
             for result in results:
                 guidelines.append({
                     "condition": result.get("condition", ""),
-                    "name": result.get("screening", ""),
+                    "screening": result.get("screening", ""),
                     "recommendation": result.get("recommendation", ""),
-                    "status": "open",
-                    "source": result.get("source") or "Azure AI Search guideline index",
-                    "source_query": f"clinical guideline {condition}",
-                    "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                    "source": result.get("source", ""),
                     "score": result.get("@search.score", 0),
                 })
             return guidelines

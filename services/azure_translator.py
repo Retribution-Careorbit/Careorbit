@@ -10,12 +10,9 @@ class AzureTranslatorService:
         self._endpoint = settings.AZURE_TRANSLATOR_ENDPOINT
         self._key = settings.AZURE_TRANSLATOR_KEY
 
-    async def translate(self, text, target_lang, source_lang=None, source=None):
+    async def translate(self, text, target_lang, source_lang=None):
         if not self._endpoint or not self._key:
             raise NotImplementedError("Azure Translator not configured")
-
-        if source is not None and source_lang is None:
-            source_lang = source
 
         try:
             import httpx

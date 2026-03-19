@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from collections import defaultdict
@@ -9,8 +8,6 @@ logger = logging.getLogger("careorbit.db.session")
 
 _engine = None
 _async_session_factory = None
-_core_schema_initialized = False
-_core_schema_lock = asyncio.Lock()
 
 
 def _is_postgres_url(url: str) -> bool:
@@ -202,13 +199,6 @@ def async_session():
     if factory is not None:
         sa_session = factory()
         return AsyncPgSession(sa_session)
-
-    from config import get_settings
-    settings = get_settings()
-    strict_production_data_mode = str(os.environ.get("STRICT_PRODUCTION_DATA_MODE", "true")).strip().lower() in {"1", "true", "yes", "on"}
-    if settings.ENVIRONMENT == "production" and strict_production_data_mode:
-        raise RuntimeError("Database unavailable and in-memory fallback is disabled in production")
-
     return InMemorySession(_global_store)
 
 
@@ -237,91 +227,3 @@ async def check_db_connection() -> str:
     except Exception as e:
         logger.error(f"DB connection check failed: {e}")
         return "error"
-
-
-async def check_core_security_schema() -> dict:
-    engine = _get_async_engine()
-    if engine is None:
-        return {"checked": False, "ready": True, "missing": []}
-
-    from sqlalchemy import text
-
-    expected = ["refresh_tokens", "audit_log"]
-    missing = []
-
-    try:
-        async with engine.connect() as conn:
-            for table_name in expected:
-                result = await conn.execute(
-                    text("SELECT to_regclass(:table_name)"),
-                    {"table_name": f"public.{table_name}"},
-                )
-                if result.scalar() is None:
-                    missing.append(table_name)
-    except Exception as exc:
-        logger.warning(f"Core schema readiness check failed: {exc}")
-        return {
-            "checked": True,
-            "ready": False,
-            "missing": expected,
-            "error": str(exc),
-        }
-
-    return {"checked": True, "ready": len(missing) == 0, "missing": missing}
-
-
-async def ensure_core_security_schema() -> None:
-    global _core_schema_initialized
-
-    if _core_schema_initialized:
-        return
-
-    async with _core_schema_lock:
-        if _core_schema_initialized:
-            return
-
-        engine = _get_async_engine()
-        if engine is None:
-            return
-
-        from sqlalchemy import text
-
-        try:
-            async with engine.begin() as conn:
-                # Keep schema permissive for current runtime IDs/IP formats.
-                await conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS refresh_tokens (
-                        id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
-                        user_id TEXT NOT NULL,
-                        token_hash TEXT NOT NULL UNIQUE,
-                        issued_at TIMESTAMPTZ DEFAULT NOW(),
-                        expires_at TIMESTAMPTZ NOT NULL,
-                        revoked_at TIMESTAMPTZ,
-                        ip_address TEXT,
-                        user_agent TEXT,
-                        replaced_by TEXT
-                    )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)"))
-
-                await conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS audit_log (
-                        id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
-                        user_id TEXT NOT NULL,
-                        patient_id TEXT,
-                        action TEXT NOT NULL,
-                        ip_address TEXT,
-                        user_agent TEXT,
-                        metadata JSONB,
-                        created_at TIMESTAMPTZ DEFAULT NOW()
-                    )
-                """))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_log_patient ON audit_log(patient_id)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)"))
-                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)"))
-
-            _core_schema_initialized = True
-        except Exception as exc:
-            logger.warning(f"Failed to ensure core security schema: {exc}")

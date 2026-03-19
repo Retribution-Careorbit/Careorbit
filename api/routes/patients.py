@@ -282,27 +282,10 @@ async def get_lab_insights(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    extracted_map = _latest_extracted_markers(patient_id)
-
     if patient_id != DEMO_USER_ID:
-        areas = []
-        for marker_name, extracted in extracted_map.items():
-            areas.append(
-                {
-                    "area_key": marker_name.lower().replace(" ", "_"),
-                    "area_label": marker_name,
-                    "marker_name": marker_name,
-                    "latest_value": extracted.get("value"),
-                    "unit": extracted.get("unit"),
-                    "threshold": _threshold_label(extracted.get("ref_low"), extracted.get("ref_high")),
-                    "severity": "monitor",
-                    "trend_direction": "stable",
-                    "insight": f"{marker_name} extracted from uploaded document.",
-                    "points": [{"date": extracted.get("date"), "value": extracted.get("value")}],
-                }
-            )
-        return {"areas": areas}
+        return {"areas": []}
 
+    extracted_map = _latest_extracted_markers(patient_id)
     areas = []
     for entry in RAMESH_LAB_HISTORY:
         points = entry.get("points", [])

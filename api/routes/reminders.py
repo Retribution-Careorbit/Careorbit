@@ -129,7 +129,7 @@ def _compute_adherence(user_id: str) -> dict:
     total_taken = sum(int(r.get("total_taken", 0)) for r in reminders)
     total_missed = sum(int(r.get("total_missed", 0)) for r in reminders)
     denominator = total_taken + total_missed
-    rate = round((total_taken / denominator) if denominator else 0.0, 3)
+    rate = round((total_taken / denominator) if denominator else 1.0, 3)
     streak = max([int(r.get("adherence_streak", 0)) for r in reminders], default=0)
     latest_reasons = [
         r.get("last_reason") for r in reminders
@@ -159,72 +159,6 @@ def _is_known_med_node(node_id: str) -> bool:
         return False
     except ValueError:
         return True
-
-
-def _default_times_for_frequency(frequency: str | None) -> list[str]:
-    text = (frequency or "").strip().lower()
-    if not text:
-        # Do not infer reminder cadence when prescription frequency is unclear.
-        return []
-    if any(token in text for token in ["tid", "thrice", "three times"]):
-        return ["08:00", "14:00", "20:00"]
-    if any(token in text for token in ["bid", "twice", "two times", "morning and evening"]):
-        return ["08:00", "20:00"]
-    if any(token in text for token in ["once", "daily", "every day", "morning", "night", "bedtime"]):
-        if "night" in text or "bedtime" in text:
-            return ["21:00"]
-        return ["08:00"]
-    return []
-
-
-def upsert_document_reminders(patient_id: str, document_id: str, medications: list[dict]) -> int:
-    created = 0
-
-    for med in medications or []:
-        med_name = str(med.get("name") or "").strip()
-        if not med_name:
-            continue
-        node_id = str(med.get("phig_node_id") or med.get("node_id") or f"node-med-{med_name.lower().replace(' ', '-')}")
-        times = _default_times_for_frequency(str(med.get("frequency") or ""))
-
-        for reminder_time in times:
-            source_marker = f"doc-reminder:{document_id}:{med_name.lower()}:{reminder_time}"
-            existing = next(
-                (
-                    r for r in _reminders_store.values()
-                    if r.get("user_id") == patient_id and (r.get("source_marker") or "") == source_marker
-                ),
-                None,
-            )
-
-            payload = {
-                "user_id": patient_id,
-                "medication_node_id": node_id,
-                "medication_name": med_name,
-                "reminder_time": reminder_time,
-                "days_of_week": [1, 2, 3, 4, 5, 6, 7],
-                "active": True,
-                "source_marker": source_marker,
-                "source_document_id": document_id,
-            }
-
-            if existing:
-                existing.update(payload)
-                continue
-
-            reminder_id = str(uuid4())
-            _reminders_store[reminder_id] = {
-                "reminder_id": reminder_id,
-                "adherence_streak": 0,
-                "total_taken": 0,
-                "total_missed": 0,
-                "last_status": None,
-                "last_reason": None,
-                **payload,
-            }
-            created += 1
-
-    return created
 
 
 @router.post("/create")
