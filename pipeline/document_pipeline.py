@@ -187,17 +187,33 @@ class DocumentPipeline:
         status = "needs_confirmation" if needs_confirm else "success"
 
         if not nodes:
+            text_present = bool((full_text or "").strip())
+            review_node = {
+                "id": f"node-review-{patient_id}",
+                "node_type": "document_review",
+                "name": "Manual Review Needed",
+                "confidence": 0.40,
+            }
+            summary = (
+                "Text was detected, but clinical entities could not be extracted confidently. Please review manually."
+                if text_present
+                else "Could not extract structured clinical entities from this file. Please review manually or upload a clearer image."
+            )
             return DocumentProcessingResult(
                 document_id=f"doc-{patient_id}",
                 document_type=doc_type,
-                processing_status="failed",
-                nodes_created=[],
+                processing_status="needs_confirmation",
+                nodes_created=[review_node],
                 interaction_alerts=[],
                 care_gap_alerts=[],
-                confirmation_needed=[],
+                confirmation_needed=[review_node],
                 processing_time_ms=int((time.time() - start) * 1000),
-                error_message="Could not extract clinical data. Please upload a clearer prescription or lab report.",
-                extracted_data={"medications": [], "labs": []},
+                error_message=None,
+                extracted_data={
+                    "medications": [],
+                    "labs": [],
+                    "summary": summary,
+                },
             )
 
         return DocumentProcessingResult(

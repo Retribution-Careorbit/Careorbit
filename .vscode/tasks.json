@@ -1,0 +1,101 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "commit-cors-fix",
+			"type": "shell",
+			"command": "git add -- client/src/main.tsx client/src/lib/queryClient.ts .github/workflows/deploy.yml; git commit -m \"Fix SWA-App Service CORS path and branch-aware SWA rewrites\"",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-git-precheck",
+			"type": "shell",
+			"command": "git status --short; git branch --show-current; git remote -v",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-gh-check",
+			"type": "shell",
+			"command": "gh --version; gh auth status; gh workflow list",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-commit-push-cors-fix",
+			"type": "shell",
+			"command": "git add .github/workflows/deploy.yml client/src/lib/queryClient.ts client/src/main.tsx; git commit -m \"Fix SWA-to-AppService CORS by using same-origin API routes on SWA\"; git push origin develop",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-commit-push-cors-fix-2",
+			"type": "shell",
+			"command": "git add .github/workflows/deploy.yml client/src/lib/queryClient.ts client/src/main.tsx; git commit -m 'Fix SWA AppService CORS by using same origin API routes on SWA'; git push origin develop; git log -1 --oneline",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-trigger-workflow",
+			"type": "shell",
+			"command": "gh workflow run \"CareOrbit Deploy Pipeline\" --ref develop; gh run list --workflow \"CareOrbit Deploy Pipeline\" --limit 3",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-trigger-workflow-2",
+			"type": "shell",
+			"command": "gh workflow run .github/workflows/deploy.yml --ref develop; gh run list -w .github/workflows/deploy.yml --limit 5",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-check-run-status",
+			"type": "shell",
+			"command": "gh run view 23386720396 --json status,conclusion,url,name,workflowName,headBranch,headSha",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-check-latest-deploy-run",
+			"type": "shell",
+			"command": "gh run view 23386720396 --json status,conclusion,url,headSha,createdAt,updatedAt,jobs",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-commit-push-405-fix",
+			"type": "shell",
+			"command": "git add .github/workflows/deploy.yml client/src/main.tsx client/src/lib/queryClient.ts client/src/pages/login.tsx; git commit -m 'Fix SWA 405 login by restoring direct API base and resilient login parsing'; git push origin develop; git log -1 --oneline",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-verify-head-and-trigger",
+			"type": "shell",
+			"command": "git log -1 --oneline; gh workflow run .github/workflows/deploy.yml --ref develop; gh run list -w .github/workflows/deploy.yml --limit 2",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-check-new-run-status",
+			"type": "shell",
+			"command": "gh run view 23386907164 --json status,conclusion,url,headSha,name",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-check-latest-run-final",
+			"type": "shell",
+			"command": "gh run view 23386907164 --json status,conclusion,url,headSha,updatedAt,jobs",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-check-run-23386907164",
+			"type": "shell",
+			"command": "gh run view 23386907164 --json status,conclusion,url,updatedAt,headSha",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-commit-push-doc500-fixes",
+			"type": "shell",
+			"command": "git add api/routes/documents.py api/routes/system.py db/runtime_store.py client/src/pages/documents.tsx; git commit -m 'Harden document upload and notifications endpoints to prevent runtime 500s'; git push origin develop; git log -1 --oneline",
+			"isBackground": false
+		},
+		{
+			"label": "copilot-verify-and-push-status",
+			"type": "shell",
+			"command": "git status --short; git log -1 --oneline",
+			"isBackground": false
+		}
+	]
+}
