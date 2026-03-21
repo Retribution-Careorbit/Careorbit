@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Request, HTTPException
 from fastapi.responses import StreamingResponse
 import io
+import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -18,6 +19,7 @@ from db.runtime_store import (
 )
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
+logger = logging.getLogger("careorbit.routes.documents")
 
 ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"]
 MAX_SIZE = 10 * 1024 * 1024
@@ -67,6 +69,24 @@ async def upload_document(
             "processing_time_ms": 0,
             "error_message": "Document processing services are being configured. Please try again later.",
         }
+    except Exception:
+        logger.exception(
+            "Unexpected error while processing document upload patient_id=%s filename=%s",
+            patient_id,
+            file.filename,
+        )
+        return {
+            "document_id": None,
+            "document_type": "unknown",
+            "processing_status": "failed",
+            "status": "failed",
+            "nodes_created": 0,
+            "interaction_alerts": [],
+            "care_gap_alerts": [],
+            "confirmation_needed": [],
+            "processing_time_ms": 0,
+            "error_message": "Unexpected error while processing document. Please try again.",
+        }
 
     nodes_count = len(result.nodes_created) if isinstance(result.nodes_created, list) else result.nodes_created
 
@@ -82,11 +102,18 @@ async def upload_document(
         "file_url": f"/api/documents/file/{document_id}",
         "extracted_markers": (result.extracted_data or {}).get("labs", []),
     }
-    add_patient_document(patient_id, doc_record)
+    try:
+        add_patient_document(patient_id, doc_record)
 
-    extracted_meds = (result.extracted_data or {}).get("medications", [])
-    if extracted_meds:
-        add_extracted_medications(patient_id, extracted_meds)
+        extracted_meds = (result.extracted_data or {}).get("medications", [])
+        if extracted_meds:
+            add_extracted_medications(patient_id, extracted_meds)
+    except Exception:
+        logger.exception(
+            "Failed to persist document metadata/medications patient_id=%s document_id=%s",
+            patient_id,
+            document_id,
+        )
 
     notif_title = "Document Processed"
     notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
@@ -100,23 +127,30 @@ async def upload_document(
             or f"Please review extracted details from {doc_record['file_name']}."
         )
 
-    push_notification(
-        patient_id,
-        "document",
-        notif_title,
-        notif_message,
-        path="/documents",
-        metadata={"document_id": document_id, "status": result.processing_status},
-    )
-
-    if result.interaction_alerts:
+    try:
         push_notification(
             patient_id,
-            "interaction",
-            "New Interaction Alert",
-            f"{len(result.interaction_alerts)} potential interaction(s) detected from latest upload.",
-            path="/medications",
-            metadata={"document_id": document_id},
+            "document",
+            notif_title,
+            notif_message,
+            path="/documents",
+            metadata={"document_id": document_id, "status": result.processing_status},
+        )
+
+        if result.interaction_alerts:
+            push_notification(
+                patient_id,
+                "interaction",
+                "New Interaction Alert",
+                f"{len(result.interaction_alerts)} potential interaction(s) detected from latest upload.",
+                path="/medications",
+                metadata={"document_id": document_id},
+            )
+    except Exception:
+        logger.exception(
+            "Failed to create notifications for uploaded document patient_id=%s document_id=%s",
+            patient_id,
+            document_id,
         )
 
     return {
@@ -126,9 +160,9 @@ async def upload_document(
         "processing_status": result.processing_status,
         "status": result.processing_status,
         "nodes_created": nodes_count,
-        "interaction_alerts": result.interaction_alerts,
-        "care_gap_alerts": result.care_gap_alerts,
-        "confirmation_needed": result.confirmation_needed,
+        "interaction_alerts": result.interaction_alerts or [],
+        "care_gap_alerts": result.care_gap_alerts or [],
+        "confirmation_needed": result.confirmation_needed or [],
         "processing_time_ms": result.processing_time_ms,
         "error_message": result.error_message,
         "summary": doc_record["summary"],

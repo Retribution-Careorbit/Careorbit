@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
+import logging
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
@@ -9,6 +10,7 @@ from api.routes.reminders import _reminders_store
 from db.runtime_store import get_patient_documents, get_notifications, mark_notifications_read
 
 router = APIRouter(prefix="/api/system", tags=["system"])
+logger = logging.getLogger("careorbit.routes.system")
 
 
 class MarkReadRequest(BaseModel):
@@ -95,9 +97,13 @@ async def list_notifications(request: Request):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
     unread_only = (request.query_params.get("unread_only") or "false").lower() == "true"
-    items = get_notifications(patient_id, unread_only=unread_only)
-    unread = len([n for n in get_notifications(patient_id) if not n.get("read")])
-    return {"notifications": items[:20], "unread_count": unread}
+    try:
+        items = get_notifications(patient_id, unread_only=unread_only)
+        unread = len([n for n in get_notifications(patient_id) if not n.get("read")])
+        return {"notifications": (items or [])[:20], "unread_count": unread}
+    except Exception:
+        logger.exception("Failed to fetch notifications patient_id=%s", patient_id)
+        return {"notifications": [], "unread_count": 0}
 
 
 @router.post("/notifications/mark-read")
@@ -106,6 +112,10 @@ async def mark_read(request: Request, body: MarkReadRequest):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    updated = mark_notifications_read(patient_id, ids=body.ids)
-    unread = len([n for n in get_notifications(patient_id) if not n.get("read")])
-    return {"updated": updated, "unread_count": unread}
+    try:
+        updated = mark_notifications_read(patient_id, ids=body.ids)
+        unread = len([n for n in get_notifications(patient_id) if not n.get("read")])
+        return {"updated": updated, "unread_count": unread}
+    except Exception:
+        logger.exception("Failed to mark notifications read patient_id=%s", patient_id)
+        return {"updated": 0, "unread_count": 0}

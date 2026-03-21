@@ -37,11 +37,16 @@ export default function DocumentsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
+      const raw = await res.text();
+      const parsed = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Upload failed");
+        const detail = (parsed && (parsed.detail || parsed.error_message || parsed.message)) || raw || `Upload failed (${res.status})`;
+        throw new Error(detail);
       }
-      return res.json();
+      if (!parsed) {
+        throw new Error("Upload failed: invalid server response");
+      }
+      return parsed;
     },
     onSuccess: (data: UploadResult) => {
       setResults((prev) => [data, ...prev]);

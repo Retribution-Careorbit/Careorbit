@@ -83,11 +83,16 @@ def add_extracted_medications(patient_id: str, meds: list[dict[str, Any]]) -> No
         if not name:
             continue
         key = name.lower()
+        confidence_raw = med.get("confidence")
+        try:
+            confidence = float(confidence_raw if confidence_raw is not None else 0.72)
+        except (TypeError, ValueError):
+            confidence = 0.72
         payload = {
             "name": name,
             "dosage": med.get("dosage") or "",
             "frequency": med.get("frequency") or "",
-            "confidence": float(med.get("confidence") or 0.72),
+            "confidence": confidence,
             "confidence_label": med.get("confidence_label") or "MODERATE",
             "prescribed_by_doctor": med.get("prescribed_by_doctor") or "Uploaded Document",
             "interactions": [],
