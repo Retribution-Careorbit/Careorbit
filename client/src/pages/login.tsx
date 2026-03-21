@@ -27,8 +27,13 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Login failed");
+      const raw = await res.text();
+      const data = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
+      if (!res.ok) {
+        const detail = (data && (data.detail || data.message)) || raw || `Login failed (${res.status})`;
+        throw new Error(detail);
+      }
+      if (!data) throw new Error("Login failed: invalid server response");
       const onboardingComplete = data.user?.onboarding_complete ?? false;
       setAuth(data.access_token, data.refresh_token, { id: data.user?.id || email, email, name: data.user?.name, onboardingComplete });
       navigate(onboardingComplete ? "/" : "/onboarding");

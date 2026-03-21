@@ -254,12 +254,10 @@ jobs:
         run: |
           npm ci
           if [ "${GITHUB_REF}" = "refs/heads/dev" ] || [ "${GITHUB_REF}" = "refs/heads/develop" ]; then
-            export API_BASE_URL=https://careorbit-api-dev.azurewebsites.net
+            export VITE_API_BASE_URL=https://careorbit-api-dev.azurewebsites.net
           else
-            export API_BASE_URL=https://careorbit-api-prod.azurewebsites.net
+            export VITE_API_BASE_URL=https://careorbit-api-prod.azurewebsites.net
           fi
-
-          node -e "const fs=require('fs');const p='client/staticwebapp.config.json';const cfg=JSON.parse(fs.readFileSync(p,'utf8'));const api=process.env.API_BASE_URL;cfg.routes=cfg.routes.map((r)=>{if(r.route==='/health')return {...r,rewrite:api+'/health'};if(r.route==='/api/*')return {...r,rewrite:api+'/api/*'};return r;});fs.writeFileSync(p,JSON.stringify(cfg,null,2)+'\\n');"
 
           npm run build
 

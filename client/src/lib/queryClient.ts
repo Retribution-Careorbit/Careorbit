@@ -2,6 +2,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const SWA_HOST_SUFFIX = ".azurestaticapps.net";
+const SWA_FALLBACK_API_BASE = "https://careorbit-api-dev.azurewebsites.net";
 
 function getToken(): string | null {
   return localStorage.getItem("careorbit_token");
@@ -20,7 +21,7 @@ function trimTrailingSlash(url: string): string {
 export function getApiBaseUrl(): string {
   const host = window.location.hostname.toLowerCase();
   if (host.endsWith(SWA_HOST_SUFFIX)) {
-    return "";
+    return SWA_FALLBACK_API_BASE;
   }
 
   if (configuredApiBase) {

@@ -3,9 +3,7 @@ import App from "./App";
 import "./index.css";
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
-const isStaticWebAppHost = window.location.hostname.toLowerCase().endsWith(".azurestaticapps.net");
-// Use SWA route rewrites in Azure Static Web Apps to avoid browser CORS preflight issues.
-const apiBase = isStaticWebAppHost ? "" : configuredApiBase;
+const apiBase = configuredApiBase;
 
 const originalFetch = window.fetch.bind(window);
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
