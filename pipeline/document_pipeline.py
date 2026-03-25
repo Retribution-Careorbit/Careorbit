@@ -18,6 +18,7 @@ search_service = AzureSearchService()
 email_service = AzureEmailService()
 
 CONFIDENCE_THRESHOLD = 0.70
+LOW_CONFIDENCE_REVIEW_THRESHOLD = 0.60
 
 
 class DocumentProcessingResult:
@@ -186,6 +187,7 @@ class DocumentPipeline:
                 doc_type = "prescription"
             else:
                 doc_type = "medical_document"
+        medication_confidences = []
         for med in medications:
             med_name = med.get("name", "")
             drug_match = self._drug_db.fuzzy_match(med_name)
@@ -207,6 +209,7 @@ class DocumentPipeline:
                 "confidence": conf.final_score,
             }
             nodes.append(node)
+            medication_confidences.append(conf.final_score)
 
             if conf.final_score < CONFIDENCE_THRESHOLD:
                 needs_confirm = True
@@ -335,7 +338,7 @@ class DocumentPipeline:
                 coding_by_text[text_key] = ent.get("coding", [])
 
         normalized_medications = []
-        for med in medications:
+        for idx, med in enumerate(medications):
             med_name = (med.get("name") or "").strip()
             normalized_medications.append({
                 "name": med_name,
@@ -343,15 +346,24 @@ class DocumentPipeline:
                 "frequency": (med.get("frequency") or "").strip(),
                 "dose_to_take": (med.get("dose_to_take") or med.get("dosage") or "").strip(),
                 "coding": coding_by_text.get(med_name.lower(), []),
+                "confidence": medication_confidences[idx] if idx < len(medication_confidences) else 0.0,
             })
 
         missing_fields = []
+        low_confidence_fields = []
         if doc_type == "lab_report":
             if not normalized_labs:
                 missing_fields.append("labs")
         else:
             if not doctor_name:
                 missing_fields.append("doctor_name")
+            doctor_conf_raw = structured_data.get("doctor_name_confidence") if isinstance(structured_data, dict) else None
+            try:
+                doctor_conf = float(doctor_conf_raw) if doctor_conf_raw is not None else None
+            except (TypeError, ValueError):
+                doctor_conf = None
+            if doctor_name and doctor_conf is not None and doctor_conf < LOW_CONFIDENCE_REVIEW_THRESHOLD:
+                low_confidence_fields.append("doctor_name")
             if not normalized_medications:
                 missing_fields.append("medications")
             else:
@@ -360,6 +372,14 @@ class DocumentPipeline:
                         missing_fields.append(f"medications[{i}].name")
                     if not med.get("dosage"):
                         missing_fields.append(f"medications[{i}].dosage")
+                    med_conf = med.get("confidence")
+                    if isinstance(med_conf, (float, int)) and float(med_conf) < LOW_CONFIDENCE_REVIEW_THRESHOLD:
+                        low_confidence_fields.append(f"medications[{i}].name")
+                        low_confidence_fields.append(f"medications[{i}].dosage")
+
+        if missing_fields or low_confidence_fields:
+            needs_confirm = True
+            status = "needs_confirmation"
 
         if rejected_labs and not normalized_labs and doc_type == "lab_report":
             needs_confirm = True
@@ -381,6 +401,7 @@ class DocumentPipeline:
                 "lab_rejections": rejected_labs,
                 "summary": structured_data.get("summary") if isinstance(structured_data, dict) else None,
                 "missing_fields": missing_fields,
+                "low_confidence_fields": low_confidence_fields,
                 "clinical_entities": clinical_entities,
             },
         )

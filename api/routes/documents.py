@@ -730,6 +730,7 @@ async def upload_document(
             "labs": (result.extracted_data or {}).get("labs", []),
             "lab_rejections": (result.extracted_data or {}).get("lab_rejections", []),
             "missing_fields": (result.extracted_data or {}).get("missing_fields", []),
+            "low_confidence_fields": (result.extracted_data or {}).get("low_confidence_fields", []),
         },
     }
     try:
@@ -743,6 +744,7 @@ async def upload_document(
                 "labs": (result.extracted_data or {}).get("labs", []),
                 "lab_rejections": (result.extracted_data or {}).get("lab_rejections", []),
                 "missing_fields": (result.extracted_data or {}).get("missing_fields", []),
+                "low_confidence_fields": (result.extracted_data or {}).get("low_confidence_fields", []),
                 "document_type": result.document_type or "unknown",
             },
         )
@@ -891,6 +893,7 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
             "status": "needs_manual_input",
             "document_id": document_id,
             "missing_fields": missing_fields,
+            "low_confidence_fields": pending.get("low_confidence_fields", []),
         }
 
     phig_meds, pipeline_trace, pipeline_warnings = await _post_confirmation_pipeline(
@@ -964,6 +967,7 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
                 "doctor_name": doctor_name,
                 "medications": reviewed_meds,
                 "missing_fields": [],
+                "low_confidence_fields": [],
                 "pipeline_trace": pipeline_trace,
                 "pipeline_warnings": pipeline_warnings,
             },

@@ -23,6 +23,7 @@ interface ExtractedReview {
   doctor_name: string;
   medications: ReviewMedication[];
   missing_fields: string[];
+  low_confidence_fields?: string[];
 }
 
 interface UploadResult {
@@ -56,6 +57,7 @@ export default function DocumentsPage() {
   const [doctorName, setDoctorName] = useState("");
   const [reviewMeds, setReviewMeds] = useState<ReviewMedication[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
@@ -78,6 +80,67 @@ export default function DocumentsPage() {
     [results, activeReviewDocId]
   );
 
+  const reviewFieldSet = useMemo(() => {
+    const all = [...missingFields, ...lowConfidenceFields];
+    return new Set(all);
+  }, [missingFields, lowConfidenceFields]);
+
+  const medicationFieldRequests = useMemo(() => {
+    const requests: Array<{ index: number; field: keyof ReviewMedication; key: string }> = [];
+    for (const key of reviewFieldSet) {
+      const match = key.match(/^medications\[(\d+)\]\.(name|dosage|frequency|dose_to_take)$/);
+      if (!match) continue;
+      requests.push({
+        index: Number(match[1]),
+        field: match[2] as keyof ReviewMedication,
+        key,
+      });
+    }
+    return requests.sort((a, b) => (a.index - b.index) || a.field.localeCompare(b.field));
+  }, [reviewFieldSet]);
+
+  const reviewSuggestions = useMemo(() => {
+    const map: Record<string, string> = {};
+    const doctor = (activeResult?.extracted_review?.doctor_name || "").trim();
+    if (doctor) {
+      map["doctor_name"] = doctor;
+    }
+    (activeResult?.extracted_review?.medications || []).forEach((med, idx) => {
+      map[`medications[${idx}].name`] = (med.name || "").trim();
+      map[`medications[${idx}].dosage`] = (med.dosage || "").trim();
+      map[`medications[${idx}].frequency`] = (med.frequency || "").trim();
+      map[`medications[${idx}].dose_to_take`] = (med.dose_to_take || "").trim();
+    });
+    return map;
+  }, [activeResult]);
+
+  const lowConfidenceFieldSet = useMemo(() => new Set(lowConfidenceFields), [lowConfidenceFields]);
+
+  const showDoctorField = reviewFieldSet.has("doctor_name");
+  const showManualMedicationRows = reviewFieldSet.has("medications");
+
+  const loadReviewState = (review?: ExtractedReview, fallbackMissing: string[] = []) => {
+    const extractedMeds = review?.medications?.length
+      ? review.medications
+      : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }];
+    const reviewMissing = review?.missing_fields || fallbackMissing;
+    const reviewLow = review?.low_confidence_fields || [];
+    const lowSet = new Set(reviewLow);
+
+    const nextDoctor = lowSet.has("doctor_name") ? "" : (review?.doctor_name || "");
+    const nextMeds = extractedMeds.map((med, idx) => ({
+      name: lowSet.has(`medications[${idx}].name`) ? "" : (med.name || ""),
+      dosage: lowSet.has(`medications[${idx}].dosage`) ? "" : (med.dosage || ""),
+      frequency: lowSet.has(`medications[${idx}].frequency`) ? "" : (med.frequency || ""),
+      dose_to_take: lowSet.has(`medications[${idx}].dose_to_take`) ? "" : (med.dose_to_take || ""),
+    }));
+
+    setDoctorName(nextDoctor);
+    setReviewMeds(nextMeds);
+    setMissingFields(reviewMissing);
+    setLowConfidenceFields(reviewLow);
+  };
+
   const confirmMutation = useMutation({
     mutationFn: async () => {
       if (!activeReviewDocId) {
@@ -90,8 +153,31 @@ export default function DocumentsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          doctor_name: doctorName,
-          medications: reviewMeds,
+          doctor_name: (() => {
+            const entered = doctorName.trim();
+            if (entered) return entered;
+            if (lowConfidenceFieldSet.has("doctor_name")) {
+              return (reviewSuggestions["doctor_name"] || "").trim();
+            }
+            return entered;
+          })(),
+          medications: reviewMeds.map((med, idx) => {
+            const resolveField = (field: keyof ReviewMedication) => {
+              const entered = String(med[field] || "").trim();
+              if (entered) return entered;
+              const key = `medications[${idx}].${field}`;
+              if (lowConfidenceFieldSet.has(key)) {
+                return (reviewSuggestions[key] || "").trim();
+              }
+              return entered;
+            };
+            return {
+              name: resolveField("name"),
+              dosage: resolveField("dosage"),
+              frequency: resolveField("frequency"),
+              dose_to_take: resolveField("dose_to_take"),
+            };
+          }),
         }),
       });
       const data = await res.json();
@@ -103,6 +189,7 @@ export default function DocumentsPage() {
     onSuccess: (data) => {
       if (data?.status === "needs_manual_input") {
         setMissingFields(Array.isArray(data?.missing_fields) ? data.missing_fields : []);
+        setLowConfidenceFields(Array.isArray(data?.low_confidence_fields) ? data.low_confidence_fields : []);
         toast({
           title: "Missing Details",
           description: "Please fill missing doctor/medication fields before confirming.",
@@ -122,6 +209,7 @@ export default function DocumentsPage() {
                   doctor_name: data.doctor_name || doctorName,
                   medications: data.medications || reviewMeds,
                   missing_fields: [],
+                  low_confidence_fields: [],
                 },
               }
             : row
@@ -129,6 +217,7 @@ export default function DocumentsPage() {
       );
 
       setMissingFields([]);
+      setLowConfidenceFields([]);
       setActiveReviewDocId(null);
 
       queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
@@ -176,11 +265,8 @@ export default function DocumentsPage() {
 
       if (data.status === "failed") {
         if (data.document_id) {
-          const review = data.extracted_review;
           setActiveReviewDocId(data.document_id);
-          setDoctorName(review?.doctor_name || "");
-          setReviewMeds(review?.medications?.length ? review.medications : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }]);
-          setMissingFields(["doctor_name", "medications"]);
+          loadReviewState(data.extracted_review, ["doctor_name", "medications"]);
         }
         toast({
           title: "Extraction Failed",
@@ -191,27 +277,23 @@ export default function DocumentsPage() {
       }
 
       if (data.status === "needs_confirmation") {
-        const review = data.extracted_review;
         setActiveReviewDocId(data.document_id || null);
-        setDoctorName(review?.doctor_name || "");
-        setReviewMeds(review?.medications?.length ? review.medications : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }]);
-        setMissingFields(review?.missing_fields || []);
+        loadReviewState(data.extracted_review);
         toast({
           title: "Review Needed",
           description: data.summary || `${data.document_type || "Document"} needs confirmation before finalizing.`,
         });
         return;
       }
-
-      const review = data.extracted_review;
-      setActiveReviewDocId(data.document_id || null);
-      setDoctorName(review?.doctor_name || "");
-      setReviewMeds(review?.medications?.length ? review.medications : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }]);
-      setMissingFields(review?.missing_fields || []);
+      setActiveReviewDocId(null);
+      setDoctorName("");
+      setReviewMeds([]);
+      setMissingFields([]);
+      setLowConfidenceFields([]);
 
       toast({
         title: "Extraction Complete",
-        description: "Review and confirm extracted details to add data to PHIG.",
+        description: "Data extracted with high confidence and processed.",
       });
     },
     onError: (err: Error) => {
@@ -263,14 +345,18 @@ export default function DocumentsPage() {
       return;
     }
     setActiveReviewDocId(row.document_id);
-    const review = row.extracted_review;
-    setDoctorName(review?.doctor_name || "");
-    setReviewMeds(review?.medications?.length ? review.medications : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }]);
-    setMissingFields(review?.missing_fields || []);
+    loadReviewState(row.extracted_review);
   };
 
   const updateMedAt = (index: number, field: keyof ReviewMedication, value: string) => {
-    setReviewMeds((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
+    setReviewMeds((prev) => {
+      const next = [...prev];
+      while (next.length <= index) {
+        next.push({ name: "", dosage: "", frequency: "", dose_to_take: "" });
+      }
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   return (
@@ -472,60 +558,95 @@ export default function DocumentsPage() {
             {missingFields.length > 0 && (
               <div className="rounded-lg p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--accent-amber)" }}>
-                  Missing fields: {missingFields.join(", ")}
+                  We could not extract these fields. Please enter them manually: {missingFields.join(", ")}
+                </p>
+              </div>
+            )}
+
+            {lowConfidenceFields.length > 0 && (
+              <div className="rounded-lg p-3" style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>
+                  These fields were extracted with low confidence (&lt;60%). Confirm or edit: {lowConfidenceFields.join(", ")}
                 </p>
               </div>
             )}
 
             <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="doctor_name">Doctor Name</Label>
-                <Input
-                  id="doctor_name"
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder="Dr. Name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Medicines & Doses</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setReviewMeds((prev) => [...prev, { name: "", dosage: "", frequency: "", dose_to_take: "" }])}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Row
-                  </Button>
+              {showDoctorField && (
+                <div className="space-y-1">
+                  <Label htmlFor="doctor_name">Doctor Name</Label>
+                  <Input
+                    id="doctor_name"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
+                  />
                 </div>
-                {reviewMeds.map((med, idx) => (
-                  <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <Input
-                      value={med.name || ""}
-                      onChange={(e) => updateMedAt(idx, "name", e.target.value)}
-                      placeholder="Medicine name"
-                    />
-                    <Input
-                      value={med.dosage || ""}
-                      onChange={(e) => updateMedAt(idx, "dosage", e.target.value)}
-                      placeholder="Dose (e.g., 500 mg)"
-                    />
-                    <Input
-                      value={med.frequency || ""}
-                      onChange={(e) => updateMedAt(idx, "frequency", e.target.value)}
-                      placeholder="Frequency (e.g., BD)"
-                    />
-                    <Input
-                      value={med.dose_to_take || ""}
-                      onChange={(e) => updateMedAt(idx, "dose_to_take", e.target.value)}
-                      placeholder="Dose to be taken"
-                    />
+              )}
+
+              {(medicationFieldRequests.length > 0 || showManualMedicationRows) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Medicines & Doses</p>
+                    {showManualMedicationRows && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setReviewMeds((prev) => [...prev, { name: "", dosage: "", frequency: "", dose_to_take: "" }])}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Row
+                      </Button>
+                    )}
                   </div>
-                ))}
-              </div>
+
+                  {medicationFieldRequests.map((req) => {
+                    const labelMap: Record<keyof ReviewMedication, string> = {
+                      name: "Medicine Name",
+                      dosage: "Dosage",
+                      frequency: "Frequency",
+                      dose_to_take: "Dose to Take",
+                    };
+                    const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
+                    return (
+                      <div key={req.key} className="space-y-1">
+                        <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
+                        <Input
+                          value={med[req.field] || ""}
+                          onChange={(e) => updateMedAt(req.index, req.field, e.target.value)}
+                          placeholder={lowConfidenceFieldSet.has(req.key) ? (reviewSuggestions[req.key] || "") : ""}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {showManualMedicationRows && reviewMeds.map((med, idx) => (
+                    <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Input
+                        value={med.name || ""}
+                        onChange={(e) => updateMedAt(idx, "name", e.target.value)}
+                        placeholder=""
+                      />
+                      <Input
+                        value={med.dosage || ""}
+                        onChange={(e) => updateMedAt(idx, "dosage", e.target.value)}
+                        placeholder=""
+                      />
+                      <Input
+                        value={med.frequency || ""}
+                        onChange={(e) => updateMedAt(idx, "frequency", e.target.value)}
+                        placeholder=""
+                      />
+                      <Input
+                        value={med.dose_to_take || ""}
+                        onChange={(e) => updateMedAt(idx, "dose_to_take", e.target.value)}
+                        placeholder=""
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <DialogFooter>
