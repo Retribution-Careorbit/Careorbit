@@ -28,6 +28,38 @@ class AzureLanguageService:
             logger.warning(f"Failed to initialize Text Analytics client: {e}")
             return None
 
+    @staticmethod
+    def _normalize_category(category: str) -> str:
+        mapping = {
+            "medicationname": "MedicationName",
+            "medication": "MedicationName",
+            "dosage": "Dosage",
+            "medicationfrequency": "MedicationFrequency",
+            "medicationroute": "MedicationRoute",
+            "diagnosis": "Diagnosis",
+            "symptomorsign": "SymptomOrSign",
+            "bodystructure": "BodyStructure",
+            "labvalue": "LabValue",
+            "examinationname": "ExaminationName",
+        }
+        key = str(category or "").strip().lower()
+        return mapping.get(key, str(category or "").strip() or "Unknown")
+
+    @staticmethod
+    def _extract_codes(coding: list[dict]) -> tuple[str | None, str | None]:
+        rxnorm_id = None
+        icd10_code = None
+        for item in coding:
+            source_name = str(item.get("name") or "").strip().lower()
+            source_id = str(item.get("id") or "").strip()
+            if not source_id:
+                continue
+            if "rxnorm" in source_name and not rxnorm_id:
+                rxnorm_id = source_id
+            if ("icd" in source_name or "icd-10" in source_name) and not icd10_code:
+                icd10_code = source_id
+        return rxnorm_id, icd10_code
+
     async def recognize_health_entities(self, text):
         client = self._get_client()
         if not client:
@@ -48,13 +80,17 @@ class AzureLanguageService:
                                     "id": getattr(ds, "entity_id", ""),
                                 }
                             )
+                        rxnorm_id, icd10_code = self._extract_codes(coding)
+                        normalized_category = self._normalize_category(entity.category)
                         entities.append({
                             "text": entity.text,
-                            "category": entity.category,
+                            "category": normalized_category,
                             "confidence": entity.confidence_score,
                             "offset": entity.offset,
                             "length": entity.length,
                             "coding": coding,
+                            "rxnorm_id": rxnorm_id,
+                            "icd10_code": icd10_code,
                         })
             return entities
         except Exception as e:

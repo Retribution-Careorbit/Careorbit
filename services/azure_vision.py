@@ -37,15 +37,20 @@ class AzureVisionService:
             logger.warning(f"Failed to initialize Document Intelligence client: {e}")
             return None
 
-    async def extract_text(self, image_bytes):
+    async def extract_text(self, image_bytes, blob_url: str | None = None):
         client = self._get_client()
         if not client:
             raise NotImplementedError("Azure Vision not configured")
 
         try:
-            poller = client.begin_analyze_document(
-                "prebuilt-read", document=image_bytes
-            )
+            if blob_url:
+                poller = client.begin_analyze_document_from_url(
+                    "prebuilt-read", document_url=blob_url
+                )
+            else:
+                poller = client.begin_analyze_document(
+                    "prebuilt-read", document=image_bytes
+                )
             result = poller.result()
 
             lines = []

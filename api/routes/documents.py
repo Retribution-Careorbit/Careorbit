@@ -731,6 +731,7 @@ async def upload_document(
             "lab_rejections": (result.extracted_data or {}).get("lab_rejections", []),
             "missing_fields": (result.extracted_data or {}).get("missing_fields", []),
             "low_confidence_fields": (result.extracted_data or {}).get("low_confidence_fields", []),
+            "source_blob_url": (result.extracted_data or {}).get("source_blob_url"),
         },
     }
     try:
@@ -745,6 +746,7 @@ async def upload_document(
                 "lab_rejections": (result.extracted_data or {}).get("lab_rejections", []),
                 "missing_fields": (result.extracted_data or {}).get("missing_fields", []),
                 "low_confidence_fields": (result.extracted_data or {}).get("low_confidence_fields", []),
+                "source_blob_url": (result.extracted_data or {}).get("source_blob_url"),
                 "document_type": result.document_type or "unknown",
             },
         )
@@ -837,6 +839,7 @@ async def upload_document(
         "error_message": result.error_message,
         "summary": doc_record["summary"],
         "file_url": doc_record["file_url"],
+        "source_blob_url": (result.extracted_data or {}).get("source_blob_url"),
         "extracted_review": doc_record["extracted_data"],
         "labs_added": persisted_labs,
         "lab_persistence": lab_persistence,

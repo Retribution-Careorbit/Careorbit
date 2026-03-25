@@ -4,6 +4,7 @@ from services.azure_language import AzureLanguageService
 from services.azure_blob import AzureBlobService
 from services.azure_search import AzureSearchService
 from services.azure_email import AzureEmailService
+from config import get_settings
 from db.session import async_session as db_session
 from graph.confidence import ConfidenceCalculator
 from graph.orbit_score import OrbitScoreCalculator
@@ -39,6 +40,7 @@ class DocumentPipeline:
     def __init__(self):
         import sys
         mod = sys.modules[__name__]
+        self._settings = get_settings()
         self._vision = mod.vision_service
         self._language = mod.language_service
         self._openai = mod.openai_service
@@ -118,9 +120,31 @@ class DocumentPipeline:
         full_text = ""
         avg_confidence = 0.72
         doc_type = self._infer_document_type_from_filename(filename)
+        blob_url = None
+
+        # Step 1: persist raw document to Blob first so downstream processing is retryable.
+        try:
+            blob_url = await self._blob.upload_document(
+                image_bytes,
+                filename,
+                document_type=doc_type,
+                patient_id=patient_id,
+            )
+        except (NotImplementedError, Exception):
+            if self._settings.DOCUMENTS_REQUIRE_BLOB_DURABILITY:
+                return DocumentProcessingResult(
+                    document_id=f"doc-{patient_id}",
+                    document_type=doc_type,
+                    processing_status="failed",
+                    error_message="Durable blob storage upload failed. Please retry upload.",
+                    processing_time_ms=int((time.time() - start) * 1000),
+                    extracted_data={"source_blob_url": None},
+                )
+            # Local/dev or explicitly non-strict mode: continue with in-memory bytes.
+            blob_url = None
 
         try:
-            ocr_result = await self._vision.extract_text(image_bytes)
+            ocr_result = await self._vision.extract_text(image_bytes, blob_url=blob_url)
             avg_confidence = getattr(ocr_result, "avg_confidence", 0.72)
             full_text = getattr(ocr_result, "full_text", "")
             classified = await self._vision.classify_document_type(ocr_result)
@@ -167,17 +191,14 @@ class DocumentPipeline:
             )
         }
 
-        try:
-            await self._blob.upload_document(image_bytes, f"{patient_id}.{file_extension}")
-        except (NotImplementedError, Exception):
-            pass
-
         nodes = []
         confirmation_needed = []
         needs_confirm = False
 
         medications = structured_data.get("medications", []) if isinstance(structured_data, dict) else []
-        labs = structured_data.get("labs", []) if isinstance(structured_data, dict) else []
+        labs = []
+        if isinstance(structured_data, dict):
+            labs = structured_data.get("lab_results") or structured_data.get("labs") or []
         interaction_alerts = []
 
         if doc_type == "unknown":
@@ -319,6 +340,7 @@ class DocumentPipeline:
                     "medications": [],
                     "labs": [],
                     "lab_rejections": rejected_labs,
+                    "source_blob_url": blob_url,
                     "summary": summary,
                 },
             )
@@ -403,6 +425,7 @@ class DocumentPipeline:
                 "missing_fields": missing_fields,
                 "low_confidence_fields": low_confidence_fields,
                 "clinical_entities": clinical_entities,
+                "source_blob_url": blob_url,
             },
         )
 

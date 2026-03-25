@@ -90,6 +90,10 @@ class Settings:
             return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
         self.DOCUMENTS_ALLOW_PDF_UPLOADS: bool = _to_bool(_get("DOCUMENTS_ALLOW_PDF_UPLOADS", "false"), False)
+        self.DOCUMENTS_REQUIRE_BLOB_DURABILITY: bool = _to_bool(
+            _get("DOCUMENTS_REQUIRE_BLOB_DURABILITY", "true"),
+            True,
+        )
 
         # Strict chat mode: fail fast with explicit errors if required Azure dependencies fail.
         self.CHAT_STRICT_AZURE_DEPENDENCIES: bool = _to_bool(_get("CHAT_STRICT_AZURE_DEPENDENCIES", "true"), True)
