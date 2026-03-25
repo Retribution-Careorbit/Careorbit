@@ -524,53 +524,6 @@ export default function DocumentsPage() {
           </div>
         </FadeIn>
 
-        <FadeIn delay={0.08}>
-          <div className="page-card p-5" data-testid="card-architecture-compliance">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-semibold" style={{ color: "var(--text-primary)" }}>Architecture Compliance (9 Services / 9 Steps)</p>
-              {architectureQuery.data?.architecture_followed && !architectureQuery.data?.degraded_mode ? (
-                <Badge>Followed</Badge>
-              ) : architectureQuery.data?.architecture_followed && architectureQuery.data?.degraded_mode ? (
-                <Badge variant="outline">Followed (Degraded)</Badge>
-              ) : (
-                <Badge variant="outline">Gaps Found</Badge>
-              )}
-            </div>
-            {architectureQuery.isLoading ? (
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Checking architecture status...</p>
-            ) : architectureQuery.data ? (
-              <div className="space-y-2 text-sm">
-                <p style={{ color: "var(--text-secondary)" }}>
-                  Services configured: {architectureQuery.data.services.filter((s) => s.configured).length}/{architectureQuery.data.services.length}
-                </p>
-                {architectureQuery.data.degraded_mode && (
-                  <p style={{ color: "var(--accent-amber)" }}>
-                    Controlled backup mode is active (degraded_mode=true).
-                  </p>
-                )}
-                {(architectureQuery.data.warnings || []).length > 0 && (
-                  <ul className="list-disc pl-5 space-y-1" style={{ color: "var(--text-secondary)" }}>
-                    {(architectureQuery.data.warnings || []).map((warning) => (
-                      <li key={warning}>{warning}</li>
-                    ))}
-                  </ul>
-                )}
-                {architectureQuery.data.gaps.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-1" style={{ color: "var(--accent-amber)" }}>
-                    {architectureQuery.data.gaps.map((gap) => (
-                      <li key={gap}>{gap}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p style={{ color: "var(--accent-emerald)" }}>All required architecture checks are currently satisfied.</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm" style={{ color: "var(--accent-rose)" }}>Could not fetch architecture status.</p>
-            )}
-          </div>
-        </FadeIn>
-
         <FadeIn delay={0.1}>
           <div className="page-card p-8">
             <div
