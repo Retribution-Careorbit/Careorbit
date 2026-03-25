@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { queryClient, toApiUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,16 +38,6 @@ interface UploadResult {
   summary?: string;
   extracted_review?: ExtractedReview;
   review_status?: "pending_confirmation" | "confirmed";
-}
-
-interface ArchitectureCompliance {
-  architecture_followed: boolean;
-  degraded_mode?: boolean;
-  strict_managed_mode?: boolean;
-  warnings?: string[];
-  gaps: string[];
-  steps: Array<{ step: number; name: string; implemented: boolean; degraded_mode?: boolean; gap?: string }>;
-  services: Array<{ name: string; configured: boolean; required: boolean; degraded_mode?: boolean; status?: string }>;
 }
 
 type ReviewStage = "targeted" | "final";
@@ -107,19 +97,6 @@ export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
-
-  const architectureQuery = useQuery<ArchitectureCompliance>({
-    queryKey: ["/api/system/architecture/compliance"],
-    queryFn: async () => {
-      const res = await fetch(toApiUrl("/api/system/architecture/compliance"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        throw new Error("Failed to load architecture compliance");
-      }
-      return await res.json();
-    },
-  });
 
   const activeResult = useMemo(
     () => results.find((r) => r.document_id && r.document_id === activeReviewDocId),
@@ -294,53 +271,6 @@ export default function DocumentsPage() {
   const formatConfirmError = (data: any): string => {
     const detail = data?.detail;
     if (typeof detail === "string" && detail.trim()) {
-      return detail;
-    }
-    if (detail && typeof detail === "object") {
-      if (detail.error === "post_confirmation_validation_failed") {
-        const fields = Array.isArray(detail.missing_fields) ? detail.missing_fields.join(", ") : "required fields";
-        return `Please fill required fields: ${fields}.`;
-      }
-      if (detail.error === "post_confirmation_validation_gate_failed") {
-        const first = Array.isArray(detail.rejections) ? detail.rejections[0] : null;
-        const reasons = Array.isArray(first?.reasons) ? first.reasons.join(", ") : "validation failed";
-        const med = first?.name ? ` for ${first.name}` : "";
-        return `Medication validation failed${med}: ${reasons}. Example dosage: 500 mg.`;
-      }
-      if (detail.error === "phig_consistency_failed_after_write") {
-        return "PHIG consistency check failed after confirmation. Please try again.";
-      }
-    }
-    if (typeof data?.error_message === "string" && data.error_message.trim()) {
-      return data.error_message;
-    }
-    return "Failed to confirm extracted data";
-  };
-
-  const confirmMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeReviewDocId) {
-        throw new Error("No active review selected");
-      }
-      const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          doctor_name: resolvedPayload.doctor_name,
-          medications: resolvedPayload.medications,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data?.detail?.error === "post_confirmation_validation_gate_failed") {
-          const rejections = Array.isArray(data?.detail?.rejections) ? data.detail.rejections : [];
-          const unsupportedByName = new Set(
-            rejections
-              .filter((r: any) => Array.isArray(r?.reasons) && r.reasons.includes("unsupported_frequency"))
-              .map((r: any) => String(r?.name || "").trim().toLowerCase())
               .filter((v: string) => !!v)
           );
           if (unsupportedByName.size > 0) {
