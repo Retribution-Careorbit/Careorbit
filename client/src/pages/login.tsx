@@ -35,7 +35,13 @@ export default function LoginPage() {
       }
       if (!data) throw new Error("Login failed: invalid server response");
       const onboardingComplete = data.user?.onboarding_complete ?? false;
-      setAuth(data.access_token, data.refresh_token, { id: data.user?.id || email, email, name: data.user?.name, onboardingComplete });
+      setAuth(data.access_token, data.refresh_token, {
+        id: data.user?.id || email,
+        email,
+        name: data.user?.name,
+        onboardingComplete,
+        preferredLanguage: data.user?.preferred_language || "en",
+      });
       navigate(onboardingComplete ? "/" : "/onboarding");
     } catch (err: any) {
       toast({ title: "Login Failed", description: err.message, variant: "destructive" });

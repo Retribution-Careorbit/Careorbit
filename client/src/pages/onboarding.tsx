@@ -97,7 +97,11 @@ export default function OnboardingPage() {
       if (!res.ok) throw new Error(data.detail || "Failed to update profile");
 
       if (user && token && refreshToken) {
-        setAuth(token, refreshToken, { ...user, onboardingComplete: true });
+        setAuth(token, refreshToken, {
+          ...user,
+          onboardingComplete: true,
+          preferredLanguage,
+        });
       }
 
       toast({ title: "Profile completed!", description: "Your health reports will now be personalized." });

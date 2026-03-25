@@ -200,7 +200,13 @@ async def register(body: RegisterRequest, request: Request):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user": {"id": user_id, "name": body.name, "email": body.email, "onboarding_complete": False},
+        "user": {
+            "id": user_id,
+            "name": body.name,
+            "email": body.email,
+            "onboarding_complete": False,
+            "preferred_language": body.preferred_language or "en",
+        },
     }
 
 
@@ -240,6 +246,7 @@ async def login(body: LoginRequest, request: Request):
             "name": user.get("name"),
             "email": user["email"],
             "onboarding_complete": all(user.get(f) for f in ("date_of_birth", "gender", "preferred_language", "medical_literacy_level")),
+            "preferred_language": user.get("preferred_language", "en"),
         },
     }
 

@@ -32,7 +32,13 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Registration failed");
-      setAuth(data.access_token, data.refresh_token, { id: data.user?.id || email, email, name, onboardingComplete: false });
+      setAuth(data.access_token, data.refresh_token, {
+        id: data.user?.id || email,
+        email,
+        name,
+        onboardingComplete: false,
+        preferredLanguage: data.user?.preferred_language || "en",
+      });
       toast({ title: "Welcome to CareOrbit!", description: "Your account has been created." });
       navigate("/onboarding");
     } catch (err: any) {

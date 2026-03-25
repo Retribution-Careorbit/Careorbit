@@ -5,6 +5,7 @@ interface User {
   email: string;
   name?: string;
   onboardingComplete?: boolean;
+  preferredLanguage?: string;
 }
 
 interface AuthState {

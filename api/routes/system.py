@@ -291,7 +291,7 @@ async def translate_text(request: Request, payload: TranslateRequest):
             "translation_used": False,
         }
 
-    if target_lang not in {"en", "hi"}:
+    if target_lang not in {"en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml"}:
         target_lang = "en"
 
     translator = AzureTranslatorService()
