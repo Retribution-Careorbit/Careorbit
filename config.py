@@ -100,6 +100,12 @@ class Settings:
         self.CHAT_REQUIRE_OPENAI: bool = _to_bool(_get("CHAT_REQUIRE_OPENAI", "true"), True)
         self.CHAT_REQUIRE_SEARCH: bool = _to_bool(_get("CHAT_REQUIRE_SEARCH", "true"), True)
         self.CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN: bool = _to_bool(_get("CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN", "false"), False)
+        self.CHAT_ENABLE_TRANSLATION_DISCLAIMER: bool = _to_bool(_get("CHAT_ENABLE_TRANSLATION_DISCLAIMER", "true"), True)
+        self.CHAT_ENABLE_ROUNDTRIP_VALIDATION: bool = _to_bool(_get("CHAT_ENABLE_ROUNDTRIP_VALIDATION", "true"), True)
+        self.CHAT_HIGH_RISK_ESCALATION_REQUIRED: bool = _to_bool(_get("CHAT_HIGH_RISK_ESCALATION_REQUIRED", "true"), True)
+        self.CHAT_TRANSLATION_TIMEOUT_MS: int = int(_get("CHAT_TRANSLATION_TIMEOUT_MS", "8000") or "8000")
+        self.CHAT_TRANSLATION_RETRIES: int = int(_get("CHAT_TRANSLATION_RETRIES", "2") or "2")
+        self.CHAT_ROUNDTRIP_DRIFT_THRESHOLD: float = float(_get("CHAT_ROUNDTRIP_DRIFT_THRESHOLD", "0.40") or "0.40")
 
 
 _settings = None

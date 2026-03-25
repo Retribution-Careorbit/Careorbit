@@ -36,6 +36,10 @@ async def chat_query(body: ChatRequest, request: Request):
             "care_gaps": result.care_gaps,
             "recommendations": getattr(result, "recommendations", []),
             "confidence": result.confidence,
+            "translation_used": getattr(result, "response_metadata", {}).get("translation_used", False),
+            "source_language": getattr(result, "response_metadata", {}).get("source_language", body.language or "en"),
+            "safety_interventions_applied": getattr(result, "response_metadata", {}).get("safety_interventions_applied", []),
+            "confidence_warning": getattr(result, "response_metadata", {}).get("confidence_warning"),
             "degraded_mode": False,
         }
     except AzureDependencyUnavailable as exc:
@@ -66,5 +70,9 @@ async def chat_query(body: ChatRequest, request: Request):
             "care_gaps": result.care_gaps,
             "recommendations": getattr(result, "recommendations", []),
             "confidence": result.confidence,
+            "translation_used": getattr(result, "response_metadata", {}).get("translation_used", False),
+            "source_language": getattr(result, "response_metadata", {}).get("source_language", body.language or "en"),
+            "safety_interventions_applied": getattr(result, "response_metadata", {}).get("safety_interventions_applied", []),
+            "confidence_warning": getattr(result, "response_metadata", {}).get("confidence_warning"),
             "degraded_mode": True,
         }

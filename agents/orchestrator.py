@@ -2,6 +2,7 @@ import logging
 import re
 import asyncio
 from dataclasses import asdict, is_dataclass
+from typing import Any
 
 from config import get_settings
 from services.azure_openai import AzureOpenAIService
@@ -28,6 +29,7 @@ class OrchestratorResponse:
         self.care_gaps = kwargs.get("care_gaps", [])
         self.recommendations = kwargs.get("recommendations", [])
         self.confidence = kwargs.get("confidence", 0.0)
+        self.response_metadata = kwargs.get("response_metadata", {})
 
 
 class AzureDependencyUnavailable(Exception):
@@ -40,6 +42,11 @@ class Orchestrator:
     MEDICATION_KEYWORDS = ["medication", "medicine", "drug", "prescription", "dosage", "tablet", "pill"]
     CARE_GAP_KEYWORDS = ["screening", "checkup", "care gap", "preventive", "immunization", "vaccination"]
     HISTORY_KEYWORDS = ["history", "overview", "summary", "record", "past"]
+    HIGH_RISK_PATTERNS = [
+        r"\b(stop|discontinue|double|skip)\b.*\b(medication|medicine|drug|dose|dosage)\b",
+        r"\bchange\b.*\b(dose|dosage|prescription)\b",
+        r"\bself[- ]?harm\b|\bsuicide\b|\bkill myself\b",
+    ]
 
     def __init__(self):
         import sys
@@ -54,11 +61,83 @@ class Orchestrator:
             return text
         try:
             if source_lang:
-                return await self._translator.translate(text, target_lang, source=source_lang)
+                return await self._translator.translate(text, target_lang, source_lang=source_lang)
             return await self._translator.translate(text, target_lang)
         except Exception as exc:
             logger.info(f"Translator unavailable; returning original text: {exc}")
             return text
+
+    async def _translate_with_metadata_best_effort(self, text: str, target_lang: str, source_lang: str = None) -> dict[str, Any]:
+        if not text:
+            return {
+                "translated_text": text,
+                "detected_language": source_lang or "unknown",
+                "confidence": 0.0,
+                "provider_status": "empty",
+                "error_code": None,
+            }
+
+        try:
+            if hasattr(self._translator, "translate_with_metadata"):
+                result = await self._translator.translate_with_metadata(text=text, target_lang=target_lang, source_lang=source_lang)
+                if is_dataclass(result):
+                    return asdict(result)
+                if isinstance(result, dict):
+                    return result
+
+            translated = await self._translate_best_effort(text=text, target_lang=target_lang, source_lang=source_lang)
+            return {
+                "translated_text": translated,
+                "detected_language": source_lang or "unknown",
+                "confidence": 0.0,
+                "provider_status": "ok",
+                "error_code": None,
+            }
+        except Exception as exc:
+            return {
+                "translated_text": text,
+                "detected_language": source_lang or "unknown",
+                "confidence": 0.0,
+                "provider_status": "error",
+                "error_code": str(type(exc).__name__),
+            }
+
+    @staticmethod
+    def _extract_clinical_terms(text: str) -> set[str]:
+        if not text:
+            return set()
+
+        term_patterns = [
+            r"\b\d+(?:\.\d+)?\s?(?:mg|mcg|g|ml|iu|%)\b",
+            r"\b(?:RxNorm|ICD(?:-?10)?|LOINC)\s*[:#-]?\s*[A-Za-z0-9.\-]+\b",
+            r"\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b",
+        ]
+        terms: set[str] = set()
+        for pattern in term_patterns:
+            for match in re.findall(pattern, text):
+                token = str(match).strip()
+                if token:
+                    terms.add(token)
+        return terms
+
+    @staticmethod
+    def _semantic_drift_score(left: str, right: str) -> float:
+        if not left and not right:
+            return 0.0
+        left_tokens = {t for t in re.findall(r"[a-zA-Z0-9_]+", (left or "").lower()) if len(t) > 2}
+        right_tokens = {t for t in re.findall(r"[a-zA-Z0-9_]+", (right or "").lower()) if len(t) > 2}
+
+        if not left_tokens and not right_tokens:
+            return 0.0
+        union = left_tokens | right_tokens
+        overlap = left_tokens & right_tokens
+        if not union:
+            return 0.0
+        return 1.0 - (len(overlap) / len(union))
+
+    def _is_high_risk_query(self, query: str) -> bool:
+        query = query or ""
+        return any(re.search(pattern, query, re.I) for pattern in self.HIGH_RISK_PATTERNS)
 
     def _raise_if_strict_failures(self, failures: list[dict]):
         if failures and self._settings.CHAT_STRICT_AZURE_DEPENDENCIES:
@@ -320,15 +399,22 @@ class Orchestrator:
 
     async def build_grounded_response(self, patient_id: str, message: str, language: str = "en") -> OrchestratorResponse:
         query = message or ""
+        translation_used = False
+        translation_meta: dict[str, Any] = {}
         if language and language != "en":
-            query = await self._translate_best_effort(message, "en", source_lang=language)
+            req_translation = await self._translate_with_metadata_best_effort(message, "en", source_lang=language)
+            query = req_translation.get("translated_text") or message
+            translation_used = True
+            translation_meta["request_translation"] = req_translation
 
         agents_used = self._route_to_agents(query)
         phig = await self._collect_phig_context(patient_id)
         response_text = self._build_grounded_text(query, phig)
 
         if language and language != "en":
-            response_text = await self._translate_best_effort(response_text, language)
+            resp_translation = await self._translate_with_metadata_best_effort(response_text, language, source_lang="en")
+            response_text = resp_translation.get("translated_text") or response_text
+            translation_meta["response_translation"] = resp_translation
 
         return OrchestratorResponse(
             message=response_text,
@@ -337,14 +423,27 @@ class Orchestrator:
             alerts=phig.get("interactions", []),
             care_gaps=phig.get("care_gaps", []),
             confidence=0.72,
+            response_metadata={
+                "translation_used": translation_used,
+                "source_language": language or "en",
+                "safety_interventions_applied": [],
+                "confidence_warning": None,
+                "translation": translation_meta,
+            },
         )
 
     async def process_query(self, patient_id: str, message: str, language: str = "en") -> OrchestratorResponse:
         query = message or ""
         failures = []
+        safety_interventions: list[str] = []
+        translation_meta: dict[str, Any] = {}
+        translation_used = False
 
         if language and language != "en":
-            translated = await self._translate_best_effort(message, "en", source_lang=language)
+            translated_result = await self._translate_with_metadata_best_effort(message, "en", source_lang=language)
+            translated = translated_result.get("translated_text") or message
+            translation_meta["request_translation"] = translated_result
+            translation_used = True
             if translated == message and self._settings.CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN:
                 failures.append({
                     "service": "azure_translator",
@@ -353,6 +452,33 @@ class Orchestrator:
                 })
                 self._raise_if_strict_failures(failures)
             query = translated
+
+        if self._settings.CHAT_HIGH_RISK_ESCALATION_REQUIRED and self._is_high_risk_query(query):
+            safety_interventions.append("high_risk_intent_escalation")
+            high_risk_text = (
+                "I can share general safety guidance, but I cannot help make direct medication-change decisions. "
+                "Please confirm any dose or prescription changes with your clinician immediately."
+            )
+            if language and language != "en":
+                high_risk_translation = await self._translate_with_metadata_best_effort(high_risk_text, language, source_lang="en")
+                high_risk_text = high_risk_translation.get("translated_text") or high_risk_text
+                translation_meta["response_translation"] = high_risk_translation
+
+            return OrchestratorResponse(
+                message=high_risk_text,
+                language=language,
+                agents_used=self._route_to_agents(query),
+                alerts=[],
+                care_gaps=[],
+                confidence=0.65,
+                response_metadata={
+                    "translation_used": translation_used,
+                    "source_language": language or "en",
+                    "safety_interventions_applied": safety_interventions,
+                    "confidence_warning": "high_risk_intent",
+                    "translation": translation_meta,
+                },
+            )
 
         agents_used = self._route_to_agents(query)
 
@@ -446,8 +572,43 @@ class Orchestrator:
         if narrative:
             response_text = f"{response_text}\n\nHistory narrative: {narrative}"
 
+        confidence_warning = None
+        source_response_text = response_text
         if language and language != "en":
-            response_text = await self._translate_best_effort(response_text, language)
+            protected_terms = self._extract_clinical_terms(source_response_text)
+            translated_response = await self._translate_with_metadata_best_effort(source_response_text, language, source_lang="en")
+            response_text = translated_response.get("translated_text") or source_response_text
+            translation_meta["response_translation"] = translated_response
+
+            if self._settings.CHAT_ENABLE_ROUNDTRIP_VALIDATION:
+                roundtrip = await self._translate_with_metadata_best_effort(response_text, "en", source_lang=language)
+                roundtrip_text = roundtrip.get("translated_text") or ""
+                drift = self._semantic_drift_score(source_response_text, roundtrip_text)
+                translation_meta["roundtrip_translation"] = roundtrip
+                translation_meta["roundtrip_drift"] = drift
+                if drift >= self._settings.CHAT_ROUNDTRIP_DRIFT_THRESHOLD:
+                    safety_interventions.append("roundtrip_drift_fallback")
+                    confidence_warning = "translation_semantic_drift"
+                    safe_fallback = (
+                        "I want to ensure this is accurate. Please confirm medication names and dosages before acting, "
+                        "or consult your clinician for final confirmation."
+                    )
+                    fallback_translation = await self._translate_with_metadata_best_effort(safe_fallback, language, source_lang="en")
+                    response_text = fallback_translation.get("translated_text") or safe_fallback
+                    translation_meta["response_translation"] = fallback_translation
+
+            if protected_terms:
+                for term in protected_terms:
+                    if term not in response_text and term in source_response_text:
+                        safety_interventions.append("clinical_term_preservation_warning")
+                        confidence_warning = confidence_warning or "clinical_term_translation_variance"
+                        break
+
+            if self._settings.CHAT_ENABLE_TRANSLATION_DISCLAIMER:
+                response_text = (
+                    f"{response_text}\n\n"
+                    "Note: This response was machine-translated. Please confirm critical medical decisions with your clinician."
+                )
 
         for failure in agent_outputs.get("failures", []):
             logger.info(f"Agent execution skipped: {failure}")
@@ -459,6 +620,13 @@ class Orchestrator:
             alerts=interactions if isinstance(interactions, list) else [],
             care_gaps=(guidelines if isinstance(guidelines, list) and guidelines else computed_care_gaps),
             confidence=confidence,
+            response_metadata={
+                "translation_used": translation_used,
+                "source_language": language or "en",
+                "safety_interventions_applied": safety_interventions,
+                "confidence_warning": confidence_warning,
+                "translation": translation_meta,
+            },
         )
 
     def _route_to_agents(self, query: str) -> list:

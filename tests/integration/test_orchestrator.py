@@ -95,3 +95,56 @@ class TestOrchestrator:
             language="en"
         )
         assert len(response.agents_used) >= 1
+
+    async def test_high_risk_medication_change_query_triggers_escalation(self, orchestrator):
+        response = await orchestrator.process_query(
+            patient_id="test-patient",
+            message="Should I stop my medication and double the next dose?",
+            language="en",
+        )
+        assert "clinician" in response.message.lower()
+        assert "high_risk_intent_escalation" in response.response_metadata.get("safety_interventions_applied", [])
+        assert response.response_metadata.get("confidence_warning") == "high_risk_intent"
+
+    async def test_non_english_query_includes_translation_metadata(self, orchestrator):
+        response = await orchestrator.process_query(
+            patient_id="test-patient",
+            message="Meri dawaiyon ka overview do",
+            language="hi",
+        )
+        assert response.response_metadata.get("translation_used") is True
+        assert response.response_metadata.get("source_language") == "hi"
+        assert isinstance(response.response_metadata.get("translation"), dict)
+
+    async def test_roundtrip_drift_fallback_sets_confidence_warning(self, orchestrator):
+        with patch.object(orchestrator, "_semantic_drift_score", return_value=0.99):
+            response = await orchestrator.process_query(
+                patient_id="test-patient",
+                message="Meri medications aur dosages batayein",
+                language="hi",
+            )
+
+        assert response.response_metadata.get("confidence_warning") == "translation_semantic_drift"
+        assert "roundtrip_drift_fallback" in response.response_metadata.get("safety_interventions_applied", [])
+
+    async def test_non_english_translator_unavailable_respects_strict_mode(self, orchestrator):
+        orchestrator._settings.CHAT_REQUIRE_TRANSLATOR_FOR_NON_EN = True
+        orchestrator._settings.CHAT_STRICT_AZURE_DEPENDENCIES = True
+
+        with patch.object(
+            orchestrator,
+            "_translate_with_metadata_best_effort",
+            new=AsyncMock(return_value={
+                "translated_text": "Original text",
+                "detected_language": "hi",
+                "confidence": 0.0,
+                "provider_status": "error",
+                "error_code": "RuntimeError",
+            }),
+        ):
+            with pytest.raises(Exception):
+                await orchestrator.process_query(
+                    patient_id="test-patient",
+                    message="Original text",
+                    language="hi",
+                )
