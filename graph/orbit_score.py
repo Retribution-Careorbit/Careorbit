@@ -16,6 +16,14 @@ SEVERITY_PENALTIES = {
     "low": 5,
 }
 
+EXPECTED_NODES_PER_CONDITION = {
+    "E11.9": {"medications": 1, "lab_results": 2, "screenings": 1},
+    "I10": {"medications": 1, "lab_results": 1, "screenings": 0},
+    "I48": {"medications": 1, "lab_results": 1, "screenings": 0},
+}
+
+DEFAULT_EXPECTED = {"medications": 1, "lab_results": 1, "screenings": 0}
+
 
 class OrbitScoreCalculator:
     def __init__(self, phig: dict):
@@ -24,14 +32,44 @@ class OrbitScoreCalculator:
 
     def _compute_completeness(self) -> float:
         nodes = self.phig.get("nodes", [])
-        present_types = {n.get("type") for n in nodes}
-        core_count = len(CORE_TYPES & present_types)
-        base = (core_count / len(CORE_TYPES)) * 100.0
-        bonus = 0.0
-        for bt in BONUS_TYPES:
-            if bt in present_types:
-                bonus += 5.0
-        return min(base + bonus, 100.0)
+        conditions = [
+            n for n in nodes
+            if n.get("type") == "condition"
+        ]
+        if not conditions:
+            return 100.0
+
+        total_expected_medications = 0
+        total_expected_labs = 0
+        total_expected_screenings = 0
+
+        for condition in conditions:
+            icd_code = str(condition.get("icd10") or condition.get("code") or "").upper()
+            expected = EXPECTED_NODES_PER_CONDITION.get(icd_code, DEFAULT_EXPECTED)
+            total_expected_medications += int(expected["medications"])
+            total_expected_labs += int(expected["lab_results"])
+            total_expected_screenings += int(expected["screenings"])
+
+        present_medications = sum(1 for n in nodes if n.get("type") == "medication")
+        present_labs = sum(1 for n in nodes if n.get("type") == "lab_value")
+
+        care_gaps = self.phig.get("care_gaps", [])
+        resolved_screenings = sum(
+            1
+            for g in care_gaps
+            if str(g.get("status") or "").lower() in {"closed", "resolved", "done", "completed"}
+        )
+
+        total_expected = total_expected_medications + total_expected_labs + total_expected_screenings
+        if total_expected <= 0:
+            return 100.0
+
+        total_present = 0
+        total_present += min(present_medications, total_expected_medications)
+        total_present += min(present_labs, total_expected_labs)
+        total_present += min(resolved_screenings, total_expected_screenings)
+
+        return round((total_present / total_expected) * 100.0, 2)
 
     def _compute_avg_confidence(self) -> float:
         nodes = self.phig.get("nodes", [])

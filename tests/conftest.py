@@ -298,13 +298,8 @@ def low_confidence_ocr():
 # ── PHASE 1 SOURCE CONSTANT ──────────────────────────
 # Used to restrict ceiling tests to Phase 1 sources only.
 # V3 FIX H5: Prevents Phase 2 sources from contaminating Phase 1 CI.
-# V4.1-E FIX: patient_confirmed + patient_corrected moved here from Phase 2.
-#   Evidence: confirmations.py (Phase 1) writes:
-#     confidence_source="patient_confirmed"  (when confirmed=True)
-#     confidence_source="patient_corrected"  (when corrected_name supplied)
-#   No SOURCE_CEILING is defined for these — the confirmations route sets
-#   confidence_score=0.85 directly (hardcoded). These are not scored by
-#   ConfidenceCalculator; they bypass the ceiling mechanism entirely.
+# patient_confirmed + patient_corrected are explicit confidence sources used
+# by the deterministic confidence policy and have defined source ceilings.
 
 PHASE1_SOURCES = [
     "prescription_photo",

@@ -24,7 +24,13 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
     for med in graph_data.get("medications", []):
         nodes.append({"type": "medication", "name": med.get("name"), "confidence": med.get("confidence", 0.7)})
     for cond in graph_data.get("conditions", []):
-        nodes.append({"type": "condition", "name": cond.get("name"), "confidence": cond.get("confidence", 0.7)})
+        nodes.append({
+            "type": "condition",
+            "name": cond.get("name"),
+            "code": cond.get("code") or cond.get("icd10") or cond.get("icd10_code"),
+            "icd10": cond.get("code") or cond.get("icd10") or cond.get("icd10_code"),
+            "confidence": cond.get("confidence", 0.7),
+        })
     for lab in graph_data.get("labs", []):
         nodes.append({"type": "lab_value", "name": lab.get("name"), "value": lab.get("value"), "confidence": 0.9})
 

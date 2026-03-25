@@ -1,4 +1,5 @@
 import logging
+import re
 
 from config import get_settings
 from services.azure_openai import AzureOpenAIService
@@ -166,6 +167,50 @@ class Orchestrator:
 
         return "No PHIG clinical data is currently available for this profile yet."
 
+    @staticmethod
+    def _collect_grounding_terms(phig: dict) -> set[str]:
+        terms: set[str] = set()
+
+        for med in phig.get("medications", []) or []:
+            name = str(med.get("name") or "").strip().lower()
+            if name:
+                terms.add(name)
+
+        for condition in phig.get("conditions", []) or []:
+            name = str(condition.get("name") or "").strip().lower()
+            if name:
+                terms.add(name)
+
+        for lab in phig.get("labs", []) or []:
+            name = str(lab.get("name") or "").strip().lower()
+            if name:
+                terms.add(name)
+
+        for interaction in phig.get("interactions", []) or []:
+            pair = str(interaction.get("drug_pair") or "").strip().lower()
+            if pair:
+                for token in pair.split("+"):
+                    token = token.strip()
+                    if token:
+                        terms.add(token)
+
+        return terms
+
+    def _passes_grounding_verifier(self, query: str, ai_text: str, phig: dict) -> bool:
+        if not ai_text or not ai_text.strip():
+            return False
+
+        clinical_query = bool(re.search(r"medication|medicine|drug|condition|diagnosis|lab|interaction|screening|care gap", query or "", re.I))
+        if not clinical_query:
+            return True
+
+        grounding_terms = self._collect_grounding_terms(phig)
+        if not grounding_terms:
+            return False
+
+        ai_text_lower = ai_text.lower()
+        return any(term in ai_text_lower for term in grounding_terms)
+
     async def build_grounded_response(self, patient_id: str, message: str, language: str = "en") -> OrchestratorResponse:
         query = message or ""
         if language and language != "en":
@@ -272,8 +317,12 @@ class Orchestrator:
 
         if ai_response:
             ai_text = ai_response if isinstance(ai_response, str) else str(ai_response)
-            response_text = f"{grounded_text}\n\nAdditional guidance: {ai_text}"
-            confidence = 0.84
+            if self._passes_grounding_verifier(query=query, ai_text=ai_text, phig=phig):
+                response_text = f"{grounded_text}\n\nAdditional guidance: {ai_text}"
+                confidence = 0.84
+            else:
+                response_text = grounded_text
+                confidence = 0.75
         else:
             response_text = grounded_text
             confidence = 0.72

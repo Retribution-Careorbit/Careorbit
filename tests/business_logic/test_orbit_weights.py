@@ -58,3 +58,48 @@ class TestOrbitScoreBoundaryConditions:
         }
         total = sum(WEIGHTS[k] * v for k, v in components.items())
         assert total == pytest.approx(0.0, abs=1e-9)
+
+
+class TestConditionAwareCompleteness:
+    """Validate ICD-driven completeness scoring."""
+
+    def test_no_conditions_returns_complete(self):
+        calc = OrbitScoreCalculator({"nodes": [], "care_gaps": []})
+        score = calc.compute()
+        assert score["breakdown"]["completeness"] == 100.0
+
+    def test_condition_expected_nodes_partial_coverage(self):
+        phig = {
+            "nodes": [
+                {"type": "condition", "name": "Type 2 Diabetes", "icd10": "E11.9", "confidence": 0.8},
+                {"type": "condition", "name": "Hypertension", "icd10": "I10", "confidence": 0.8},
+                {"type": "medication", "name": "Metformin", "confidence": 0.8},
+                {"type": "lab_value", "name": "eGFR", "confidence": 0.9},
+            ],
+            "care_gaps": [{"name": "Retinopathy", "status": "open"}],
+            "interactions": [],
+            "reminders": None,
+        }
+        calc = OrbitScoreCalculator(phig)
+        score = calc.compute()
+        # E11.9 expects 4 and I10 expects 2 => expected=6. Present=1 med + 1 lab + 0 screening = 2.
+        assert score["breakdown"]["completeness"] == pytest.approx(33.33, abs=0.01)
+
+    def test_condition_expected_nodes_full_coverage(self):
+        phig = {
+            "nodes": [
+                {"type": "condition", "name": "Type 2 Diabetes", "icd10": "E11.9", "confidence": 0.8},
+                {"type": "condition", "name": "Hypertension", "icd10": "I10", "confidence": 0.8},
+                {"type": "medication", "name": "Metformin", "confidence": 0.8},
+                {"type": "medication", "name": "Amlodipine", "confidence": 0.8},
+                {"type": "lab_value", "name": "eGFR", "confidence": 0.9},
+                {"type": "lab_value", "name": "HbA1c", "confidence": 0.9},
+                {"type": "lab_value", "name": "Creatinine", "confidence": 0.9},
+            ],
+            "care_gaps": [{"name": "Retinopathy", "status": "closed"}],
+            "interactions": [],
+            "reminders": None,
+        }
+        calc = OrbitScoreCalculator(phig)
+        score = calc.compute()
+        assert score["breakdown"]["completeness"] == 100.0

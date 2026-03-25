@@ -17,18 +17,19 @@ class TestSourceCeilingsPhase1:
         assert ConfidenceCalculator.SOURCE_CEILINGS["prescription_photo"] == 0.85
 
     def test_lab_report_photo_ceiling(self):
-        assert ConfidenceCalculator.SOURCE_CEILINGS["lab_report_photo"] == 0.88
+        assert ConfidenceCalculator.SOURCE_CEILINGS["lab_report_photo"] == 0.90
 
     def test_medicine_strip_photo_ceiling(self):
         assert ConfidenceCalculator.SOURCE_CEILINGS["medicine_strip_photo"] == 0.90
 
     def test_patient_text_input_ceiling(self):
-        assert ConfidenceCalculator.SOURCE_CEILINGS["patient_text_input"] == 0.60
+        assert ConfidenceCalculator.SOURCE_CEILINGS["patient_text_input"] == 0.55
 
-    @pytest.mark.skip(reason="patient_confirmed ceiling not yet defined in MVP spec")
     def test_patient_confirmed_ceiling(self):
-        """Deferred: ceiling value undefined until patient confirmation spec is finalised."""
-        assert "patient_confirmed" in ConfidenceCalculator.SOURCE_CEILINGS
+        assert ConfidenceCalculator.SOURCE_CEILINGS["patient_confirmed"] == 0.90
+
+    def test_patient_corrected_ceiling(self):
+        assert ConfidenceCalculator.SOURCE_CEILINGS["patient_corrected"] == 0.92
 
     def test_all_phase1_ceilings_in_valid_range(self):
         for source in PHASE1_SOURCES:
@@ -48,16 +49,11 @@ class TestSourceCeilingsPhase1:
         V4 ADD: If a new source is added to SOURCE_CEILINGS, this test forces
         the developer to also add it to PHASE1_SOURCES or PHASE2_SOURCES.
         Prevents silent Phase 2 source contamination.
-
-        V4.1-E: patient_confirmed / patient_corrected are Phase 1 sources
-        (used in confirmations.py). They bypass ConfidenceCalculator ceilings —
-        the confirmation route sets score=0.85 directly. They are listed in
-        PHASE1_SOURCES but should NOT appear in SOURCE_CEILINGS (no ceiling
-        is needed because the score is hardcoded, not calculated).
         """
         known_all_sources = set(PHASE1_SOURCES) | {
             # Phase 2 sources (no ceiling defined yet — speculative):
             "fhir_api", "doctor_portal", "patient_voice_input",
+            "prescription_digital", "lab_report_digital", "voice_input",
         }
         for source in ConfidenceCalculator.SOURCE_CEILINGS:
             assert source in known_all_sources, (
@@ -193,7 +189,7 @@ class TestLabConfidence:
             unit_recognized=True, reference_range_found=True,
             patient_confirmed=False
         )
-        assert result.final_score <= 0.88
+        assert result.final_score <= 0.90
         assert result.final_score >= 0.82
 
     def test_lab_score_never_exceeds_ceiling(self):

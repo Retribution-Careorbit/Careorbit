@@ -1,15 +1,18 @@
 from services.azure_openai import AzureOpenAIService
 from services.azure_vision import AzureVisionService
+from services.azure_language import AzureLanguageService
 from services.azure_blob import AzureBlobService
 from services.azure_search import AzureSearchService
 from services.azure_email import AzureEmailService
 from db.session import async_session as db_session
 from graph.confidence import ConfidenceCalculator
 from graph.orbit_score import OrbitScoreCalculator
+from pipeline.validation_gate import validation_gate
 from utils.drug_database import DrugDatabase
 
 openai_service = AzureOpenAIService()
 vision_service = AzureVisionService()
+language_service = AzureLanguageService()
 blob_service = AzureBlobService()
 search_service = AzureSearchService()
 email_service = AzureEmailService()
@@ -36,6 +39,7 @@ class DocumentPipeline:
         import sys
         mod = sys.modules[__name__]
         self._vision = mod.vision_service
+        self._language = mod.language_service
         self._openai = mod.openai_service
         self._blob = mod.blob_service
         self._search = mod.search_service
@@ -54,7 +58,12 @@ class DocumentPipeline:
 
     def _fallback_extract_structured_data(self, text: str, doc_type: str) -> dict:
         import re
-        structured = {"medications": [], "labs": [], "summary": "Fallback extraction used due to unavailable AI service."}
+        structured = {
+            "doctor_name": self._extract_doctor_name(text),
+            "medications": [],
+            "labs": [],
+            "summary": "Fallback extraction used due to unavailable AI service.",
+        }
         lower = (text or "").lower()
 
         # Medication keyword scan using known drug catalog.
@@ -88,6 +97,19 @@ class DocumentPipeline:
 
         return structured
 
+    def _extract_doctor_name(self, text: str) -> str:
+        import re
+        if not text:
+            return ""
+        for line in text.splitlines():
+            line_clean = line.strip()
+            if not line_clean:
+                continue
+            # Capture common doctor prefixes from OCR text, e.g. Dr. A. Sharma
+            if re.search(r"\bdr\.?\b", line_clean, flags=re.IGNORECASE):
+                return line_clean
+        return ""
+
     async def process_document(self, image_bytes, patient_id, uploaded_by, file_extension="jpg", filename="upload"):
         import time
         start = time.time()
@@ -120,6 +142,30 @@ class DocumentPipeline:
         except Exception as e:
             structured_data = self._fallback_extract_structured_data(full_text, doc_type)
 
+        clinical_entities = []
+        try:
+            clinical_entities = await self._language.recognize_health_entities(full_text)
+        except Exception:
+            clinical_entities = []
+
+        med_entities = {
+            str(ent.get("text") or "").strip().lower()
+            for ent in clinical_entities
+            if str(ent.get("category") or "").lower() in {"medicationname", "medication"}
+            and str(ent.get("text") or "").strip()
+        }
+
+        lab_entities = {
+            str(ent.get("text") or "").strip().lower()
+            for ent in clinical_entities
+            if str(ent.get("text") or "").strip()
+            and (
+                "lab" in str(ent.get("category") or "").lower()
+                or "measurement" in str(ent.get("category") or "").lower()
+                or "test" in str(ent.get("category") or "").lower()
+            )
+        }
+
         try:
             await self._blob.upload_document(image_bytes, f"{patient_id}.{file_extension}")
         except (NotImplementedError, Exception):
@@ -151,6 +197,7 @@ class DocumentPipeline:
                 dosage_parsed=bool(med.get("dosage")),
                 date_found=bool(structured_data.get("date")),
                 patient_confirmed=False,
+                ner_match=med_name.strip().lower() in med_entities,
             )
 
             node = {
@@ -165,24 +212,80 @@ class DocumentPipeline:
                 needs_confirm = True
                 confirmation_needed.append(node)
 
+        text_anchor_names = {
+            str(lab.get("name") or "").strip().lower()
+            for lab in labs
+            if str(lab.get("name") or "").strip()
+            and str(lab.get("name") or "").strip().lower() in (full_text or "").lower()
+        }
+
+        normalized_labs = []
+        rejected_labs = []
         for lab in labs:
+            lab_name = str(lab.get("name") or "").strip()
+            if not lab_name:
+                continue
+
+            gate_decision = await validation_gate.validate_lab_result(
+                patient_id=patient_id,
+                lab_result=lab,
+                ner_names=lab_entities,
+                text_anchor_names=text_anchor_names,
+            )
+            if not gate_decision.accepted:
+                rejected_labs.append(
+                    {
+                        "name": lab_name,
+                        "value": lab.get("value"),
+                        "unit": lab.get("unit"),
+                        "reasons": gate_decision.reasons,
+                        "agreement_count": gate_decision.agreement_count,
+                    }
+                )
+                continue
+
+            lab_conf = ConfidenceCalculator.calculate_lab_confidence(
+                source_type="lab_report_photo",
+                ocr_avg_confidence=avg_confidence,
+                value_parsed=lab.get("value") is not None,
+                unit_recognized=bool(str(lab.get("unit") or "").strip()),
+                reference_range_found=bool(lab.get("ref_low") is not None or lab.get("ref_high") is not None),
+                patient_confirmed=False,
+                ner_match=lab_name.lower() in lab_entities,
+            )
+
             nodes.append({
-                "id": f"node-lab-{str(lab.get('name', 'lab')).lower().replace(' ', '-')}",
+                "id": f"node-lab-{lab_name.lower().replace(' ', '-')}",
                 "node_type": "lab_value",
-                "name": lab.get("name", "Unknown"),
+                "name": lab_name,
                 "value": lab.get("value"),
                 "unit": lab.get("unit", ""),
-                "confidence": 0.86,
+                "confidence": lab_conf.final_score,
             })
+            normalized_labs.append(
+                {
+                    "name": lab_name,
+                    "value": lab.get("value"),
+                    "unit": lab.get("unit", ""),
+                    "ref_low": lab.get("ref_low"),
+                    "ref_high": lab.get("ref_high"),
+                    "loinc": lab.get("loinc"),
+                    "confidence": lab_conf.final_score,
+                    "confidence_label": lab_conf.confidence_label,
+                }
+            )
 
-        med_names = {str(m.get("name", "")).lower() for m in medications}
-        if "metformin" in med_names and "ibuprofen" in med_names:
-            interaction_alerts.append({
-                "drug_pair": "Metformin + Ibuprofen",
-                "severity": "ELEVATED",
-                "description": "Potential renal stress risk when used together.",
-                "clinical_action": "Review with physician and monitor renal panel.",
-            })
+        for med in medications:
+            med_name = str(med.get("name") or "").strip()
+            if not med_name:
+                continue
+            try:
+                interactions = await self._search.search_drug_interactions(med_name)
+                if isinstance(interactions, list) and interactions:
+                    interaction_alerts.extend(interactions[:3])
+            except Exception:
+                # Search may be unavailable locally; keep extraction flow running.
+                continue
 
         status = "needs_confirmation" if needs_confirm else "success"
 
@@ -212,9 +315,55 @@ class DocumentPipeline:
                 extracted_data={
                     "medications": [],
                     "labs": [],
+                    "lab_rejections": rejected_labs,
                     "summary": summary,
                 },
             )
+
+        doctor_name = ""
+        if isinstance(structured_data, dict):
+            doctor_name = str(structured_data.get("doctor_name") or "").strip()
+            if not doctor_name:
+                doctor_name = self._extract_doctor_name(full_text)
+
+        coding_by_text = {}
+        for ent in clinical_entities:
+            text_key = str(ent.get("text") or "").strip().lower()
+            if not text_key:
+                continue
+            if str(ent.get("category") or "").lower() in {"medicationname", "medication"}:
+                coding_by_text[text_key] = ent.get("coding", [])
+
+        normalized_medications = []
+        for med in medications:
+            med_name = (med.get("name") or "").strip()
+            normalized_medications.append({
+                "name": med_name,
+                "dosage": (med.get("dosage") or "").strip(),
+                "frequency": (med.get("frequency") or "").strip(),
+                "dose_to_take": (med.get("dose_to_take") or med.get("dosage") or "").strip(),
+                "coding": coding_by_text.get(med_name.lower(), []),
+            })
+
+        missing_fields = []
+        if doc_type == "lab_report":
+            if not normalized_labs:
+                missing_fields.append("labs")
+        else:
+            if not doctor_name:
+                missing_fields.append("doctor_name")
+            if not normalized_medications:
+                missing_fields.append("medications")
+            else:
+                for i, med in enumerate(normalized_medications):
+                    if not med.get("name"):
+                        missing_fields.append(f"medications[{i}].name")
+                    if not med.get("dosage"):
+                        missing_fields.append(f"medications[{i}].dosage")
+
+        if rejected_labs and not normalized_labs and doc_type == "lab_report":
+            needs_confirm = True
+            status = "needs_confirmation"
 
         return DocumentProcessingResult(
             document_id=f"doc-{patient_id}",
@@ -226,9 +375,13 @@ class DocumentPipeline:
             confirmation_needed=confirmation_needed,
             processing_time_ms=int((time.time() - start) * 1000),
             extracted_data={
-                "medications": medications,
-                "labs": labs,
+                "doctor_name": doctor_name,
+                "medications": normalized_medications,
+                "labs": normalized_labs,
+                "lab_rejections": rejected_labs,
                 "summary": structured_data.get("summary") if isinstance(structured_data, dict) else None,
+                "missing_fields": missing_fields,
+                "clinical_entities": clinical_entities,
             },
         )
 

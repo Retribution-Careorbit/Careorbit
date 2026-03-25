@@ -49,11 +49,25 @@ jobs:
           subprocess.check_call([sys.executable, "-m", "pip", "install", *deps, "pytest", "pytest-asyncio", "httpx"])
           PY
 
+      - name: Prepare test report directory
+        run: mkdir -p artifacts/test-results
+
       - name: Run safety tests
-        run: pytest tests/false_positive_negative/ -m critical -v --tb=long -x
+        run: pytest tests/false_positive_negative/ -m critical -v --tb=long -x --junitxml=artifacts/test-results/safety.xml
 
       - name: Run unit tests
-        run: pytest tests/unit/ -v --tb=short -x -m "not deployment"
+        run: pytest tests/unit/ -v --tb=short -x -m "not deployment" --junitxml=artifacts/test-results/unit.xml
+
+      - name: Run architecture compliance tests
+        run: pytest -q tests/functional/test_api_architecture_compliance.py --junitxml=artifacts/test-results/architecture-compliance.xml
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.run_id }}
+          path: artifacts/test-results/
+          retention-days: 7
 
   build-backend-artifact:
     name: Build Backend Artifact

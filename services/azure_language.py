@@ -40,12 +40,21 @@ class AzureLanguageService:
             for doc in result:
                 if not doc.is_error:
                     for entity in doc.entities:
+                        coding = []
+                        for ds in getattr(entity, "data_sources", []) or []:
+                            coding.append(
+                                {
+                                    "name": getattr(ds, "name", ""),
+                                    "id": getattr(ds, "entity_id", ""),
+                                }
+                            )
                         entities.append({
                             "text": entity.text,
                             "category": entity.category,
                             "confidence": entity.confidence_score,
                             "offset": entity.offset,
                             "length": entity.length,
+                            "coding": coding,
                         })
             return entities
         except Exception as e:

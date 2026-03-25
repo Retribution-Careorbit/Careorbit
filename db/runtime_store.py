@@ -11,6 +11,7 @@ _patient_documents: dict[str, list[dict[str, Any]]] = {
 }
 
 _patient_extracted_medications: dict[str, list[dict[str, Any]]] = {}
+_pending_document_reviews: dict[str, dict[str, dict[str, Any]]] = {}
 
 _patient_notifications: dict[str, list[dict[str, Any]]] = {
     DEMO_USER_ID: [
@@ -32,6 +33,7 @@ def _ensure_patient(patient_id: str) -> None:
     _patient_documents.setdefault(patient_id, [])
     _patient_notifications.setdefault(patient_id, [])
     _patient_extracted_medications.setdefault(patient_id, [])
+    _pending_document_reviews.setdefault(patient_id, {})
 
 
 def get_patient_documents(patient_id: str) -> list[dict[str, Any]]:
@@ -42,6 +44,15 @@ def get_patient_documents(patient_id: str) -> list[dict[str, Any]]:
 def add_patient_document(patient_id: str, doc: dict[str, Any]) -> None:
     _ensure_patient(patient_id)
     _patient_documents[patient_id].insert(0, doc)
+
+
+def update_patient_document(patient_id: str, document_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+    _ensure_patient(patient_id)
+    for doc in _patient_documents[patient_id]:
+        if doc.get("document_id") == document_id:
+            doc.update(updates or {})
+            return doc
+    return None
 
 
 def get_valid_lab_reports(patient_id: str) -> list[dict[str, Any]]:
@@ -107,6 +118,21 @@ def add_extracted_medications(patient_id: str, meds: list[dict[str, Any]]) -> No
 def get_extracted_medications(patient_id: str) -> list[dict[str, Any]]:
     _ensure_patient(patient_id)
     return _patient_extracted_medications[patient_id]
+
+
+def save_pending_document_review(patient_id: str, document_id: str, payload: dict[str, Any]) -> None:
+    _ensure_patient(patient_id)
+    _pending_document_reviews[patient_id][document_id] = payload
+
+
+def get_pending_document_review(patient_id: str, document_id: str) -> dict[str, Any] | None:
+    _ensure_patient(patient_id)
+    return _pending_document_reviews[patient_id].get(document_id)
+
+
+def remove_pending_document_review(patient_id: str, document_id: str) -> dict[str, Any] | None:
+    _ensure_patient(patient_id)
+    return _pending_document_reviews[patient_id].pop(document_id, None)
 
 
 def push_notification(patient_id: str, notif_type: str, title: str, message: str, path: str = "/", metadata: dict[str, Any] | None = None) -> dict[str, Any]:

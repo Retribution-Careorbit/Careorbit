@@ -89,6 +89,8 @@ class Settings:
                 return default
             return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
+        self.DOCUMENTS_ALLOW_PDF_UPLOADS: bool = _to_bool(_get("DOCUMENTS_ALLOW_PDF_UPLOADS", "false"), False)
+
         # Strict chat mode: fail fast with explicit errors if required Azure dependencies fail.
         self.CHAT_STRICT_AZURE_DEPENDENCIES: bool = _to_bool(_get("CHAT_STRICT_AZURE_DEPENDENCIES", "true"), True)
         self.CHAT_REQUIRE_OPENAI: bool = _to_bool(_get("CHAT_REQUIRE_OPENAI", "true"), True)
