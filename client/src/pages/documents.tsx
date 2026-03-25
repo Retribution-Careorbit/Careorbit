@@ -50,6 +50,8 @@ interface ArchitectureCompliance {
   services: Array<{ name: string; configured: boolean; required: boolean; degraded_mode?: boolean; status?: string }>;
 }
 
+type ReviewStage = "targeted" | "final";
+
 export default function DocumentsPage() {
   const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -58,6 +60,7 @@ export default function DocumentsPage() {
   const [reviewMeds, setReviewMeds] = useState<ReviewMedication[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
+  const [reviewStage, setReviewStage] = useState<ReviewStage>("targeted");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
@@ -125,6 +128,79 @@ export default function DocumentsPage() {
   const showDoctorField = reviewFieldSet.has("doctor_name");
   const showManualMedicationRows = reviewFieldSet.has("medications");
 
+  const resolvedPayload = useMemo(() => {
+    const resolvedDoctor = (() => {
+      const entered = doctorName.trim();
+      if (entered) return entered;
+      if (lowConfidenceFieldSet.has("doctor_name")) {
+        return (reviewSuggestions["doctor_name"] || "").trim();
+      }
+      return entered;
+    })();
+
+    const resolvedMeds = reviewMeds.map((med, idx) => {
+      const resolveField = (field: keyof ReviewMedication) => {
+        const entered = String(med[field] || "").trim();
+        if (entered) return entered;
+        const key = `medications[${idx}].${field}`;
+        if (lowConfidenceFieldSet.has(key)) {
+          return (reviewSuggestions[key] || "").trim();
+        }
+        return entered;
+      };
+
+      return {
+        name: resolveField("name"),
+        dosage: resolveField("dosage"),
+        frequency: resolveField("frequency"),
+        dose_to_take: resolveField("dose_to_take"),
+      };
+    });
+
+    return {
+      doctor_name: resolvedDoctor,
+      medications: resolvedMeds,
+    };
+  }, [doctorName, reviewMeds, lowConfidenceFieldSet, reviewSuggestions]);
+
+  const changedLowConfidenceFields = useMemo(() => {
+    const changed: string[] = [];
+    for (const key of lowConfidenceFields) {
+      const suggested = (reviewSuggestions[key] || "").trim();
+      if (!suggested) continue;
+      let actual = "";
+      if (key === "doctor_name") {
+        actual = (resolvedPayload.doctor_name || "").trim();
+      } else {
+        const match = key.match(/^medications\[(\d+)\]\.(name|dosage|frequency|dose_to_take)$/);
+        if (!match) continue;
+        const idx = Number(match[1]);
+        const field = match[2] as keyof ReviewMedication;
+        actual = String(resolvedPayload.medications[idx]?.[field] || "").trim();
+      }
+      if (actual && suggested.toLowerCase() !== actual.toLowerCase()) {
+        changed.push(key);
+      }
+    }
+    return changed;
+  }, [lowConfidenceFields, reviewSuggestions, resolvedPayload]);
+
+  const requiredMissingFromPayload = useMemo(() => {
+    const missing: string[] = [];
+    if (!resolvedPayload.doctor_name) {
+      missing.push("doctor_name");
+    }
+    if (!resolvedPayload.medications.length) {
+      missing.push("medications");
+    } else {
+      resolvedPayload.medications.forEach((med, idx) => {
+        if (!med.name) missing.push(`medications[${idx}].name`);
+        if (!med.dosage) missing.push(`medications[${idx}].dosage`);
+      });
+    }
+    return missing;
+  }, [resolvedPayload]);
+
   const loadReviewState = (review?: ExtractedReview, fallbackMissing: string[] = []) => {
     const extractedMeds = review?.medications?.length
       ? review.medications
@@ -145,6 +221,31 @@ export default function DocumentsPage() {
     setReviewMeds(nextMeds);
     setMissingFields(reviewMissing);
     setLowConfidenceFields(reviewLow);
+    setReviewStage("targeted");
+  };
+
+  const proceedToFinalReview = () => {
+    if (requiredMissingFromPayload.length > 0) {
+      const mergedMissing = Array.from(new Set([...missingFields, ...requiredMissingFromPayload]));
+      setMissingFields(mergedMissing);
+      toast({
+        title: "Missing Details",
+        description: `Please fill required fields: ${requiredMissingFromPayload.join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDoctorName(resolvedPayload.doctor_name);
+    setReviewMeds(resolvedPayload.medications);
+    setReviewStage("final");
+
+    if (changedLowConfidenceFields.length > 0) {
+      toast({
+        title: "Reconfirm Updated Values",
+        description: "Some low-confidence extracted values were edited. Please verify the final PHIG payload.",
+      });
+    }
   };
 
   const formatConfirmError = (data: any): string => {
@@ -185,31 +286,8 @@ export default function DocumentsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          doctor_name: (() => {
-            const entered = doctorName.trim();
-            if (entered) return entered;
-            if (lowConfidenceFieldSet.has("doctor_name")) {
-              return (reviewSuggestions["doctor_name"] || "").trim();
-            }
-            return entered;
-          })(),
-          medications: reviewMeds.map((med, idx) => {
-            const resolveField = (field: keyof ReviewMedication) => {
-              const entered = String(med[field] || "").trim();
-              if (entered) return entered;
-              const key = `medications[${idx}].${field}`;
-              if (lowConfidenceFieldSet.has(key)) {
-                return (reviewSuggestions[key] || "").trim();
-              }
-              return entered;
-            };
-            return {
-              name: resolveField("name"),
-              dosage: resolveField("dosage"),
-              frequency: resolveField("frequency"),
-              dose_to_take: resolveField("dose_to_take"),
-            };
-          }),
+          doctor_name: resolvedPayload.doctor_name,
+          medications: resolvedPayload.medications,
         }),
       });
       const data = await res.json();
@@ -581,9 +659,11 @@ export default function DocumentsPage() {
         <Dialog open={Boolean(activeReviewDocId)} onOpenChange={(open) => { if (!open) setActiveReviewDocId(null); }}>
           <DialogContent className="sm:max-w-2xl" data-testid="dialog-manual-review">
             <DialogHeader>
-              <DialogTitle>Confirm Extracted Details</DialogTitle>
+              <DialogTitle>{reviewStage === "targeted" ? "Resolve Missing / Low-Confidence Fields" : "Final Review Before PHIG Add"}</DialogTitle>
               <DialogDescription>
-                Review doctor name, medicines, and doses before adding this document to PHIG.
+                {reviewStage === "targeted"
+                  ? "Please confirm only the flagged fields first."
+                  : "Review all data to be added to PHIG. You can still edit before final confirmation."}
               </DialogDescription>
             </DialogHeader>
 
@@ -604,23 +684,88 @@ export default function DocumentsPage() {
             )}
 
             <div className="space-y-3">
-              {showDoctorField && (
-                <div className="space-y-1">
-                  <Label htmlFor="doctor_name">Doctor Name</Label>
-                  <Input
-                    id="doctor_name"
-                    value={doctorName}
-                    onChange={(e) => setDoctorName(e.target.value)}
-                    placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
-                  />
-                </div>
-              )}
+              {reviewStage === "targeted" ? (
+                <>
+                  {showDoctorField && (
+                    <div className="space-y-1">
+                      <Label htmlFor="doctor_name">Doctor Name</Label>
+                      <Input
+                        id="doctor_name"
+                        value={doctorName}
+                        onChange={(e) => setDoctorName(e.target.value)}
+                        placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
+                      />
+                    </div>
+                  )}
 
-              {(medicationFieldRequests.length > 0 || showManualMedicationRows) && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Medicines & Doses</p>
-                    {showManualMedicationRows && (
+                  {(medicationFieldRequests.length > 0 || showManualMedicationRows) && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Medicines & Doses</p>
+                        {showManualMedicationRows && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReviewMeds((prev) => [...prev, { name: "", dosage: "", frequency: "", dose_to_take: "" }])}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Row
+                          </Button>
+                        )}
+                      </div>
+
+                      {medicationFieldRequests.map((req) => {
+                        const labelMap: Record<keyof ReviewMedication, string> = {
+                          name: "Medicine Name",
+                          dosage: "Dosage (e.g., 500 mg)",
+                          frequency: "Frequency",
+                          dose_to_take: "Dose to Take",
+                        };
+                        const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
+                        return (
+                          <div key={req.key} className="space-y-1">
+                            <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
+                            <Input
+                              value={med[req.field] || ""}
+                              onChange={(e) => updateMedAt(req.index, req.field, e.target.value)}
+                              placeholder={lowConfidenceFieldSet.has(req.key) ? (reviewSuggestions[req.key] || "") : ""}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="rounded-lg p-3" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.22)" }}>
+                    <p className="text-xs font-medium" style={{ color: "var(--accent-emerald)" }}>
+                      Final payload preview: this is the data that will be added to PHIG after you confirm.
+                    </p>
+                  </div>
+
+                  {changedLowConfidenceFields.length > 0 && (
+                    <div className="rounded-lg p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                      <p className="text-xs font-medium" style={{ color: "var(--accent-amber)" }}>
+                        Reconfirm these edited low-confidence fields: {changedLowConfidenceFields.join(", ")}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <Label htmlFor="doctor_name_final">Doctor Name</Label>
+                    <Input
+                      id="doctor_name_final"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      placeholder=""
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>All Medicines & Doses</p>
                       <Button
                         type="button"
                         variant="outline"
@@ -630,54 +775,34 @@ export default function DocumentsPage() {
                         <Plus className="h-4 w-4 mr-1" />
                         Add Row
                       </Button>
-                    )}
-                  </div>
+                    </div>
 
-                  {medicationFieldRequests.map((req) => {
-                    const labelMap: Record<keyof ReviewMedication, string> = {
-                      name: "Medicine Name",
-                      dosage: "Dosage (e.g., 500 mg)",
-                      frequency: "Frequency",
-                      dose_to_take: "Dose to Take",
-                    };
-                    const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
-                    return (
-                      <div key={req.key} className="space-y-1">
-                        <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
+                    {reviewMeds.map((med, idx) => (
+                      <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Input
-                          value={med[req.field] || ""}
-                          onChange={(e) => updateMedAt(req.index, req.field, e.target.value)}
-                          placeholder={lowConfidenceFieldSet.has(req.key) ? (reviewSuggestions[req.key] || "") : ""}
+                          value={med.name || ""}
+                          onChange={(e) => updateMedAt(idx, "name", e.target.value)}
+                          placeholder="Medicine name"
+                        />
+                        <Input
+                          value={med.dosage || ""}
+                          onChange={(e) => updateMedAt(idx, "dosage", e.target.value)}
+                          placeholder="Dosage (e.g., 500 mg)"
+                        />
+                        <Input
+                          value={med.frequency || ""}
+                          onChange={(e) => updateMedAt(idx, "frequency", e.target.value)}
+                          placeholder="Frequency"
+                        />
+                        <Input
+                          value={med.dose_to_take || ""}
+                          onChange={(e) => updateMedAt(idx, "dose_to_take", e.target.value)}
+                          placeholder="Dose to take"
                         />
                       </div>
-                    );
-                  })}
-
-                  {showManualMedicationRows && reviewMeds.map((med, idx) => (
-                    <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <Input
-                        value={med.name || ""}
-                        onChange={(e) => updateMedAt(idx, "name", e.target.value)}
-                        placeholder=""
-                      />
-                      <Input
-                        value={med.dosage || ""}
-                        onChange={(e) => updateMedAt(idx, "dosage", e.target.value)}
-                        placeholder=""
-                      />
-                      <Input
-                        value={med.frequency || ""}
-                        onChange={(e) => updateMedAt(idx, "frequency", e.target.value)}
-                        placeholder=""
-                      />
-                      <Input
-                        value={med.dose_to_take || ""}
-                        onChange={(e) => updateMedAt(idx, "dose_to_take", e.target.value)}
-                        placeholder=""
-                      />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -689,9 +814,24 @@ export default function DocumentsPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={() => confirmMutation.mutate()} disabled={confirmMutation.isPending || !activeResult?.document_id}>
-                {confirmMutation.isPending ? "Confirming..." : "Confirm & Add to PHIG"}
-              </Button>
+              {reviewStage === "targeted" ? (
+                <Button onClick={proceedToFinalReview} disabled={!activeResult?.document_id}>
+                  Review Full Data
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReviewStage("targeted")}
+                    disabled={confirmMutation.isPending}
+                  >
+                    Back
+                  </Button>
+                  <Button onClick={() => confirmMutation.mutate()} disabled={confirmMutation.isPending || !activeResult?.document_id}>
+                    {confirmMutation.isPending ? "Confirming..." : "Final Confirm & Add to PHIG"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
