@@ -28,13 +28,16 @@ class TestCompletenessComponent:
         }
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()
-        assert abs(score - 66.7) < 1.0
+        # With condition-aware default expectations: meds=1, labs=1, screenings=0.
+        # Present only medication => 1/2 = 50%.
+        assert abs(score - 50.0) < 0.1
 
     def test_completeness_no_nodes(self):
         phig = {"nodes": []}
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()
-        assert score == 0.0
+        # No condition context means no expected missing clinical graph data.
+        assert score == 100.0
 
     def test_completeness_bonus_care_gap_nodes(self):
         phig = {
