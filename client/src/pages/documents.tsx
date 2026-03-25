@@ -94,6 +94,7 @@ export default function DocumentsPage() {
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
   const [reviewStage, setReviewStage] = useState<ReviewStage>("targeted");
+  const [targetedPage, setTargetedPage] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
@@ -110,15 +111,15 @@ export default function DocumentsPage() {
 
   const medicationFieldRequests = useMemo(() => {
     const requests: Array<{ index: number; field: keyof ReviewMedication; key: string }> = [];
-    for (const key of reviewFieldSet) {
+    reviewFieldSet.forEach((key) => {
       const match = key.match(/^medications\[(\d+)\]\.(name|dosage|frequency|dose_to_take)$/);
-      if (!match) continue;
+      if (!match) return;
       requests.push({
         index: Number(match[1]),
         field: match[2] as keyof ReviewMedication,
         key,
       });
-    }
+    });
     const fieldOrder: Record<keyof ReviewMedication, number> = {
       name: 0,
       dosage: 1,
@@ -147,6 +148,35 @@ export default function DocumentsPage() {
 
   const showDoctorField = reviewFieldSet.has("doctor_name");
   const showManualMedicationRows = reviewFieldSet.has("medications");
+
+  const targetedEntries = useMemo(
+    () => [
+      ...(showDoctorField ? [{ kind: "doctor" as const, key: "doctor_name" }] : []),
+      ...medicationFieldRequests.map((req) => ({ kind: "medication" as const, key: req.key, req })),
+    ],
+    [showDoctorField, medicationFieldRequests]
+  );
+
+  const TARGETED_PAGE_SIZE = 6;
+  const targetedTotalPages = Math.max(1, Math.ceil(targetedEntries.length / TARGETED_PAGE_SIZE));
+  const pagedTargetedEntries = useMemo(
+    () => targetedEntries.slice(targetedPage * TARGETED_PAGE_SIZE, (targetedPage + 1) * TARGETED_PAGE_SIZE),
+    [targetedEntries, targetedPage]
+  );
+
+  const highConfidenceDoctor = useMemo(() => {
+    if (reviewFieldSet.has("doctor_name")) return "";
+    return (reviewSuggestions["doctor_name"] || "").trim();
+  }, [reviewFieldSet, reviewSuggestions]);
+
+  const highConfidenceMeds = useMemo(() => {
+    const meds = activeResult?.extracted_review?.medications || [];
+    return meds.filter((_, idx) => {
+      const nameKey = `medications[${idx}].name`;
+      const dosageKey = `medications[${idx}].dosage`;
+      return !reviewFieldSet.has(nameKey) && !reviewFieldSet.has(dosageKey);
+    });
+  }, [activeResult, reviewFieldSet]);
 
   const resolvedPayload = useMemo(() => {
     const resolvedDoctor = (() => {
@@ -241,7 +271,12 @@ export default function DocumentsPage() {
     setReviewMeds(nextMeds);
     setMissingFields(reviewMissing);
     setLowConfidenceFields(reviewLow);
-    setReviewStage("targeted");
+    setTargetedPage(0);
+    if ((reviewMissing.length + reviewLow.length) > 0) {
+      setReviewStage("targeted");
+    } else {
+      setReviewStage("final");
+    }
   };
 
   const proceedToFinalReview = () => {
@@ -494,6 +529,7 @@ export default function DocumentsPage() {
       return;
     }
     setActiveReviewDocId(row.document_id);
+    setTargetedPage(0);
     loadReviewState(row.extracted_review);
   };
 
@@ -649,7 +685,7 @@ export default function DocumentsPage() {
         )}
 
         <Dialog open={Boolean(activeReviewDocId)} onOpenChange={(open) => { if (!open) setActiveReviewDocId(null); }}>
-          <DialogContent className="sm:max-w-2xl" data-testid="dialog-manual-review">
+          <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-hidden" data-testid="dialog-manual-review">
             <DialogHeader>
               <DialogTitle>{reviewStage === "targeted" ? "Resolve Missing / Low-Confidence Fields" : "Final Review Before PHIG Add"}</DialogTitle>
               <DialogDescription>
@@ -659,38 +695,80 @@ export default function DocumentsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            {missingFields.length > 0 && (
-              <div className="rounded-lg p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                <p className="text-xs font-medium" style={{ color: "var(--accent-amber)" }}>
-                  These fields require manual confirmation: {missingFields.join(", ")}
-                </p>
-              </div>
-            )}
+            <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: "64vh" }}>
+              {missingFields.length > 0 && (
+                <div className="rounded-lg p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <p className="text-xs font-medium" style={{ color: "var(--accent-amber)" }}>
+                    These fields require manual confirmation: {missingFields.join(", ")}
+                  </p>
+                </div>
+              )}
 
-            {lowConfidenceFields.length > 0 && (
-              <div className="rounded-lg p-3" style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>
-                <p className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>
-                  These fields were extracted with low confidence (&lt;60%). Confirm or edit: {lowConfidenceFields.join(", ")}
-                </p>
-              </div>
-            )}
+              {lowConfidenceFields.length > 0 && (
+                <div className="rounded-lg p-3" style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>
+                  <p className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>
+                    These fields were extracted with low confidence (&lt;60%). Confirm or edit: {lowConfidenceFields.join(", ")}
+                  </p>
+                </div>
+              )}
 
-            <div className="space-y-3">
+              {reviewStage === "targeted" && (highConfidenceDoctor || highConfidenceMeds.length > 0) && (
+                <div className="rounded-lg p-3" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.22)" }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: "var(--accent-emerald)" }}>
+                    High-confidence extracted data (already confirmed)
+                  </p>
+                  {highConfidenceDoctor && (
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      Doctor: <span style={{ color: "var(--text-primary)" }}>{highConfidenceDoctor}</span>
+                    </p>
+                  )}
+                  {highConfidenceMeds.length > 0 && (
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      Medicines: <span style={{ color: "var(--text-primary)" }}>{highConfidenceMeds.map((m) => `${m.name || "Unknown"}${m.dosage ? ` (${m.dosage})` : ""}`).join(", ")}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-3">
               {reviewStage === "targeted" ? (
                 <>
-                  {showDoctorField && (
-                    <div className="space-y-1">
-                      <Label htmlFor="doctor_name">Doctor Name</Label>
-                      <Input
-                        id="doctor_name"
-                        value={doctorName}
-                        onChange={(e) => setDoctorName(e.target.value)}
-                        placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
-                      />
-                    </div>
-                  )}
+                  {pagedTargetedEntries.map((entry) => {
+                    if (entry.kind === "doctor") {
+                      return (
+                        <div key={entry.key} className="space-y-1">
+                          <Label htmlFor="doctor_name">Doctor Name</Label>
+                          <Input
+                            id="doctor_name"
+                            value={doctorName}
+                            onChange={(e) => setDoctorName(e.target.value)}
+                            placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
+                          />
+                        </div>
+                      );
+                    }
 
-                  {(medicationFieldRequests.length > 0 || showManualMedicationRows) && (
+                    const req = entry.req;
+                    const labelMap: Record<keyof ReviewMedication, string> = {
+                      name: "Medicine Name",
+                      dosage: "Dosage (e.g., 500 mg)",
+                      frequency: "Frequency",
+                      dose_to_take: "Dose to Take",
+                    };
+                    const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
+                    return (
+                      <div key={req.key} className="space-y-1">
+                        <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
+                        <Input
+                          value={med[req.field] || ""}
+                          onChange={(e) => updateMedAt(req.index, req.field, e.target.value)}
+                          placeholder={lowConfidenceFieldSet.has(req.key) ? (reviewSuggestions[req.key] || "") : ""}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {(targetedEntries.length === 0 || showManualMedicationRows) && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Medicines & Doses</p>
@@ -706,26 +784,6 @@ export default function DocumentsPage() {
                           </Button>
                         )}
                       </div>
-
-                      {medicationFieldRequests.map((req) => {
-                        const labelMap: Record<keyof ReviewMedication, string> = {
-                          name: "Medicine Name",
-                          dosage: "Dosage (e.g., 500 mg)",
-                          frequency: "Frequency",
-                          dose_to_take: "Dose to Take",
-                        };
-                        const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
-                        return (
-                          <div key={req.key} className="space-y-1">
-                            <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
-                            <Input
-                              value={med[req.field] || ""}
-                              onChange={(e) => updateMedAt(req.index, req.field, e.target.value)}
-                              placeholder={lowConfidenceFieldSet.has(req.key) ? (reviewSuggestions[req.key] || "") : ""}
-                            />
-                          </div>
-                        );
-                      })}
                     </div>
                   )}
                 </>
@@ -796,6 +854,7 @@ export default function DocumentsPage() {
                   </div>
                 </>
               )}
+              </div>
             </div>
 
             <DialogFooter>
@@ -807,14 +866,35 @@ export default function DocumentsPage() {
                 Cancel
               </Button>
               {reviewStage === "targeted" ? (
-                <Button onClick={proceedToFinalReview} disabled={!activeResult?.document_id}>
-                  Review Full Data
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setTargetedPage((prev) => Math.max(prev - 1, 0))}
+                    disabled={targetedPage === 0}
+                  >
+                    Previous
+                  </Button>
+                  {targetedPage < targetedTotalPages - 1 ? (
+                    <Button
+                      onClick={() => setTargetedPage((prev) => Math.min(prev + 1, targetedTotalPages - 1))}
+                      disabled={!activeResult?.document_id}
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button onClick={proceedToFinalReview} disabled={!activeResult?.document_id}>
+                      Review Full Data
+                    </Button>
+                  )}
+                </>
               ) : (
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => setReviewStage("targeted")}
+                    onClick={() => {
+                      setReviewStage("targeted");
+                      setTargetedPage(0);
+                    }}
                     disabled={confirmMutation.isPending}
                   >
                     Back
