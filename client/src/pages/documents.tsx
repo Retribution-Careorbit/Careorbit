@@ -52,6 +52,49 @@ interface ArchitectureCompliance {
 
 type ReviewStage = "targeted" | "final";
 
+const FREQUENCY_CANONICAL: Record<string, string> = {
+  "od": "od",
+  "once daily": "once daily",
+  "1 time a day": "once daily",
+  "1 times a day": "once daily",
+  "once a day": "once daily",
+  "daily": "daily",
+  "bd": "bd",
+  "bid": "bid",
+  "twice daily": "twice daily",
+  "2 times a day": "twice daily",
+  "2x/day": "twice daily",
+  "tds": "tds",
+  "tid": "tid",
+  "three times daily": "three times daily",
+  "3 times a day": "three times daily",
+  "qid": "qid",
+  "four times daily": "qid",
+  "4 times a day": "qid",
+  "qhs": "qhs",
+  "q4h": "q4h",
+  "q6h": "q6h",
+  "q8h": "q8h",
+  "weekly": "weekly",
+  "monthly": "monthly",
+  "am": "am",
+  "pm": "pm",
+  "prn": "prn",
+  "sos": "sos",
+  "stat": "stat",
+  "": "",
+};
+
+const normalizeFrequency = (value: string): string => {
+  const raw = (value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (FREQUENCY_CANONICAL[raw] !== undefined) {
+    return FREQUENCY_CANONICAL[raw];
+  }
+  // Unknown free-text frequency is cleared so validation gate does not reject it.
+  return "";
+};
+
 export default function DocumentsPage() {
   const [results, setResults] = useState<UploadResult[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -152,7 +195,7 @@ export default function DocumentsPage() {
       return {
         name: resolveField("name"),
         dosage: resolveField("dosage"),
-        frequency: resolveField("frequency"),
+        frequency: normalizeFrequency(resolveField("frequency")),
         dose_to_take: resolveField("dose_to_take"),
       };
     });
@@ -292,6 +335,25 @@ export default function DocumentsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data?.detail?.error === "post_confirmation_validation_gate_failed") {
+          const rejections = Array.isArray(data?.detail?.rejections) ? data.detail.rejections : [];
+          const unsupportedByName = new Set(
+            rejections
+              .filter((r: any) => Array.isArray(r?.reasons) && r.reasons.includes("unsupported_frequency"))
+              .map((r: any) => String(r?.name || "").trim().toLowerCase())
+              .filter((v: string) => !!v)
+          );
+          if (unsupportedByName.size > 0) {
+            const frequencyKeys = reviewMeds
+              .map((m, idx) => ({ idx, name: String(m.name || "").trim().toLowerCase() }))
+              .filter((row) => unsupportedByName.has(row.name))
+              .map((row) => `medications[${row.idx}].frequency`);
+            if (frequencyKeys.length > 0) {
+              setReviewStage("targeted");
+              setMissingFields((prev) => Array.from(new Set([...prev, ...frequencyKeys])));
+            }
+          }
+        }
         throw new Error(formatConfirmError(data));
       }
       return data;
