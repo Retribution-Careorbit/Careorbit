@@ -4,7 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/animations";
 import { OrbitScoreBadge } from "@/components/orbit-score-floater";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Languages, Volume2, Square } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
@@ -23,16 +23,96 @@ interface NotificationsResponse {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [readLang, setReadLang] = useState<"en" | "hi">("en");
+  const [isReading, setIsReading] = useState(false);
+  const [isPreparingSpeech, setIsPreparingSpeech] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
     return () => window.clearTimeout(t);
   }, [searchInput]);
+
+  useEffect(() => {
+    const savedLang = window.localStorage.getItem("careorbit.voice.lang");
+    if (savedLang === "en" || savedLang === "hi") {
+      setReadLang(savedLang);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("careorbit.voice.lang", readLang);
+  }, [readLang]);
+
+  useEffect(() => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsReading(false);
+  }, [location]);
+
+  useEffect(() => {
+    return () => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const getPageReadableText = () => {
+    const pageRoot = document.querySelector(".page-content");
+    const raw = pageRoot?.textContent || "";
+    return raw.replace(/\s+/g, " ").trim().slice(0, 5000);
+  };
+
+  const speakPage = async () => {
+    if (!("speechSynthesis" in window)) return;
+
+    if (isReading || isPreparingSpeech) {
+      window.speechSynthesis.cancel();
+      setIsReading(false);
+      setIsPreparingSpeech(false);
+      return;
+    }
+
+    const pageText = getPageReadableText();
+    if (!pageText) return;
+
+    setIsPreparingSpeech(true);
+    let speechText = pageText;
+
+    if (readLang === "hi") {
+      try {
+        const res = await apiRequest("POST", "/api/system/translate", {
+          text: pageText,
+          target_lang: "hi",
+          source_lang: "en",
+        });
+        const data = await res.json();
+        if (typeof data?.translated_text === "string" && data.translated_text.trim()) {
+          speechText = data.translated_text.trim();
+        }
+      } catch {
+        speechText = pageText;
+      }
+    }
+
+    setIsPreparingSpeech(false);
+
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = readLang === "hi" ? "hi-IN" : "en-IN";
+    utterance.rate = 0.95;
+    utterance.onstart = () => setIsReading(true);
+    utterance.onend = () => setIsReading(false);
+    utterance.onerror = () => setIsReading(false);
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
 
   const { data: searchData } = useQuery<SearchResponse>({
     queryKey: ["/api/system/search", debouncedSearch],
@@ -128,6 +208,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={() => setReadLang((l) => (l === "en" ? "hi" : "en"))}
+              aria-label={`Switch voice language. Current: ${readLang === "en" ? "English" : "Hindi"}`}
+              data-testid="button-global-voice-language"
+            >
+              <Languages className="h-[18px] w-[18px]" style={{ color: "var(--text-secondary)" }} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              onClick={speakPage}
+              aria-label={isReading || isPreparingSpeech ? "Stop reading page" : "Read page"}
+              data-testid="button-global-read-page"
+            >
+              {isReading || isPreparingSpeech ? (
+                <Square className="h-[18px] w-[18px]" style={{ color: "var(--accent-rose)" }} />
+              ) : (
+                <Volume2 className="h-[18px] w-[18px]" style={{ color: "var(--text-secondary)" }} />
+              )}
+            </Button>
 
             <Button
               variant="ghost"

@@ -10,6 +10,7 @@ from api.routes.orbit import _appointments_store
 from api.routes.reminders import _reminders_store
 from db.runtime_store import get_patient_documents, get_notifications, mark_notifications_read
 from config import get_settings
+from services.azure_translator import AzureTranslatorService
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 logger = logging.getLogger("careorbit.routes.system")
@@ -17,6 +18,12 @@ logger = logging.getLogger("careorbit.routes.system")
 
 class MarkReadRequest(BaseModel):
     ids: list[str] | None = None
+
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: str
+    source_lang: str | None = None
 
 
 @router.get("/architecture/compliance")
@@ -262,6 +269,62 @@ async def global_search(request: Request):
             })
 
     return {"query": query, "results": results[:12]}
+
+
+@router.post("/translate")
+async def translate_text(request: Request, payload: TranslateRequest):
+    current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
+
+    text = (payload.text or "").strip()
+    target_lang = (payload.target_lang or "en").strip().lower()
+    source_lang = (payload.source_lang or "").strip().lower() or None
+
+    if not text:
+        return {
+            "translated_text": "",
+            "detected_language": source_lang or "unknown",
+            "confidence": 0.0,
+            "provider_status": "empty_input",
+            "error_code": None,
+            "translation_used": False,
+        }
+
+    if target_lang not in {"en", "hi"}:
+        target_lang = "en"
+
+    translator = AzureTranslatorService()
+
+    try:
+        result = await translator.translate_with_metadata(text=text, target_lang=target_lang, source_lang=source_lang)
+        return {
+            "translated_text": result.translated_text,
+            "detected_language": result.detected_language,
+            "confidence": result.confidence,
+            "provider_status": result.provider_status,
+            "error_code": result.error_code,
+            "translation_used": result.provider_status == "ok",
+        }
+    except NotImplementedError:
+        return {
+            "translated_text": text,
+            "detected_language": source_lang or "unknown",
+            "confidence": 0.0,
+            "provider_status": "not_configured",
+            "error_code": "translator_not_configured",
+            "translation_used": False,
+        }
+    except Exception:
+        logger.exception("System translation failed")
+        return {
+            "translated_text": text,
+            "detected_language": source_lang or "unknown",
+            "confidence": 0.0,
+            "provider_status": "error",
+            "error_code": "translation_failed",
+            "translation_used": False,
+        }
 
 
 @router.get("/notifications")
