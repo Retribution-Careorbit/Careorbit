@@ -7,7 +7,14 @@ import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { FadeIn } from "@/components/animations";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Globe, AlertTriangle, Lightbulb } from "lucide-react";
+import { Send, Bot, User, Globe, AlertTriangle, Lightbulb, Volume2, Square, Mic } from "lucide-react";
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: any;
+    SpeechRecognition?: any;
+  }
+}
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -24,12 +31,29 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState<"en" | "hi">("en");
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
+
+  const supportsSpeechSynthesis = typeof window !== "undefined" && "speechSynthesis" in window;
+  const supportsSpeechRecognition = typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (supportsSpeechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [supportsSpeechSynthesis]);
 
   const chatMutation = useMutation({
     mutationFn: async (body: { message: string; language: string }) => {
@@ -73,6 +97,69 @@ export default function ChatPage() {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const resolveSpeechLang = (lang: string | undefined) => {
+    if (lang === "hi") return "hi-IN";
+    return "en-IN";
+  };
+
+  const speakMessage = (content: string, msgLang: string | undefined, index: number) => {
+    if (!supportsSpeechSynthesis) {
+      toast({ title: "Voice unavailable", description: "Text-to-speech is not supported in this browser." });
+      return;
+    }
+
+    if (speakingIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(content);
+    utterance.lang = resolveSpeechLang(msgLang || language);
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => {
+      setSpeakingIndex(null);
+      toast({ title: "Voice playback failed", description: "Could not play assistant voice response.", variant: "destructive" });
+    };
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const startVoiceInput = () => {
+    if (!supportsSpeechRecognition) {
+      toast({ title: "Voice unavailable", description: "Speech recognition is not supported in this browser." });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new RecognitionCtor();
+    recognition.lang = resolveSpeechLang(language);
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast({ title: "Voice input failed", description: "Could not capture voice. Please try again.", variant: "destructive" });
+    };
+    recognition.onresult = (event: any) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || "";
+      if (!transcript) return;
+      setInput(transcript);
+      toast({ title: "Voice captured", description: "Review and send your transcribed message." });
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   return (
@@ -192,6 +279,19 @@ export default function ChatPage() {
                               {msg.care_gaps.length} care gap(s)
                             </div>
                           )}
+                          <div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px]"
+                              onClick={() => speakMessage(msg.content, msg.language, i)}
+                              data-testid={`button-voice-read-${i}`}
+                            >
+                              {speakingIndex === i ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />}
+                              {speakingIndex === i ? "Stop Voice" : "Play Voice"}
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -232,6 +332,22 @@ export default function ChatPage() {
             style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-surface)" }}
           >
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={startVoiceInput}
+                className="h-11 w-11 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
+                style={{
+                  background: isListening
+                    ? "linear-gradient(135deg, var(--accent-rose), color-mix(in srgb, var(--accent-rose) 80%, var(--accent-amber)))"
+                    : "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                  color: isListening ? "white" : "var(--text-secondary)",
+                }}
+                aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                data-testid="button-voice-input"
+              >
+                {isListening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
               <input
                 type="text"
                 placeholder={language === "en" ? "Type your health question..." : "अपना स्वास्थ्य प्रश्न टाइप करें..."}

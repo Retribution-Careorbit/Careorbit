@@ -546,12 +546,12 @@ export default function TestCasesPage() {
 
   const categories = useMemo(() => {
     if (!data) return [];
-    return [...new Set(data.tests.map((t) => t.category))].sort();
+    return Array.from(new Set(data.tests.map((t) => t.category))).sort();
   }, [data]);
 
   const featureAreas = useMemo(() => {
     if (!data) return [];
-    return [...new Set(data.tests.map((t) => t.feature_area))].sort();
+    return Array.from(new Set(data.tests.map((t) => t.feature_area))).sort();
   }, [data]);
 
   const filtered = useMemo(() => {
