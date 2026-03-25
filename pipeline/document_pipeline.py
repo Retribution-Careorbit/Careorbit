@@ -131,7 +131,9 @@ class DocumentPipeline:
                 patient_id=patient_id,
             )
         except (NotImplementedError, Exception):
-            if self._settings.DOCUMENTS_REQUIRE_BLOB_DURABILITY:
+            environment = str(getattr(self._settings, "ENVIRONMENT", "development") or "development").strip().lower()
+            strict_blob_required = bool(self._settings.DOCUMENTS_REQUIRE_BLOB_DURABILITY) and environment in {"production", "prod"}
+            if strict_blob_required:
                 return DocumentProcessingResult(
                     document_id=f"doc-{patient_id}",
                     document_type=doc_type,
@@ -140,7 +142,7 @@ class DocumentPipeline:
                     processing_time_ms=int((time.time() - start) * 1000),
                     extracted_data={"source_blob_url": None},
                 )
-            # Local/dev or explicitly non-strict mode: continue with in-memory bytes.
+            # Non-production: continue with in-memory bytes using controlled degraded mode.
             blob_url = None
 
         try:
