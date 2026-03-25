@@ -68,6 +68,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [showEntrySummary, setShowEntrySummary] = useState(false);
   const [showPopupSummary, setShowPopupSummary] = useState(false);
   const lastDialogSignatureRef = useRef("");
+  const translatedNodesRef = useRef(new WeakSet<Text>());
+  const translationCacheRef = useRef(new Map<string, string>());
+  const uiTranslateBusyRef = useRef(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
@@ -149,6 +152,99 @@ export function Layout({ children }: { children: React.ReactNode }) {
     window.speechSynthesis.speak(utterance);
   };
 
+  const collectTranslatableNodes = () => {
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const textNode = node as Text;
+        const raw = textNode.textContent || "";
+        if (!raw.trim()) return NodeFilter.FILTER_REJECT;
+        if (translatedNodesRef.current.has(textNode)) return NodeFilter.FILTER_REJECT;
+        const parent = textNode.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        const tag = parent.tagName;
+        if (["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT", "OPTION"].includes(tag)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (parent.closest("[data-no-translate='true']")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (parent.closest("[role='dialog']") || parent.closest("[role='alertdialog']")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current as Text);
+      current = walker.nextNode();
+    }
+    return nodes;
+  };
+
+  const applyTranslationToNode = (node: Text, translated: string) => {
+    const raw = node.textContent || "";
+    const leading = (raw.match(/^\s*/) || [""])[0];
+    const trailing = (raw.match(/\s*$/) || [""])[0];
+    node.textContent = `${leading}${translated}${trailing}`;
+    translatedNodesRef.current.add(node);
+  };
+
+  const localizeVisibleUi = async () => {
+    if (preferredLanguage === "en") return;
+    if (uiTranslateBusyRef.current) return;
+    uiTranslateBusyRef.current = true;
+
+    try {
+      const nodes = collectTranslatableNodes();
+      if (!nodes.length) return;
+
+      const pending = new Map<string, Text[]>();
+      for (const node of nodes) {
+        const key = (node.textContent || "").replace(/\s+/g, " ").trim();
+        if (!key) continue;
+        const cached = translationCacheRef.current.get(key);
+        if (cached) {
+          applyTranslationToNode(node, cached);
+          continue;
+        }
+        const list = pending.get(key) || [];
+        list.push(node);
+        pending.set(key, list);
+      }
+
+      const keys = Array.from(pending.keys());
+      const chunkSize = 30;
+
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        const chunk = keys.slice(i, i + chunkSize);
+        try {
+          const res = await apiRequest("POST", "/api/system/translate", {
+            texts: chunk,
+            target_lang: preferredLanguage,
+            source_lang: "en",
+          });
+          const data = await res.json();
+          const translated: string[] = Array.isArray(data?.translated_texts) ? data.translated_texts : [];
+
+          chunk.forEach((original, idx) => {
+            const localized = (translated[idx] || original).trim();
+            translationCacheRef.current.set(original, localized);
+            (pending.get(original) || []).forEach((node) => applyTranslationToNode(node, localized));
+          });
+        } catch {
+          chunk.forEach((original) => {
+            (pending.get(original) || []).forEach((node) => translatedNodesRef.current.add(node));
+          });
+        }
+      }
+    } finally {
+      uiTranslateBusyRef.current = false;
+    }
+  };
+
   const speakPage = async () => {
     if (!("speechSynthesis" in window)) return;
 
@@ -227,6 +323,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [location, preferredLanguage]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      localizeVisibleUi();
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [location, preferredLanguage]);
+
+  useEffect(() => {
     const observer = new MutationObserver(async () => {
       const dialog = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') as HTMLElement | null;
       if (!dialog) return;
@@ -243,6 +346,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       setPopupSummary(localized);
       setShowPopupSummary(true);
       speakText(localized, preferredLanguage);
+
+      window.setTimeout(() => {
+        localizeVisibleUi();
+      }, 50);
     });
 
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -416,7 +523,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           {showEntrySummary && entrySummary && (
-            <div className="px-8 lg:px-10 pt-4" style={{ maxWidth: 1280, margin: "0 auto" }}>
+            <div className="px-8 lg:px-10 pt-4" style={{ maxWidth: 1280, margin: "0 auto" }} data-no-translate="true">
               <div className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ border: "1px solid var(--border-default)", background: "var(--bg-elevated)" }}>
                 <div className="flex items-start gap-2">
                   <Sparkles className="h-4 w-4 mt-0.5" style={{ color: "var(--accent-cyan)" }} />
@@ -430,7 +537,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
 
           {showPopupSummary && popupSummary && (
-            <div className="fixed bottom-5 right-5 z-40 w-[min(90vw,420px)]" data-testid="card-native-popup-summary">
+            <div className="fixed bottom-5 right-5 z-40 w-[min(90vw,420px)]" data-testid="card-native-popup-summary" data-no-translate="true">
               <div className="rounded-xl p-3 shadow-lg" style={{ border: "1px solid var(--border-default)", background: "var(--bg-elevated)" }}>
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>Popup Summary ({preferredLanguage.toUpperCase()})</p>

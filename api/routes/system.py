@@ -21,7 +21,8 @@ class MarkReadRequest(BaseModel):
 
 
 class TranslateRequest(BaseModel):
-    text: str
+    text: str | None = None
+    texts: list[str] | None = None
     target_lang: str
     source_lang: str | None = None
 
@@ -278,12 +279,14 @@ async def translate_text(request: Request, payload: TranslateRequest):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
     text = (payload.text or "").strip()
+    texts = [str(t or "").strip() for t in (payload.texts or []) if str(t or "").strip()]
     target_lang = (payload.target_lang or "en").strip().lower()
     source_lang = (payload.source_lang or "").strip().lower() or None
 
-    if not text:
+    if not text and not texts:
         return {
             "translated_text": "",
+            "translated_texts": [],
             "detected_language": source_lang or "unknown",
             "confidence": 0.0,
             "provider_status": "empty_input",
@@ -297,9 +300,38 @@ async def translate_text(request: Request, payload: TranslateRequest):
     translator = AzureTranslatorService()
 
     try:
+        if texts:
+            translated_texts: list[str] = []
+            detected_language = source_lang or "unknown"
+            confidence = 0.0
+            provider_status = "ok"
+            error_code = None
+            used = False
+
+            for item in texts:
+                result = await translator.translate_with_metadata(text=item, target_lang=target_lang, source_lang=source_lang)
+                translated_texts.append(result.translated_text)
+                detected_language = result.detected_language
+                confidence = max(confidence, result.confidence)
+                if result.provider_status != "ok":
+                    provider_status = result.provider_status
+                    error_code = result.error_code
+                used = used or (result.provider_status == "ok")
+
+            return {
+                "translated_text": translated_texts[0] if translated_texts else "",
+                "translated_texts": translated_texts,
+                "detected_language": detected_language,
+                "confidence": confidence,
+                "provider_status": provider_status,
+                "error_code": error_code,
+                "translation_used": used,
+            }
+
         result = await translator.translate_with_metadata(text=text, target_lang=target_lang, source_lang=source_lang)
         return {
             "translated_text": result.translated_text,
+            "translated_texts": [result.translated_text],
             "detected_language": result.detected_language,
             "confidence": result.confidence,
             "provider_status": result.provider_status,
@@ -309,6 +341,7 @@ async def translate_text(request: Request, payload: TranslateRequest):
     except NotImplementedError:
         return {
             "translated_text": text,
+            "translated_texts": texts if texts else ([text] if text else []),
             "detected_language": source_lang or "unknown",
             "confidence": 0.0,
             "provider_status": "not_configured",
@@ -319,6 +352,7 @@ async def translate_text(request: Request, payload: TranslateRequest):
         logger.exception("System translation failed")
         return {
             "translated_text": text,
+            "translated_texts": texts if texts else ([text] if text else []),
             "detected_language": source_lang or "unknown",
             "confidence": 0.0,
             "provider_status": "error",
