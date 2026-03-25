@@ -108,3 +108,30 @@ def test_chat_query_defaults_metadata_when_orchestrator_has_no_response_metadata
     assert body["source_language"] == "en"
     assert body["safety_interventions_applied"] == []
     assert body["confidence_warning"] is None
+
+
+def test_chat_query_returns_503_with_dependency_contract(monkeypatch):
+    failures = [
+        {
+            "service": "azure_translator",
+            "operation": "translate_to_english",
+            "reason": "Translator unavailable for non-English request",
+        }
+    ]
+
+    async def _dependency_unavailable(patient_id, message, language):
+        raise chat_mod.AzureDependencyUnavailable(failures)
+
+    monkeypatch.setattr(chat_mod.orchestrator, "process_query", _dependency_unavailable)
+
+    response = client.post("/api/chat/query", json={"message": "Meri dawa", "language": "hi"})
+    assert response.status_code == 503
+    body = response.json()
+
+    assert "detail" in body
+    detail = body["detail"]
+    assert detail["error"] == "azure_dependencies_unavailable"
+    assert isinstance(detail.get("trace_id"), str) and detail["trace_id"]
+    assert detail["degraded_mode"] is False
+    assert isinstance(detail["dependencies"], list)
+    assert detail["dependencies"][0]["service"] == "azure_translator"
