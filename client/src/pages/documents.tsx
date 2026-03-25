@@ -271,6 +271,53 @@ export default function DocumentsPage() {
   const formatConfirmError = (data: any): string => {
     const detail = data?.detail;
     if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (detail && typeof detail === "object") {
+      if (detail.error === "post_confirmation_validation_failed") {
+        const fields = Array.isArray(detail.missing_fields) ? detail.missing_fields.join(", ") : "required fields";
+        return `Please fill required fields: ${fields}.`;
+      }
+      if (detail.error === "post_confirmation_validation_gate_failed") {
+        const first = Array.isArray(detail.rejections) ? detail.rejections[0] : null;
+        const reasons = Array.isArray(first?.reasons) ? first.reasons.join(", ") : "validation failed";
+        const med = first?.name ? ` for ${first.name}` : "";
+        return `Medication validation failed${med}: ${reasons}. Example dosage: 500 mg.`;
+      }
+      if (detail.error === "phig_consistency_failed_after_write") {
+        return "PHIG consistency check failed after confirmation. Please try again.";
+      }
+    }
+    if (typeof data?.error_message === "string" && data.error_message.trim()) {
+      return data.error_message;
+    }
+    return "Failed to confirm extracted data";
+  };
+
+  const confirmMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeReviewDocId) {
+        throw new Error("No active review selected");
+      }
+      const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          doctor_name: resolvedPayload.doctor_name,
+          medications: resolvedPayload.medications,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data?.detail?.error === "post_confirmation_validation_gate_failed") {
+          const rejections = Array.isArray(data?.detail?.rejections) ? data.detail.rejections : [];
+          const unsupportedByName = new Set(
+            rejections
+              .filter((r: any) => Array.isArray(r?.reasons) && r.reasons.includes("unsupported_frequency"))
+              .map((r: any) => String(r?.name || "").trim().toLowerCase())
               .filter((v: string) => !!v)
           );
           if (unsupportedByName.size > 0) {
