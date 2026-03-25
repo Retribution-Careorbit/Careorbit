@@ -1,11 +1,17 @@
 import logging
 import re
+import asyncio
+from dataclasses import asdict, is_dataclass
 
 from config import get_settings
 from services.azure_openai import AzureOpenAIService
 from services.azure_search import AzureSearchService
 from services.azure_translator import AzureTranslatorService
 from graph.phig_builder import phig_builder
+from agents.medication_agent import MedicationAgent
+from agents.care_gap_agent import CareGapAgent
+from agents.history_agent import GraphHistoryAgent
+from db.session import async_session as db_session
 
 openai_service = AzureOpenAIService()
 search_service = AzureSearchService()
@@ -105,6 +111,107 @@ class Orchestrator:
             "labs": labs if isinstance(labs, list) else [],
             "care_gaps": care_gaps if isinstance(care_gaps, list) else [],
             "interactions": self._dedupe_interactions(interactions),
+        }
+
+    @staticmethod
+    def _result_to_dict(value):
+        if is_dataclass(value):
+            return asdict(value)
+        if isinstance(value, dict):
+            return value
+        return {"value": value}
+
+    async def _run_selected_agents(self, patient_id: str, agents_used: list[str], language: str) -> dict:
+        jobs = []
+        labels = []
+
+        if "medication_agent" in agents_used:
+            labels.append("medication_agent")
+            jobs.append(
+                MedicationAgent(
+                    patient_id=patient_id,
+                    requesting_user_id=patient_id,
+                    search_client=self._search,
+                ).run()
+            )
+
+        if "care_gap_agent" in agents_used:
+            labels.append("care_gap_agent")
+            jobs.append(
+                CareGapAgent(
+                    patient_id=patient_id,
+                    requesting_user_id=patient_id,
+                    search_client=self._search,
+                ).run()
+            )
+
+        if "history_agent" in agents_used:
+            labels.append("history_agent")
+            jobs.append(
+                GraphHistoryAgent(
+                    openai_client=self._openai,
+                    translator=self._translator,
+                ).run(patient_id=patient_id, language=language or "en")
+            )
+
+        if not jobs:
+            return {
+                "interactions": [],
+                "care_gaps": [],
+                "history": None,
+                "failures": [],
+            }
+
+        results = await asyncio.gather(*jobs, return_exceptions=True)
+
+        interactions = []
+        care_gaps = []
+        history = None
+        failures = []
+
+        for idx, result in enumerate(results):
+            label = labels[idx]
+            if isinstance(result, Exception):
+                failures.append({"agent": label, "reason": str(result)})
+                continue
+
+            if label == "medication_agent":
+                for item in result or []:
+                    data = self._result_to_dict(item)
+                    interactions.append(
+                        {
+                            "drug_pair": f"{data.get('drug1_name', '')} + {data.get('drug2_name', '')}".strip(" +"),
+                            "severity": data.get("escalated_severity") or data.get("base_severity") or "",
+                            "description": data.get("description") or "",
+                            "recommendation": data.get("recommendation") or "",
+                            "source": data.get("source") or "curated_rag",
+                            "metadata": data.get("metadata") or {},
+                        }
+                    )
+
+            elif label == "care_gap_agent":
+                for item in result or []:
+                    data = self._result_to_dict(item)
+                    care_gaps.append(
+                        {
+                            "condition": data.get("condition") or "",
+                            "screening": data.get("screening") or "",
+                            "name": data.get("screening") or "Care gap",
+                            "overdue_years": data.get("overdue_years") or 0,
+                            "guideline": data.get("guideline") or "",
+                            "recommendation": data.get("recommendation") or "",
+                            "metadata": data.get("metadata") or {},
+                        }
+                    )
+
+            elif label == "history_agent":
+                history = self._result_to_dict(result)
+
+        return {
+            "interactions": interactions,
+            "care_gaps": care_gaps,
+            "history": history,
+            "failures": failures,
         }
 
     def _build_grounded_text(self, query: str, phig: dict) -> str:
@@ -249,11 +356,17 @@ class Orchestrator:
 
         agents_used = self._route_to_agents(query)
 
+        agent_outputs = await self._run_selected_agents(patient_id=patient_id, agents_used=agents_used, language=language)
+
         phig = await self._collect_phig_context(patient_id)
         grounded_text = self._build_grounded_text(query, phig)
 
         guidelines = []
         interactions = list(phig.get("interactions", []))
+        interactions.extend(agent_outputs.get("interactions", []))
+        interactions = self._dedupe_interactions(interactions)
+        computed_care_gaps = list(phig.get("care_gaps", []))
+        computed_care_gaps.extend(agent_outputs.get("care_gaps", []))
         ai_response = None
 
         try:
@@ -299,7 +412,8 @@ class Orchestrator:
                         f"Medications: {phig.get('medications', [])}\n"
                         f"Conditions: {phig.get('conditions', [])}\n"
                         f"Labs: {phig.get('labs', [])}\n"
-                        f"Care gaps: {phig.get('care_gaps', [])}\n"
+                        f"Care gaps: {computed_care_gaps}\n"
+                        f"History delta: {agent_outputs.get('history') or {}}\n"
                         f"Interaction alerts: {interactions}\n"
                         "Return concise, actionable guidance.")
                 },
@@ -327,15 +441,23 @@ class Orchestrator:
             response_text = grounded_text
             confidence = 0.72
 
+        history = agent_outputs.get("history") or {}
+        narrative = str(history.get("narrative_text") or "").strip()
+        if narrative:
+            response_text = f"{response_text}\n\nHistory narrative: {narrative}"
+
         if language and language != "en":
             response_text = await self._translate_best_effort(response_text, language)
+
+        for failure in agent_outputs.get("failures", []):
+            logger.info(f"Agent execution skipped: {failure}")
 
         return OrchestratorResponse(
             message=response_text,
             language=language,
             agents_used=agents_used,
             alerts=interactions if isinstance(interactions, list) else [],
-            care_gaps=(guidelines if isinstance(guidelines, list) and guidelines else phig.get("care_gaps", [])),
+            care_gaps=(guidelines if isinstance(guidelines, list) and guidelines else computed_care_gaps),
             confidence=confidence,
         )
 

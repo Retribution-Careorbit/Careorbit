@@ -1,6 +1,8 @@
 from services.azure_openai import AzureOpenAIService
 from services.azure_translator import AzureTranslatorService
 from db.session import async_session as db_session
+from graph.phig_builder import phig_builder
+from agents.contracts import HistoryDeltaResult
 
 openai_service = AzureOpenAIService()
 translator_service = AzureTranslatorService()
@@ -79,3 +81,82 @@ class HistoryAgent:
 
     async def generate_living_narrative(self, patient_id, patient_name, phig_nodes, trigger_event, language="en"):
         return await generate_living_narrative(patient_id, patient_name, phig_nodes, trigger_event, language)
+
+
+class GraphHistoryAgent:
+    """Traverse current PHIG state and produce deterministic narrative deltas."""
+
+    def __init__(self, openai_client=None, translator=None):
+        import sys
+
+        mod = sys.modules[__name__]
+        self._openai = openai_client or mod.openai_service
+        self._translator = translator or mod.translator_service
+
+    @staticmethod
+    def _build_delta(phig: dict) -> str:
+        lines = []
+
+        meds = phig.get("medications", []) or []
+        labs = phig.get("labs", []) or []
+        interactions = phig.get("interactions", []) or []
+        care_gaps = phig.get("care_gaps", []) or []
+
+        for med in meds[:6]:
+            name = med.get("name") or "Unknown"
+            dosage = med.get("dosage") or ""
+            lines.append(f"Medication active: {name} {dosage}".strip())
+
+        for lab in labs[:6]:
+            name = lab.get("name") or "Unknown"
+            value = lab.get("value")
+            unit = lab.get("unit") or ""
+            lines.append(f"Lab observed: {name} = {value} {unit}".strip())
+
+        for ix in interactions[:6]:
+            pair = ix.get("drug_pair") or "Unknown pair"
+            sev = ix.get("severity") or "unknown"
+            lines.append(f"Interaction: {pair} severity {sev}")
+
+        for gap in care_gaps[:6]:
+            name = gap.get("name") or gap.get("screening") or "Care gap"
+            lines.append(f"Care gap: {name}")
+
+        if not lines:
+            return "No significant PHIG changes detected."
+        return "; ".join(lines)
+
+    async def run(self, patient_id: str, language: str = "en") -> HistoryDeltaResult:
+        phig = await phig_builder.get_full_patient_graph(patient_id)
+        delta_summary = self._build_delta(phig if isinstance(phig, dict) else {})
+
+        narrative_text = delta_summary
+        try:
+            ai_text = await self._openai.chat(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Rewrite the PHIG delta into 2-3 concise, factual lines. "
+                            "Use only provided facts. Do not invent clinical details."
+                        ),
+                    },
+                    {"role": "user", "content": f"PHIG delta: {delta_summary}"},
+                ]
+            )
+            if isinstance(ai_text, str) and ai_text.strip():
+                narrative_text = ai_text.strip()
+        except Exception:
+            narrative_text = delta_summary
+
+        if language and language != "en":
+            try:
+                narrative_text = await self._translator.translate(narrative_text, language)
+            except Exception:
+                pass
+
+        return HistoryDeltaResult(
+            delta_summary=delta_summary,
+            narrative_text=narrative_text,
+            language=language or "en",
+        )
