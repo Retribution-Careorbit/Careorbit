@@ -74,7 +74,8 @@ async def test_validation_gate_rejects_implausible_or_mismatched_lab_result():
     )
 
     assert decision.accepted is False
-    assert "insufficient_source_agreement" in decision.reasons
+    assert decision.agreement_count == 2
+    assert "insufficient_source_agreement" not in decision.reasons
     assert "unsupported_lab_unit" in decision.reasons
     assert "loinc_mismatch" in decision.reasons
     assert "implausible_lab_value" in decision.reasons
