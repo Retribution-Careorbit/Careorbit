@@ -96,7 +96,13 @@ export default function DocumentsPage() {
         key,
       });
     }
-    return requests.sort((a, b) => (a.index - b.index) || a.field.localeCompare(b.field));
+    const fieldOrder: Record<keyof ReviewMedication, number> = {
+      name: 0,
+      dosage: 1,
+      frequency: 2,
+      dose_to_take: 3,
+    };
+    return requests.sort((a, b) => (a.index - b.index) || (fieldOrder[a.field] - fieldOrder[b.field]));
   }, [reviewFieldSet]);
 
   const reviewSuggestions = useMemo(() => {
@@ -141,6 +147,32 @@ export default function DocumentsPage() {
     setLowConfidenceFields(reviewLow);
   };
 
+  const formatConfirmError = (data: any): string => {
+    const detail = data?.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (detail && typeof detail === "object") {
+      if (detail.error === "post_confirmation_validation_failed") {
+        const fields = Array.isArray(detail.missing_fields) ? detail.missing_fields.join(", ") : "required fields";
+        return `Please fill required fields: ${fields}.`;
+      }
+      if (detail.error === "post_confirmation_validation_gate_failed") {
+        const first = Array.isArray(detail.rejections) ? detail.rejections[0] : null;
+        const reasons = Array.isArray(first?.reasons) ? first.reasons.join(", ") : "validation failed";
+        const med = first?.name ? ` for ${first.name}` : "";
+        return `Medication validation failed${med}: ${reasons}. Example dosage: 500 mg.`;
+      }
+      if (detail.error === "phig_consistency_failed_after_write") {
+        return "PHIG consistency check failed after confirmation. Please try again.";
+      }
+    }
+    if (typeof data?.error_message === "string" && data.error_message.trim()) {
+      return data.error_message;
+    }
+    return "Failed to confirm extracted data";
+  };
+
   const confirmMutation = useMutation({
     mutationFn: async () => {
       if (!activeReviewDocId) {
@@ -182,7 +214,7 @@ export default function DocumentsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.detail || data?.error_message || "Failed to confirm extracted data");
+        throw new Error(formatConfirmError(data));
       }
       return data;
     },
@@ -558,7 +590,7 @@ export default function DocumentsPage() {
             {missingFields.length > 0 && (
               <div className="rounded-lg p-3" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
                 <p className="text-xs font-medium" style={{ color: "var(--accent-amber)" }}>
-                  We could not extract these fields. Please enter them manually: {missingFields.join(", ")}
+                  These fields require manual confirmation: {missingFields.join(", ")}
                 </p>
               </div>
             )}
@@ -604,7 +636,7 @@ export default function DocumentsPage() {
                   {medicationFieldRequests.map((req) => {
                     const labelMap: Record<keyof ReviewMedication, string> = {
                       name: "Medicine Name",
-                      dosage: "Dosage",
+                      dosage: "Dosage (e.g., 500 mg)",
                       frequency: "Frequency",
                       dose_to_take: "Dose to Take",
                     };
