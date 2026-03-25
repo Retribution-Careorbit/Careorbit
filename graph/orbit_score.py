@@ -39,11 +39,25 @@ class OrbitScoreCalculator:
         if not conditions:
             return 100.0
 
+        # Backward-compatible fallback: if condition nodes are present but none
+        # carry ICD/code metadata, score by core type coverage.
+        coded_conditions = [
+            c for c in conditions
+            if str(c.get("icd10") or c.get("code") or "").strip()
+        ]
+        if not coded_conditions:
+            present_core_types = {
+                str(n.get("type") or "").lower()
+                for n in nodes
+                if str(n.get("type") or "").lower() in CORE_TYPES
+            }
+            return round((len(present_core_types) / len(CORE_TYPES)) * 100.0, 2)
+
         total_expected_medications = 0
         total_expected_labs = 0
         total_expected_screenings = 0
 
-        for condition in conditions:
+        for condition in coded_conditions:
             icd_code = str(condition.get("icd10") or condition.get("code") or "").upper()
             expected = EXPECTED_NODES_PER_CONDITION.get(icd_code, DEFAULT_EXPECTED)
             total_expected_medications += int(expected["medications"])
