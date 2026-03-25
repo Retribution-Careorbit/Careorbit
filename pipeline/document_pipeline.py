@@ -121,6 +121,7 @@ class DocumentPipeline:
         avg_confidence = 0.72
         doc_type = self._infer_document_type_from_filename(filename)
         blob_url = None
+        blob_upload_warning = None
 
         # Step 1: persist raw document to Blob first so downstream processing is retryable.
         try:
@@ -131,18 +132,8 @@ class DocumentPipeline:
                 patient_id=patient_id,
             )
         except (NotImplementedError, Exception):
-            environment = str(getattr(self._settings, "ENVIRONMENT", "development") or "development").strip().lower()
-            strict_blob_required = bool(self._settings.DOCUMENTS_REQUIRE_BLOB_DURABILITY) and environment in {"production", "prod"}
-            if strict_blob_required:
-                return DocumentProcessingResult(
-                    document_id=f"doc-{patient_id}",
-                    document_type=doc_type,
-                    processing_status="failed",
-                    error_message="Durable blob storage upload failed. Please retry upload.",
-                    processing_time_ms=int((time.time() - start) * 1000),
-                    extracted_data={"source_blob_url": None},
-                )
-            # Non-production: continue with in-memory bytes using controlled degraded mode.
+            # Continue with in-memory fallback so the upload flow remains available during blob outages.
+            blob_upload_warning = "Durable blob storage upload unavailable; processed using local fallback."
             blob_url = None
 
         try:
@@ -343,6 +334,7 @@ class DocumentPipeline:
                     "labs": [],
                     "lab_rejections": rejected_labs,
                     "source_blob_url": blob_url,
+                    "blob_upload_warning": blob_upload_warning,
                     "summary": summary,
                 },
             )
@@ -428,6 +420,7 @@ class DocumentPipeline:
                 "low_confidence_fields": low_confidence_fields,
                 "clinical_entities": clinical_entities,
                 "source_blob_url": blob_url,
+                "blob_upload_warning": blob_upload_warning,
             },
         )
 
