@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,8 @@ import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
-import { Pill, FileText, Bell, Activity, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen } from "lucide-react";
+import { Pill, FileText, Bell, Activity, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen, Volume2, Square } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -100,6 +102,7 @@ function StatCard({
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const [activeReadKey, setActiveReadKey] = useState<string | null>(null);
 
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
     queryKey: ["/api/patients/overview"],
@@ -160,6 +163,45 @@ export default function DashboardPage() {
   ];
 
   const firstName = user?.name?.split(" ")[0] || "";
+  const nativeLang = (user?.preferredLanguage || "en").toLowerCase();
+
+  const speakNative = async (text: string, key: string) => {
+    if (!("speechSynthesis" in window)) return;
+    if (activeReadKey === key) {
+      window.speechSynthesis.cancel();
+      setActiveReadKey(null);
+      return;
+    }
+
+    let voiceText = text;
+    if (nativeLang !== "en") {
+      try {
+        const res = await apiRequest("POST", "/api/system/translate", {
+          text,
+          target_lang: nativeLang,
+          source_lang: "en",
+        });
+        const data = await res.json();
+        if (typeof data?.translated_text === "string" && data.translated_text.trim()) {
+          voiceText = data.translated_text.trim();
+        }
+      } catch {
+        voiceText = text;
+      }
+    }
+
+    const langMap: Record<string, string> = {
+      en: "en-IN", hi: "hi-IN", bn: "bn-IN", ta: "ta-IN", te: "te-IN", mr: "mr-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN",
+    };
+    const utterance = new SpeechSynthesisUtterance(voiceText);
+    utterance.lang = langMap[nativeLang] || "en-IN";
+    utterance.rate = 0.95;
+    utterance.onstart = () => setActiveReadKey(key);
+    utterance.onend = () => setActiveReadKey(null);
+    utterance.onerror = () => setActiveReadKey(null);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
 
   return (
     <Layout>
@@ -262,11 +304,23 @@ export default function DashboardPage() {
                 className="page-card p-6"
                 data-testid="card-vitals-chart"
               >
-                <div className="page-card-header">
+                <div className="page-card-header flex items-center justify-between">
                   <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                     <Heart className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                   </div>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Heart Rate Trend</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const latest = bpChartData[bpChartData.length - 1];
+                      const text = `Heart rate trend chart. Latest heart rate is ${latest?.value ?? "unknown"}. Total records ${bpChartData.length}.`;
+                      speakNative(text, "dashboard-heart-rate");
+                    }}
+                  >
+                    {activeReadKey === "dashboard-heart-rate" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                  </Button>
                 </div>
                 <HealthMetricsChart data={bpChartData} label="Heart Rate" color="#00D4FF" height={200} />
               </div>
@@ -414,11 +468,20 @@ export default function DashboardPage() {
         {narrativeData?.narrative && (
           <FadeIn delay={0.25}>
             <div className="page-card p-6" data-testid="card-dashboard-living-narrative">
-              <div className="page-card-header">
+              <div className="page-card-header flex items-center justify-between">
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => speakNative(String(narrativeData.narrative || ""), "dashboard-living-narrative")}
+                  data-testid="button-read-dashboard-summary"
+                >
+                  {activeReadKey === "dashboard-living-narrative" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                </Button>
               </div>
               <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">
                 {narrativeData.narrative}

@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { HealthMetricsChart } from "@/components/charts";
-import { Download, Lightbulb, TrendingUp } from "lucide-react";
+import { Download, Lightbulb, TrendingUp, Volume2, Square } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuthStore } from "@/lib/auth";
 
 interface LabTrendPoint {
   date: string;
@@ -47,6 +48,9 @@ interface LabReportDocument {
 export default function HealthInsightsPage() {
   const [timeframe, setTimeframe] = useState<"weekly" | "monthly">("monthly");
   const [selectedArea, setSelectedArea] = useState<AffectedAreaInsight | null>(null);
+  const [activeReadKey, setActiveReadKey] = useState<string | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const nativeLang = (user?.preferredLanguage || "en").toLowerCase();
 
   const { data: labInsightsData, isLoading: labInsightsLoading } = useQuery<LabInsightsResponse>({
     queryKey: ["/api/patients/lab-insights"],
@@ -84,6 +88,44 @@ export default function HealthInsightsPage() {
     const blobUrl = URL.createObjectURL(blob);
     window.open(blobUrl, "_blank", "noopener,noreferrer");
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  };
+
+  const speakNative = async (text: string, key: string) => {
+    if (!("speechSynthesis" in window)) return;
+    if (activeReadKey === key) {
+      window.speechSynthesis.cancel();
+      setActiveReadKey(null);
+      return;
+    }
+
+    let voiceText = text;
+    if (nativeLang !== "en") {
+      try {
+        const res = await apiRequest("POST", "/api/system/translate", {
+          text,
+          target_lang: nativeLang,
+          source_lang: "en",
+        });
+        const data = await res.json();
+        if (typeof data?.translated_text === "string" && data.translated_text.trim()) {
+          voiceText = data.translated_text.trim();
+        }
+      } catch {
+        voiceText = text;
+      }
+    }
+
+    const langMap: Record<string, string> = {
+      en: "en-IN", hi: "hi-IN", bn: "bn-IN", ta: "ta-IN", te: "te-IN", mr: "mr-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN",
+    };
+    const utterance = new SpeechSynthesisUtterance(voiceText);
+    utterance.lang = langMap[nativeLang] || "en-IN";
+    utterance.rate = 0.95;
+    utterance.onstart = () => setActiveReadKey(key);
+    utterance.onend = () => setActiveReadKey(null);
+    utterance.onerror = () => setActiveReadKey(null);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -162,11 +204,25 @@ export default function HealthInsightsPage() {
               className="page-card p-6"
               data-testid="card-lab-trend"
             >
-              <div className="page-card-header">
+              <div className="page-card-header flex items-center justify-between">
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Top Lab Marker Trend</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    if (!primaryArea) return;
+                    const text = `${primaryArea.area_label}. ${primaryArea.marker_name} latest value ${primaryArea.latest_value} ${primaryArea.unit}. Threshold ${primaryArea.threshold}. ${primaryArea.insight}`;
+                    speakNative(text, "health-top-lab-trend");
+                  }}
+                  disabled={!primaryArea}
+                  data-testid="button-read-lab-trend-summary"
+                >
+                  {activeReadKey === "health-top-lab-trend" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                </Button>
               </div>
               {labInsightsLoading ? (
                 <Skeleton className="h-[250px] w-full" />

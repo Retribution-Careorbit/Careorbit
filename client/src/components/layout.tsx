@@ -4,7 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTransition } from "@/components/animations";
 import { OrbitScoreBadge } from "@/components/orbit-score-floater";
-import { Bell, Search, Languages, Volume2, Square, Sparkles, X } from "lucide-react";
+import { Bell, Search, Languages } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
@@ -27,19 +27,6 @@ interface ProfileResponse {
   };
 }
 
-const ROUTE_LABELS: Record<string, string> = {
-  "/": "Dashboard",
-  "/dashboard": "Dashboard",
-  "/appointments": "Appointments",
-  "/medications": "Medications",
-  "/documents": "Documents",
-  "/health-insights": "Health Insights",
-  "/reminders": "Reminders",
-  "/orbit-score": "Orbit Score",
-  "/chat": "Chat Assistant",
-  "/settings": "Settings",
-};
-
 const SPEECH_LOCALE_MAP: Record<string, string> = {
   en: "en-IN",
   hi: "hi-IN",
@@ -54,39 +41,18 @@ const SPEECH_LOCALE_MAP: Record<string, string> = {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [readLang, setReadLang] = useState<string>("en");
   const [preferredLanguage, setPreferredLanguage] = useState<string>("en");
-  const [isReading, setIsReading] = useState(false);
-  const [isPreparingSpeech, setIsPreparingSpeech] = useState(false);
-  const [entrySummary, setEntrySummary] = useState("");
-  const [popupSummary, setPopupSummary] = useState("");
-  const [showEntrySummary, setShowEntrySummary] = useState(false);
-  const [showPopupSummary, setShowPopupSummary] = useState(false);
   const lastDialogSignatureRef = useRef("");
-  const translatedNodesRef = useRef(new WeakSet<Text>());
-  const translationCacheRef = useRef(new Map<string, string>());
-  const uiTranslateBusyRef = useRef(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
     return () => window.clearTimeout(t);
   }, [searchInput]);
-
-  useEffect(() => {
-    const savedLang = window.localStorage.getItem("careorbit.voice.lang");
-    if (savedLang) {
-      setReadLang(savedLang);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("careorbit.voice.lang", readLang);
-  }, [readLang]);
 
   const { data: profileData } = useQuery<ProfileResponse>({
     queryKey: ["/api/patients/profile"],
@@ -100,15 +66,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const lang = (profileData?.profile?.preferred_language || "en").toLowerCase();
     setPreferredLanguage(lang);
-    setReadLang(lang);
   }, [profileData?.profile?.preferred_language]);
-
-  useEffect(() => {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsReading(false);
-  }, [location]);
 
   useEffect(() => {
     return () => {
@@ -117,12 +75,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       }
     };
   }, []);
-
-  const getPageReadableText = () => {
-    const pageRoot = document.querySelector(".page-content");
-    const raw = pageRoot?.textContent || "";
-    return raw.replace(/\s+/g, " ").trim().slice(0, 5000);
-  };
 
   const translateForPatient = async (text: string) => {
     if (!text.trim()) return "";
@@ -148,132 +100,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = SPEECH_LOCALE_MAP[lang] || "en-IN";
     utterance.rate = 0.95;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const collectTranslatableNodes = () => {
-    const nodes: Text[] = [];
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        const textNode = node as Text;
-        const raw = textNode.textContent || "";
-        if (!raw.trim()) return NodeFilter.FILTER_REJECT;
-        if (translatedNodesRef.current.has(textNode)) return NodeFilter.FILTER_REJECT;
-        const parent = textNode.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName;
-        if (["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "INPUT", "OPTION"].includes(tag)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        if (parent.closest("[data-no-translate='true']")) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        if (parent.closest("[role='dialog']") || parent.closest("[role='alertdialog']")) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return NodeFilter.FILTER_ACCEPT;
-      },
-    });
-
-    let current = walker.nextNode();
-    while (current) {
-      nodes.push(current as Text);
-      current = walker.nextNode();
-    }
-    return nodes;
-  };
-
-  const applyTranslationToNode = (node: Text, translated: string) => {
-    const raw = node.textContent || "";
-    const leading = (raw.match(/^\s*/) || [""])[0];
-    const trailing = (raw.match(/\s*$/) || [""])[0];
-    node.textContent = `${leading}${translated}${trailing}`;
-    translatedNodesRef.current.add(node);
-  };
-
-  const localizeVisibleUi = async () => {
-    if (preferredLanguage === "en") return;
-    if (uiTranslateBusyRef.current) return;
-    uiTranslateBusyRef.current = true;
-
-    try {
-      const nodes = collectTranslatableNodes();
-      if (!nodes.length) return;
-
-      const pending = new Map<string, Text[]>();
-      for (const node of nodes) {
-        const key = (node.textContent || "").replace(/\s+/g, " ").trim();
-        if (!key) continue;
-        const cached = translationCacheRef.current.get(key);
-        if (cached) {
-          applyTranslationToNode(node, cached);
-          continue;
-        }
-        const list = pending.get(key) || [];
-        list.push(node);
-        pending.set(key, list);
-      }
-
-      const keys = Array.from(pending.keys());
-      const chunkSize = 30;
-
-      for (let i = 0; i < keys.length; i += chunkSize) {
-        const chunk = keys.slice(i, i + chunkSize);
-        try {
-          const res = await apiRequest("POST", "/api/system/translate", {
-            texts: chunk,
-            target_lang: preferredLanguage,
-            source_lang: "en",
-          });
-          const data = await res.json();
-          const translated: string[] = Array.isArray(data?.translated_texts) ? data.translated_texts : [];
-
-          chunk.forEach((original, idx) => {
-            const localized = (translated[idx] || original).trim();
-            translationCacheRef.current.set(original, localized);
-            (pending.get(original) || []).forEach((node) => applyTranslationToNode(node, localized));
-          });
-        } catch {
-          chunk.forEach((original) => {
-            (pending.get(original) || []).forEach((node) => translatedNodesRef.current.add(node));
-          });
-        }
-      }
-    } finally {
-      uiTranslateBusyRef.current = false;
-    }
-  };
-
-  const speakPage = async () => {
-    if (!("speechSynthesis" in window)) return;
-
-    if (isReading || isPreparingSpeech) {
-      window.speechSynthesis.cancel();
-      setIsReading(false);
-      setIsPreparingSpeech(false);
-      return;
-    }
-
-    const pageText = getPageReadableText();
-    if (!pageText) return;
-
-    setIsPreparingSpeech(true);
-    let speechText = pageText;
-
-    if (readLang !== "en") {
-      speechText = await translateForPatient(pageText);
-    }
-
-    setIsPreparingSpeech(false);
-
-    const utterance = new SpeechSynthesisUtterance(speechText);
-    utterance.lang = SPEECH_LOCALE_MAP[readLang] || "en-IN";
-    utterance.rate = 0.95;
-    utterance.onstart = () => setIsReading(true);
-    utterance.onend = () => setIsReading(false);
-    utterance.onerror = () => setIsReading(false);
-
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
@@ -308,28 +134,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const hasSearchResults = debouncedSearch.length >= 2 && searchResults.length > 0;
 
   useEffect(() => {
-    const timer = window.setTimeout(async () => {
-      const pageText = getPageReadableText();
-      if (!pageText) return;
-      const routeLabel = ROUTE_LABELS[location] || "CareOrbit";
-      const englishSummary = `Welcome to ${routeLabel}. Here is your quick summary: ${pageText.slice(0, 450)}`;
-      const localized = await translateForPatient(englishSummary);
-      setEntrySummary(localized);
-      setShowEntrySummary(true);
-      speakText(localized, preferredLanguage);
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [location, preferredLanguage]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      localizeVisibleUi();
-    }, 280);
-    return () => window.clearTimeout(timer);
-  }, [location, preferredLanguage]);
-
-  useEffect(() => {
     const observer = new MutationObserver(async () => {
       const dialog = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') as HTMLElement | null;
       if (!dialog) return;
@@ -341,15 +145,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
       if (signature === lastDialogSignatureRef.current) return;
       lastDialogSignatureRef.current = signature;
 
-      const englishSummary = `Popup summary: ${text.slice(0, 380)}`;
-      const localized = await translateForPatient(englishSummary);
-      setPopupSummary(localized);
-      setShowPopupSummary(true);
+      const localized = await translateForPatient(text);
       speakText(localized, preferredLanguage);
 
-      window.setTimeout(() => {
-        localizeVisibleUi();
-      }, 50);
+      const existing = dialog.querySelector('[data-native-popup-summary="true"]');
+      if (existing) {
+        existing.remove();
+      }
+      const summaryBox = document.createElement("div");
+      summaryBox.setAttribute("data-native-popup-summary", "true");
+      summaryBox.style.marginTop = "10px";
+      summaryBox.style.padding = "10px";
+      summaryBox.style.border = "1px solid var(--border-default)";
+      summaryBox.style.borderRadius = "10px";
+      summaryBox.style.background = "var(--bg-card)";
+      summaryBox.style.color = "var(--text-primary)";
+      summaryBox.style.fontSize = "12px";
+      summaryBox.textContent = localized;
+      dialog.appendChild(summaryBox);
     });
 
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -435,21 +248,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={speakPage}
-              aria-label={isReading || isPreparingSpeech ? "Stop reading page" : "Read page"}
-              data-testid="button-global-read-page"
-            >
-              {isReading || isPreparingSpeech ? (
-                <Square className="h-[18px] w-[18px]" style={{ color: "var(--accent-rose)" }} />
-              ) : (
-                <Volume2 className="h-[18px] w-[18px]" style={{ color: "var(--text-secondary)" }} />
-              )}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
               className="relative h-9 w-9 rounded-full"
               data-testid="button-notifications"
               onClick={() => setNotifOpen((v) => !v)}
@@ -521,34 +319,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </Button>
           </div>
-
-          {showEntrySummary && entrySummary && (
-            <div className="px-8 lg:px-10 pt-4" style={{ maxWidth: 1280, margin: "0 auto" }} data-no-translate="true">
-              <div className="rounded-xl p-3 flex items-start justify-between gap-3" style={{ border: "1px solid var(--border-default)", background: "var(--bg-elevated)" }}>
-                <div className="flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 mt-0.5" style={{ color: "var(--accent-cyan)" }} />
-                  <p className="text-sm" style={{ color: "var(--text-primary)" }} data-testid="text-native-entry-summary">{entrySummary}</p>
-                </div>
-                <button type="button" onClick={() => setShowEntrySummary(false)}>
-                  <X className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {showPopupSummary && popupSummary && (
-            <div className="fixed bottom-5 right-5 z-40 w-[min(90vw,420px)]" data-testid="card-native-popup-summary" data-no-translate="true">
-              <div className="rounded-xl p-3 shadow-lg" style={{ border: "1px solid var(--border-default)", background: "var(--bg-elevated)" }}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>Popup Summary ({preferredLanguage.toUpperCase()})</p>
-                  <button type="button" onClick={() => setShowPopupSummary(false)}>
-                    <X className="h-4 w-4" style={{ color: "var(--text-muted)" }} />
-                  </button>
-                </div>
-                <p className="text-sm" style={{ color: "var(--text-primary)" }}>{popupSummary}</p>
-              </div>
-            </div>
-          )}
 
           <div className="p-8 lg:px-10 page-content" style={{ maxWidth: 1280, margin: "0 auto" }}>
             <PageTransition>
