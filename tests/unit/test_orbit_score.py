@@ -28,9 +28,9 @@ class TestCompletenessComponent:
         }
         calc = OrbitScoreCalculator(phig)
         score = calc._compute_completeness()
-        # With condition-aware default expectations: meds=1, labs=1, screenings=0.
-        # Present only medication => 1/2 = 50%.
-        assert abs(score - 50.0) < 0.1
+        # With uncoded conditions, completeness falls back to core type coverage.
+        # Present medication + condition out of 3 core types => 2/3 = 66.67%.
+        assert abs(score - 66.67) < 0.1
 
     def test_completeness_no_nodes(self):
         phig = {"nodes": []}
