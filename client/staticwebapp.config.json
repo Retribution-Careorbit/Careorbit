@@ -5,6 +5,18 @@
   },
   "routes": [
     {
+      "route": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/index.html",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, must-revalidate"
+      }
+    },
+    {
       "route": "/health",
       "rewrite": "https://careorbit-api-dev.azurewebsites.net/health",
       "allowedRoles": ["anonymous", "authenticated"]
@@ -13,6 +25,12 @@
       "route": "/api/*",
       "rewrite": "https://careorbit-api-dev.azurewebsites.net/api/*",
       "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/*",
+      "headers": {
+        "Cache-Control": "no-store, no-cache, must-revalidate"
+      }
     }
   ],
   "responseOverrides": {
