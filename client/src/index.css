@@ -393,6 +393,112 @@
     -webkit-backdrop-filter: blur(12px) saturate(1.2);
   }
 
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: 56px;
+    background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+    border-bottom: 1px solid var(--border-subtle);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+
+  @media (min-width: 768px) {
+    .topnav {
+      height: 60px;
+    }
+  }
+
+  .topnav-inner {
+    max-width: 1360px;
+    margin: 0 auto;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+  }
+
+  @media (min-width: 1024px) {
+    .topnav-inner {
+      padding: 0 24px;
+    }
+  }
+
+  .topnav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 150ms ease, background-color 150ms ease;
+    white-space: nowrap;
+  }
+
+  .topnav-link:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+  }
+
+  .topnav-link-active {
+    color: var(--accent-cyan) !important;
+    background-color: color-mix(in srgb, var(--accent-cyan) 8%, transparent);
+  }
+
+  .dark .topnav-link-active {
+    background-color: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: 64px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+    border-top: 1px solid var(--border-subtle);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  @media (min-width: 768px) {
+    .mobile-bottom-nav {
+      display: none;
+    }
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
+    padding: 6px 0;
+    color: var(--text-muted);
+    transition: color 150ms ease;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-nav-active {
+    color: var(--accent-cyan);
+  }
+
+  @keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
   .sidebar-header-gradient {
     background: linear-gradient(180deg, color-mix(in srgb, var(--accent-cyan) 4%, var(--bg-surface)), var(--bg-surface));
   }

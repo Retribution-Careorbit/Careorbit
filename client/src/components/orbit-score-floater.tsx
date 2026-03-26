@@ -41,6 +41,24 @@ function MiniRing({ score, size }: { score: number; size: number }) {
   );
 }
 
+export function InlineOrbitScore({ size = 20 }: { size?: number }) {
+  const { data: scoreData } = useQuery<any>({
+    queryKey: ["/api/orbit/score"],
+  });
+
+  const score = Math.round(scoreData?.total_score || 0);
+  const color = scoreData ? getScoreColor(score) : "var(--text-muted)";
+
+  return (
+    <span className="inline-flex items-center gap-1" data-testid="inline-orbit-score">
+      <MiniRing score={score} size={size} />
+      <span className="font-mono text-[11px] font-bold leading-none" style={{ color }}>
+        {score}
+      </span>
+    </span>
+  );
+}
+
 export function OrbitScoreBadge() {
   const { data: scoreData } = useQuery<any>({
     queryKey: ["/api/orbit/score"],

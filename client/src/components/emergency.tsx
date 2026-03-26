@@ -18,8 +18,8 @@ export function SOSButton() {
           className="w-12 h-12 rounded-full text-white flex items-center justify-center sos-pulse-ring"
           style={{
             position: "fixed",
-            bottom: 24,
-            right: 24,
+            bottom: 80,
+            right: 20,
             zIndex: 9999,
             background: "linear-gradient(135deg, #F43F5E, #E11D48)",
             boxShadow: "0 4px 16px rgba(244, 63, 94, 0.40)",
