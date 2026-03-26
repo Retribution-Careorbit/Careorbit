@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,10 @@ export default function HealthInsightsPage() {
       }))
     : [];
 
+  const selectedAreaNarration = selectedArea
+    ? `${selectedArea.area_label}. ${selectedArea.marker_name}. Latest ${selectedArea.latest_value} ${selectedArea.unit}. Threshold ${selectedArea.threshold}. Trend ${selectedArea.trend_direction}. ${selectedArea.insight}`
+    : "";
+
   const openLabReportPdf = async (documentId: string) => {
     const response = await apiRequest("GET", `/api/documents/file/${documentId}`);
     const blob = await response.blob();
@@ -127,6 +131,12 @@ export default function HealthInsightsPage() {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
+
+  useEffect(() => {
+    if (!selectedArea) return;
+    if (!selectedAreaNarration) return;
+    speakNative(selectedAreaNarration, "health-popup-summary");
+  }, [selectedArea]);
 
   return (
     <Layout>
@@ -330,9 +340,22 @@ export default function HealthInsightsPage() {
         <Dialog open={!!selectedArea} onOpenChange={(open) => !open && setSelectedArea(null)}>
           <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
             <DialogHeader>
-              <DialogTitle style={{ color: "var(--text-primary)" }}>
-                {selectedArea?.area_label || "Area Trend"}
-              </DialogTitle>
+              <div className="flex items-center justify-between gap-3">
+                <DialogTitle style={{ color: "var(--text-primary)" }}>
+                  {selectedArea?.area_label || "Area Trend"}
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => selectedAreaNarration && speakNative(selectedAreaNarration, "health-popup-summary")}
+                  disabled={!selectedAreaNarration}
+                  data-testid="button-read-health-popup-summary"
+                >
+                  {activeReadKey === "health-popup-summary" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                </Button>
+              </div>
             </DialogHeader>
                 {selectedArea && (
               <div className="space-y-3">
