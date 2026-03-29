@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, toApiUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +90,23 @@ export default function DocumentsPage() {
   const [dragOver, setDragOver] = useState(false);
   const [activeReviewDocId, setActiveReviewDocId] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState("");
+  const [doctorNameDisplay, setDoctorNameDisplay] = useState("");
+  const doctorNameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDoctorNameChange = useCallback((value: string) => {
+    setDoctorNameDisplay(value);
+    if (doctorNameTimerRef.current) clearTimeout(doctorNameTimerRef.current);
+    doctorNameTimerRef.current = setTimeout(() => {
+      setDoctorName(value);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (doctorNameTimerRef.current) clearTimeout(doctorNameTimerRef.current);
+    };
+  }, []);
+
   const [reviewMeds, setReviewMeds] = useState<ReviewMedication[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
@@ -252,6 +269,10 @@ export default function DocumentsPage() {
   }, [resolvedPayload]);
 
   const loadReviewState = (review?: ExtractedReview, fallbackMissing: string[] = []) => {
+    if (doctorNameTimerRef.current) {
+      clearTimeout(doctorNameTimerRef.current);
+      doctorNameTimerRef.current = null;
+    }
     const extractedMeds = review?.medications?.length
       ? review.medications
       : [{ name: "", dosage: "", frequency: "", dose_to_take: "" }];
@@ -268,6 +289,7 @@ export default function DocumentsPage() {
     }));
 
     setDoctorName(nextDoctor);
+    setDoctorNameDisplay(nextDoctor);
     setReviewMeds(nextMeds);
     setMissingFields(reviewMissing);
     setLowConfidenceFields(reviewLow);
@@ -280,18 +302,27 @@ export default function DocumentsPage() {
   };
 
   const proceedToFinalReview = () => {
-    if (requiredMissingFromPayload.length > 0) {
-      const mergedMissing = Array.from(new Set([...missingFields, ...requiredMissingFromPayload]));
+    if (doctorNameTimerRef.current) {
+      clearTimeout(doctorNameTimerRef.current);
+      doctorNameTimerRef.current = null;
+      setDoctorName(doctorNameDisplay);
+    }
+    const effectiveMissing = requiredMissingFromPayload.filter(
+      (f) => f !== "doctor_name" || !doctorNameDisplay.trim()
+    );
+    if (effectiveMissing.length > 0) {
+      const mergedMissing = Array.from(new Set([...missingFields, ...effectiveMissing]));
       setMissingFields(mergedMissing);
       toast({
         title: "Missing Details",
-        description: `Please fill required fields: ${requiredMissingFromPayload.join(", ")}`,
+        description: `Please fill required fields: ${effectiveMissing.join(", ")}`,
         variant: "destructive",
       });
       return;
     }
 
     setDoctorName(resolvedPayload.doctor_name);
+    setDoctorNameDisplay(resolvedPayload.doctor_name);
     setReviewMeds(resolvedPayload.medications);
     setReviewStage("final");
 
@@ -334,6 +365,11 @@ export default function DocumentsPage() {
       if (!activeReviewDocId) {
         throw new Error("No active review selected");
       }
+      if (doctorNameTimerRef.current) {
+        clearTimeout(doctorNameTimerRef.current);
+        doctorNameTimerRef.current = null;
+      }
+      const currentDoctor = doctorNameDisplay.trim() || resolvedPayload.doctor_name;
       const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
         method: "POST",
         headers: {
@@ -341,7 +377,7 @@ export default function DocumentsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          doctor_name: resolvedPayload.doctor_name,
+          doctor_name: currentDoctor,
           medications: resolvedPayload.medications,
         }),
       });
@@ -390,7 +426,7 @@ export default function DocumentsPage() {
                 review_status: "confirmed",
                 summary: `Confirmed and added ${data.medications_added || 0} medication(s) to PHIG.`,
                 extracted_review: {
-                  doctor_name: data.doctor_name || doctorName,
+                  doctor_name: data.doctor_name || doctorNameDisplay || doctorName,
                   medications: data.medications || reviewMeds,
                   missing_fields: [],
                   low_confidence_fields: [],
@@ -471,6 +507,7 @@ export default function DocumentsPage() {
       }
       setActiveReviewDocId(null);
       setDoctorName("");
+      setDoctorNameDisplay("");
       setReviewMeds([]);
       setMissingFields([]);
       setLowConfidenceFields([]);
@@ -740,8 +777,8 @@ export default function DocumentsPage() {
                           <Label htmlFor="doctor_name">Doctor Name</Label>
                           <Input
                             id="doctor_name"
-                            value={doctorName}
-                            onChange={(e) => setDoctorName(e.target.value)}
+                            value={doctorNameDisplay}
+                            onChange={(e) => handleDoctorNameChange(e.target.value)}
                             placeholder={lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "") : ""}
                           />
                         </div>
@@ -807,8 +844,8 @@ export default function DocumentsPage() {
                     <Label htmlFor="doctor_name_final">Doctor Name</Label>
                     <Input
                       id="doctor_name_final"
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
+                      value={doctorNameDisplay}
+                      onChange={(e) => handleDoctorNameChange(e.target.value)}
                       placeholder=""
                     />
                   </div>

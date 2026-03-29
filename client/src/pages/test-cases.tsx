@@ -783,19 +783,21 @@ export default function TestCasesPage() {
         ) : null}
       </div>
 
-      <AccessibleFilterPanel
-        open={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        draft={draftFilters}
-        setDraft={setDraftFilters}
-        onApply={applyFilters}
-        onReset={clearDraft}
-        hasDraftChanges={hasDraftChanges}
-        draftFilterCount={draftFilterCount}
-        categories={categories}
-        featureAreas={featureAreas}
-        summary={summary}
-      />
+      {filterOpen && (
+        <AccessibleFilterPanel
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          draft={draftFilters}
+          setDraft={setDraftFilters}
+          onApply={applyFilters}
+          onReset={clearDraft}
+          hasDraftChanges={hasDraftChanges}
+          draftFilterCount={draftFilterCount}
+          categories={categories}
+          featureAreas={featureAreas}
+          summary={summary}
+        />
+      )}
     </Layout>
   );
 }
