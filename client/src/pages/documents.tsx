@@ -195,14 +195,15 @@ export default function DocumentsPage() {
     });
   }, [activeResult, reviewFieldSet]);
 
+  const effectiveDoctorName = doctorNameDisplay.trim() || doctorName.trim();
+
   const resolvedPayload = useMemo(() => {
     const resolvedDoctor = (() => {
-      const entered = doctorName.trim();
-      if (entered) return entered;
+      if (effectiveDoctorName) return effectiveDoctorName;
       if (lowConfidenceFieldSet.has("doctor_name")) {
         return (reviewSuggestions["doctor_name"] || "").trim();
       }
-      return entered;
+      return "";
     })();
 
     const resolvedMeds = reviewMeds.map((med, idx) => {
@@ -228,7 +229,7 @@ export default function DocumentsPage() {
       doctor_name: resolvedDoctor,
       medications: resolvedMeds,
     };
-  }, [doctorName, reviewMeds, lowConfidenceFieldSet, reviewSuggestions]);
+  }, [effectiveDoctorName, reviewMeds, lowConfidenceFieldSet, reviewSuggestions]);
 
   const changedLowConfidenceFields = useMemo(() => {
     const changed: string[] = [];
@@ -307,15 +308,12 @@ export default function DocumentsPage() {
       doctorNameTimerRef.current = null;
       setDoctorName(doctorNameDisplay);
     }
-    const effectiveMissing = requiredMissingFromPayload.filter(
-      (f) => f !== "doctor_name" || !doctorNameDisplay.trim()
-    );
-    if (effectiveMissing.length > 0) {
-      const mergedMissing = Array.from(new Set([...missingFields, ...effectiveMissing]));
+    if (requiredMissingFromPayload.length > 0) {
+      const mergedMissing = Array.from(new Set([...missingFields, ...requiredMissingFromPayload]));
       setMissingFields(mergedMissing);
       toast({
         title: "Missing Details",
-        description: `Please fill required fields: ${effectiveMissing.join(", ")}`,
+        description: `Please fill required fields: ${requiredMissingFromPayload.join(", ")}`,
         variant: "destructive",
       });
       return;
@@ -369,7 +367,6 @@ export default function DocumentsPage() {
         clearTimeout(doctorNameTimerRef.current);
         doctorNameTimerRef.current = null;
       }
-      const currentDoctor = doctorNameDisplay.trim() || resolvedPayload.doctor_name;
       const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
         method: "POST",
         headers: {
@@ -377,7 +374,7 @@ export default function DocumentsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          doctor_name: currentDoctor,
+          doctor_name: resolvedPayload.doctor_name,
           medications: resolvedPayload.medications,
         }),
       });
@@ -426,7 +423,7 @@ export default function DocumentsPage() {
                 review_status: "confirmed",
                 summary: `Confirmed and added ${data.medications_added || 0} medication(s) to PHIG.`,
                 extracted_review: {
-                  doctor_name: data.doctor_name || doctorNameDisplay || doctorName,
+                  doctor_name: data.doctor_name || resolvedPayload.doctor_name,
                   medications: data.medications || reviewMeds,
                   missing_fields: [],
                   low_confidence_fields: [],
