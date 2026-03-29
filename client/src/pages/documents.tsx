@@ -195,15 +195,14 @@ export default function DocumentsPage() {
     });
   }, [activeResult, reviewFieldSet]);
 
-  const effectiveDoctorName = doctorNameDisplay.trim() || doctorName.trim();
-
   const resolvedPayload = useMemo(() => {
     const resolvedDoctor = (() => {
-      if (effectiveDoctorName) return effectiveDoctorName;
+      const entered = doctorName.trim();
+      if (entered) return entered;
       if (lowConfidenceFieldSet.has("doctor_name")) {
         return (reviewSuggestions["doctor_name"] || "").trim();
       }
-      return "";
+      return entered;
     })();
 
     const resolvedMeds = reviewMeds.map((med, idx) => {
@@ -229,7 +228,7 @@ export default function DocumentsPage() {
       doctor_name: resolvedDoctor,
       medications: resolvedMeds,
     };
-  }, [effectiveDoctorName, reviewMeds, lowConfidenceFieldSet, reviewSuggestions]);
+  }, [doctorName, reviewMeds, lowConfidenceFieldSet, reviewSuggestions]);
 
   const changedLowConfidenceFields = useMemo(() => {
     const changed: string[] = [];
@@ -302,18 +301,34 @@ export default function DocumentsPage() {
     }
   };
 
-  const proceedToFinalReview = () => {
+  const flushDoctorName = useCallback(() => {
     if (doctorNameTimerRef.current) {
       clearTimeout(doctorNameTimerRef.current);
       doctorNameTimerRef.current = null;
-      setDoctorName(doctorNameDisplay);
     }
-    if (requiredMissingFromPayload.length > 0) {
-      const mergedMissing = Array.from(new Set([...missingFields, ...requiredMissingFromPayload]));
+    setDoctorName(doctorNameDisplay);
+  }, [doctorNameDisplay]);
+
+  const proceedToFinalReview = () => {
+    flushDoctorName();
+    const currentDoctor = doctorNameDisplay.trim() ||
+      (lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "").trim() : "");
+    const effectiveMissing: string[] = [];
+    if (!currentDoctor) effectiveMissing.push("doctor_name");
+    if (!resolvedPayload.medications.length) {
+      effectiveMissing.push("medications");
+    } else {
+      resolvedPayload.medications.forEach((med, idx) => {
+        if (!med.name) effectiveMissing.push(`medications[${idx}].name`);
+        if (!med.dosage) effectiveMissing.push(`medications[${idx}].dosage`);
+      });
+    }
+    if (effectiveMissing.length > 0) {
+      const mergedMissing = Array.from(new Set([...missingFields, ...effectiveMissing]));
       setMissingFields(mergedMissing);
       toast({
         title: "Missing Details",
-        description: `Please fill required fields: ${requiredMissingFromPayload.join(", ")}`,
+        description: `Please fill required fields: ${effectiveMissing.join(", ")}`,
         variant: "destructive",
       });
       return;
@@ -363,10 +378,8 @@ export default function DocumentsPage() {
       if (!activeReviewDocId) {
         throw new Error("No active review selected");
       }
-      if (doctorNameTimerRef.current) {
-        clearTimeout(doctorNameTimerRef.current);
-        doctorNameTimerRef.current = null;
-      }
+      flushDoctorName();
+      const currentDoctor = doctorNameDisplay.trim() || resolvedPayload.doctor_name;
       const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
         method: "POST",
         headers: {
@@ -374,7 +387,7 @@ export default function DocumentsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          doctor_name: resolvedPayload.doctor_name,
+          doctor_name: currentDoctor,
           medications: resolvedPayload.medications,
         }),
       });
@@ -423,7 +436,7 @@ export default function DocumentsPage() {
                 review_status: "confirmed",
                 summary: `Confirmed and added ${data.medications_added || 0} medication(s) to PHIG.`,
                 extracted_review: {
-                  doctor_name: data.doctor_name || resolvedPayload.doctor_name,
+                  doctor_name: data.doctor_name || currentDoctor,
                   medications: data.medications || reviewMeds,
                   missing_fields: [],
                   low_confidence_fields: [],
