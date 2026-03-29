@@ -334,8 +334,8 @@ export default function DocumentsPage() {
       return;
     }
 
-    setDoctorName(resolvedPayload.doctor_name);
-    setDoctorNameDisplay(resolvedPayload.doctor_name);
+    setDoctorName(currentDoctor);
+    setDoctorNameDisplay(currentDoctor);
     setReviewMeds(resolvedPayload.medications);
     setReviewStage("final");
 
@@ -414,7 +414,7 @@ export default function DocumentsPage() {
         }
         throw new Error(formatConfirmError(data));
       }
-      return data;
+      return { ...data, _submittedDoctor: currentDoctor };
     },
     onSuccess: (data) => {
       if (data?.status === "needs_manual_input") {
@@ -436,7 +436,7 @@ export default function DocumentsPage() {
                 review_status: "confirmed",
                 summary: `Confirmed and added ${data.medications_added || 0} medication(s) to PHIG.`,
                 extracted_review: {
-                  doctor_name: data.doctor_name || currentDoctor,
+                  doctor_name: data.doctor_name || data._submittedDoctor,
                   medications: data.medications || reviewMeds,
                   missing_fields: [],
                   low_confidence_fields: [],
