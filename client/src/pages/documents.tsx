@@ -252,21 +252,6 @@ export default function DocumentsPage() {
     return changed;
   }, [lowConfidenceFields, reviewSuggestions, resolvedPayload]);
 
-  const requiredMissingFromPayload = useMemo(() => {
-    const missing: string[] = [];
-    if (!resolvedPayload.doctor_name) {
-      missing.push("doctor_name");
-    }
-    if (!resolvedPayload.medications.length) {
-      missing.push("medications");
-    } else {
-      resolvedPayload.medications.forEach((med, idx) => {
-        if (!med.name) missing.push(`medications[${idx}].name`);
-        if (!med.dosage) missing.push(`medications[${idx}].dosage`);
-      });
-    }
-    return missing;
-  }, [resolvedPayload]);
 
   const loadReviewState = (review?: ExtractedReview, fallbackMissing: string[] = []) => {
     if (doctorNameTimerRef.current) {
@@ -379,7 +364,8 @@ export default function DocumentsPage() {
         throw new Error("No active review selected");
       }
       flushDoctorName();
-      const currentDoctor = doctorNameDisplay.trim() || resolvedPayload.doctor_name;
+      const currentDoctor = doctorNameDisplay.trim() ||
+        (lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "").trim() : "");
       const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
         method: "POST",
         headers: {
