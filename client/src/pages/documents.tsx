@@ -887,7 +887,7 @@ export default function DocumentsPage() {
                     </div>
 
                     {reviewMedsDisplay.map((med, idx) => (
-                      <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Input
                           value={med.name || ""}
                           onChange={(e) => updateMedAt(idx, "name", e.target.value)}
