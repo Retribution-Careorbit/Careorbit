@@ -88,7 +88,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       const dialog = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') as HTMLElement | null;
       if (!dialog) return;
 
-      if (dialog.querySelector('[data-testid="dialog-manual-review"]') || dialog.getAttribute("data-testid") === "dialog-manual-review") return;
+      if (dialog.getAttribute("data-testid") === "dialog-manual-review" ||
+          dialog.querySelector('[data-testid="dialog-manual-review"]') ||
+          dialog.closest('[data-testid="dialog-manual-review"]')) return;
 
       const text = (dialog.textContent || "").replace(/\s+/g, " ").trim();
       if (!text) return;
