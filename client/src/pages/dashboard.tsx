@@ -235,6 +235,48 @@ export default function DashboardPage() {
                 {formatDate()}
               </span>
             </div>
+
+            {narrativeData?.narrative && (
+              <div className="mt-4 pt-4 relative z-10" style={{ borderTop: "1px solid var(--border-subtle)" }} data-testid="card-dashboard-living-narrative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => speakNative(String(narrativeData.narrative || ""), "dashboard-living-narrative")}
+                    data-testid="button-read-dashboard-summary"
+                  >
+                    {activeReadKey === "dashboard-living-narrative" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                  </Button>
+                </div>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">
+                  {narrativeData.narrative}
+                </p>
+
+                {Array.isArray(narrativeData.events) && narrativeData.events.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {narrativeData.events.map((event: any, i: number) => (
+                      <div
+                        key={i}
+                        className="flex items-start justify-between gap-3 p-3 rounded-lg"
+                        style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
+                        data-testid={`card-dashboard-narrative-event-${i}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{event.event}</p>
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{event.impact}</p>
+                        </div>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{event.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </FadeIn>
 
@@ -465,49 +507,6 @@ export default function DashboardPage() {
           </FadeIn>
         </div>
 
-        {narrativeData?.narrative && (
-          <FadeIn delay={0.25}>
-            <div className="page-card p-6" data-testid="card-dashboard-living-narrative">
-              <div className="page-card-header flex items-center justify-between">
-                <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
-                  <BookOpen className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
-                </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => speakNative(String(narrativeData.narrative || ""), "dashboard-living-narrative")}
-                  data-testid="button-read-dashboard-summary"
-                >
-                  {activeReadKey === "dashboard-living-narrative" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
-                </Button>
-              </div>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">
-                {narrativeData.narrative}
-              </p>
-
-              {Array.isArray(narrativeData.events) && narrativeData.events.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {narrativeData.events.map((event: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-start justify-between gap-3 p-3 rounded-lg"
-                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}
-                      data-testid={`card-dashboard-narrative-event-${i}`}
-                    >
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{event.event}</p>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{event.impact}</p>
-                      </div>
-                      <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{event.date}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </FadeIn>
-        )}
 
         {recentEvents.length > 0 && (
           <FadeIn delay={0.25}>
