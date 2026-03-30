@@ -104,10 +104,13 @@ export default function DocumentsPage() {
   useEffect(() => {
     return () => {
       if (doctorNameTimerRef.current) clearTimeout(doctorNameTimerRef.current);
+      if (medsTimerRef.current) clearTimeout(medsTimerRef.current);
     };
   }, []);
 
   const [reviewMeds, setReviewMeds] = useState<ReviewMedication[]>([]);
+  const [reviewMedsDisplay, setReviewMedsDisplay] = useState<ReviewMedication[]>([]);
+  const medsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [lowConfidenceFields, setLowConfidenceFields] = useState<string[]>([]);
   const [reviewStage, setReviewStage] = useState<ReviewStage>("targeted");
@@ -273,9 +276,14 @@ export default function DocumentsPage() {
       dose_to_take: lowSet.has(`medications[${idx}].dose_to_take`) ? "" : (med.dose_to_take || ""),
     }));
 
+    if (medsTimerRef.current) {
+      clearTimeout(medsTimerRef.current);
+      medsTimerRef.current = null;
+    }
     setDoctorName(nextDoctor);
     setDoctorNameDisplay(nextDoctor);
     setReviewMeds(nextMeds);
+    setReviewMedsDisplay(nextMeds);
     setMissingFields(reviewMissing);
     setLowConfidenceFields(reviewLow);
     setTargetedPage(0);
@@ -294,18 +302,28 @@ export default function DocumentsPage() {
     setDoctorName(doctorNameDisplay);
   }, [doctorNameDisplay]);
 
+  const flushMeds = useCallback(() => {
+    if (medsTimerRef.current) {
+      clearTimeout(medsTimerRef.current);
+      medsTimerRef.current = null;
+    }
+    setReviewMeds(reviewMedsDisplay);
+  }, [reviewMedsDisplay]);
+
   const proceedToFinalReview = () => {
     flushDoctorName();
+    flushMeds();
     const currentDoctor = doctorNameDisplay.trim() ||
       (lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "").trim() : "");
+    const currentMeds = reviewMedsDisplay;
     const effectiveMissing: string[] = [];
     if (!currentDoctor) effectiveMissing.push("doctor_name");
-    if (!resolvedPayload.medications.length) {
+    if (!currentMeds.length) {
       effectiveMissing.push("medications");
     } else {
-      resolvedPayload.medications.forEach((med, idx) => {
-        if (!med.name) effectiveMissing.push(`medications[${idx}].name`);
-        if (!med.dosage) effectiveMissing.push(`medications[${idx}].dosage`);
+      currentMeds.forEach((med, idx) => {
+        if (!med.name?.trim()) effectiveMissing.push(`medications[${idx}].name`);
+        if (!med.dosage?.trim()) effectiveMissing.push(`medications[${idx}].dosage`);
       });
     }
     if (effectiveMissing.length > 0) {
@@ -321,7 +339,8 @@ export default function DocumentsPage() {
 
     setDoctorName(currentDoctor);
     setDoctorNameDisplay(currentDoctor);
-    setReviewMeds(resolvedPayload.medications);
+    setReviewMeds(currentMeds);
+    setReviewMedsDisplay(currentMeds);
     setReviewStage("final");
 
     if (changedLowConfidenceFields.length > 0) {
@@ -364,8 +383,10 @@ export default function DocumentsPage() {
         throw new Error("No active review selected");
       }
       flushDoctorName();
+      flushMeds();
       const currentDoctor = doctorNameDisplay.trim() ||
         (lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "").trim() : "");
+      const currentMeds = reviewMedsDisplay;
       const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
         method: "POST",
         headers: {
@@ -374,7 +395,7 @@ export default function DocumentsPage() {
         },
         body: JSON.stringify({
           doctor_name: currentDoctor,
-          medications: resolvedPayload.medications,
+          medications: currentMeds,
         }),
       });
       const data = await res.json();
@@ -400,7 +421,7 @@ export default function DocumentsPage() {
         }
         throw new Error(formatConfirmError(data));
       }
-      return { ...data, _submittedDoctor: currentDoctor };
+      return { ...data, _submittedDoctor: currentDoctor, _submittedMeds: currentMeds };
     },
     onSuccess: (data) => {
       if (data?.status === "needs_manual_input") {
@@ -423,7 +444,7 @@ export default function DocumentsPage() {
                 summary: `Confirmed and added ${data.medications_added || 0} medication(s) to PHIG.`,
                 extracted_review: {
                   doctor_name: data.doctor_name || data._submittedDoctor,
-                  medications: data.medications || reviewMeds,
+                  medications: data.medications || data._submittedMeds,
                   missing_fields: [],
                   low_confidence_fields: [],
                 },
@@ -505,6 +526,7 @@ export default function DocumentsPage() {
       setDoctorName("");
       setDoctorNameDisplay("");
       setReviewMeds([]);
+      setReviewMedsDisplay([]);
       setMissingFields([]);
       setLowConfidenceFields([]);
 
@@ -567,12 +589,16 @@ export default function DocumentsPage() {
   };
 
   const updateMedAt = (index: number, field: keyof ReviewMedication, value: string) => {
-    setReviewMeds((prev) => {
+    setReviewMedsDisplay((prev) => {
       const next = [...prev];
       while (next.length <= index) {
         next.push({ name: "", dosage: "", frequency: "", dose_to_take: "" });
       }
       next[index] = { ...next[index], [field]: value };
+      if (medsTimerRef.current) clearTimeout(medsTimerRef.current);
+      medsTimerRef.current = setTimeout(() => {
+        setReviewMeds(next);
+      }, 300);
       return next;
     });
   };
@@ -788,7 +814,7 @@ export default function DocumentsPage() {
                       frequency: "Frequency",
                       dose_to_take: "Dose to Take",
                     };
-                    const med = reviewMeds[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
+                    const med = reviewMedsDisplay[req.index] || { name: "", dosage: "", frequency: "", dose_to_take: "" };
                     return (
                       <div key={req.key} className="space-y-1">
                         <Label>{`Medicine ${req.index + 1} - ${labelMap[req.field]}`}</Label>
@@ -810,7 +836,7 @@ export default function DocumentsPage() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setReviewMeds((prev) => [...prev, { name: "", dosage: "", frequency: "", dose_to_take: "" }])}
+                            onClick={() => { const empty = { name: "", dosage: "", frequency: "", dose_to_take: "" }; setReviewMeds((prev) => [...prev, empty]); setReviewMedsDisplay((prev) => [...prev, empty]); }}
                           >
                             <Plus className="h-4 w-4 mr-1" />
                             Add Row
@@ -853,14 +879,14 @@ export default function DocumentsPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setReviewMeds((prev) => [...prev, { name: "", dosage: "", frequency: "", dose_to_take: "" }])}
+                        onClick={() => { const empty = { name: "", dosage: "", frequency: "", dose_to_take: "" }; setReviewMeds((prev) => [...prev, empty]); setReviewMedsDisplay((prev) => [...prev, empty]); }}
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Row
                       </Button>
                     </div>
 
-                    {reviewMeds.map((med, idx) => (
+                    {reviewMedsDisplay.map((med, idx) => (
                       <div key={`${idx}-${med.name}`} className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Input
                           value={med.name || ""}
