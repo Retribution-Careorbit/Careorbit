@@ -32,6 +32,8 @@ from db.runtime_store import (
     get_pending_document_review,
     remove_pending_document_review,
     push_notification,
+    get_latest_orbit_score_record,
+    add_orbit_score_record,
 )
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -90,6 +92,61 @@ def _normalize_uuid(value: str | None) -> str | None:
     try:
         return str(UUID(str(value)))
     except (TypeError, ValueError):
+        return None
+
+
+async def _recompute_orbit_score_with_tracking(
+    patient_id: str,
+    user_tier: str,
+    trigger: str,
+) -> dict | None:
+    try:
+        from api.routes.orbit import compute_orbit_score
+
+        previous = get_latest_orbit_score_record(patient_id)
+        previous_score = None
+        if previous and previous.get("total_score") is not None:
+            try:
+                previous_score = float(previous.get("total_score"))
+            except (TypeError, ValueError):
+                previous_score = None
+
+        current = await compute_orbit_score(patient_id, user_tier)
+        current_score = float(current.get("total_score") or 0.0)
+
+        delta = None
+        if previous_score is not None:
+            delta = round(current_score - previous_score, 2)
+
+        add_orbit_score_record(
+            patient_id=patient_id,
+            total_score=current_score,
+            delta=delta,
+            breakdown=current.get("breakdown") if isinstance(current.get("breakdown"), dict) else None,
+            trigger=trigger,
+        )
+
+        if delta is not None and abs(delta) >= 5:
+            if delta > 0:
+                message = f"Your Orbit Score improved from {round(previous_score)} to {round(current_score)}."
+            else:
+                message = f"Your Orbit Score changed from {round(previous_score)} to {round(current_score)}."
+            push_notification(
+                patient_id,
+                "orbit_score",
+                "Orbit Score Recalibrated",
+                message,
+                path="/orbit-score",
+                metadata={"delta": delta, "trigger": trigger},
+            )
+
+        return {
+            "total_score": round(current_score, 2),
+            "delta": delta,
+            "trigger": trigger,
+        }
+    except Exception:
+        logger.exception("Failed to recompute Orbit Score for patient_id=%s trigger=%s", patient_id, trigger)
         return None
 
 
@@ -825,6 +882,12 @@ async def upload_document(
             document_id,
         )
 
+    orbit_score_update = await _recompute_orbit_score_with_tracking(
+        patient_id=patient_id,
+        user_tier=current_user.get("tier", "free"),
+        trigger="document_upload",
+    )
+
     return {
         "document_id": document_id,
         "file_name": doc_record["file_name"],
@@ -844,6 +907,7 @@ async def upload_document(
         "labs_added": persisted_labs,
         "lab_persistence": lab_persistence,
         "lab_rejections": lab_rejections,
+        "orbit_score": orbit_score_update,
     }
 
 
@@ -987,6 +1051,12 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
         metadata={"document_id": document_id},
     )
 
+    orbit_score_update = await _recompute_orbit_score_with_tracking(
+        patient_id=patient_id,
+        user_tier=current_user.get("tier", "free"),
+        trigger="document_confirmed",
+    )
+
     return {
         "status": "confirmed",
         "document_id": document_id,
@@ -996,6 +1066,7 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
         "pipeline_trace": pipeline_trace,
         "pipeline_warnings": pipeline_warnings,
         "persistence": "database" if persisted_to_db else "runtime_fallback",
+        "orbit_score": orbit_score_update,
     }
 
 

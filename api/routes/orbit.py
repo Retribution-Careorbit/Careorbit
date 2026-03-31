@@ -12,6 +12,7 @@ from db.seed_demo import (
 )
 from api.routes.reminders import get_adherence_snapshot_for_patient
 from graph.phig_builder import phig_builder
+from db.runtime_store import get_orbit_score_history as get_runtime_orbit_score_history
 
 router = APIRouter(prefix="/api/orbit", tags=["orbit"])
 
@@ -50,6 +51,9 @@ async def compute_orbit_score(patient_id: str, user_tier: str = "free") -> dict:
 
 
 async def get_score_history(patient_id: str, days: int = 30) -> list:
+    history = get_runtime_orbit_score_history(patient_id)
+    if history:
+        return history
     # DEMO SEED — remove when Azure + DB available
     if patient_id == DEMO_USER_ID:
         return RAMESH_ORBIT_HISTORY

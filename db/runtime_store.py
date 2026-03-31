@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from db.seed_demo import DEMO_USER_ID, RAMESH_UPLOADED_DOCUMENTS
+from db.seed_demo import DEMO_USER_ID, RAMESH_UPLOADED_DOCUMENTS, RAMESH_ORBIT_HISTORY
 
 _patient_documents: dict[str, list[dict[str, Any]]] = {
     DEMO_USER_ID: deepcopy(RAMESH_UPLOADED_DOCUMENTS),
@@ -28,12 +28,17 @@ _patient_notifications: dict[str, list[dict[str, Any]]] = {
     ]
 }
 
+_patient_orbit_score_history: dict[str, list[dict[str, Any]]] = {
+    DEMO_USER_ID: deepcopy(RAMESH_ORBIT_HISTORY),
+}
+
 
 def _ensure_patient(patient_id: str) -> None:
     _patient_documents.setdefault(patient_id, [])
     _patient_notifications.setdefault(patient_id, [])
     _patient_extracted_medications.setdefault(patient_id, [])
     _pending_document_reviews.setdefault(patient_id, {})
+    _patient_orbit_score_history.setdefault(patient_id, [])
 
 
 def get_patient_documents(patient_id: str) -> list[dict[str, Any]]:
@@ -171,3 +176,33 @@ def mark_notifications_read(patient_id: str, ids: list[str] | None = None) -> in
         notif["read"] = True
         count += 1
     return count
+
+
+def get_orbit_score_history(patient_id: str) -> list[dict[str, Any]]:
+    _ensure_patient(patient_id)
+    return _patient_orbit_score_history[patient_id]
+
+
+def get_latest_orbit_score_record(patient_id: str) -> dict[str, Any] | None:
+    _ensure_patient(patient_id)
+    items = _patient_orbit_score_history[patient_id]
+    return items[0] if items else None
+
+
+def add_orbit_score_record(
+    patient_id: str,
+    total_score: float,
+    delta: float | None,
+    breakdown: dict[str, Any] | None = None,
+    trigger: str | None = None,
+) -> dict[str, Any]:
+    _ensure_patient(patient_id)
+    record = {
+        "total_score": float(total_score),
+        "computed_at": datetime.now(timezone.utc).isoformat(),
+        "delta": delta,
+        "breakdown": deepcopy(breakdown) if isinstance(breakdown, dict) else None,
+        "trigger": trigger or "manual",
+    }
+    _patient_orbit_score_history[patient_id].insert(0, record)
+    return record
