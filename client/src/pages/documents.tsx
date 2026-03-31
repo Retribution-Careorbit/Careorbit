@@ -38,6 +38,11 @@ interface UploadResult {
   summary?: string;
   extracted_review?: ExtractedReview;
   review_status?: "pending_confirmation" | "confirmed";
+  orbit_score?: {
+    total_score?: number;
+    delta?: number | null;
+    trigger?: string;
+  };
 }
 
 type ReviewStage = "targeted" | "final";
@@ -462,7 +467,15 @@ export default function DocumentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
+      if (data?.orbit_score && typeof data.orbit_score.total_score === "number") {
+        queryClient.setQueryData(["/api/orbit/score"], (prev: any) => ({
+          ...(prev || {}),
+          total_score: data.orbit_score?.total_score,
+        }));
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan"] });
 
       toast({
         title: "Confirmed",
@@ -499,6 +512,15 @@ export default function DocumentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
+      if (data?.orbit_score && typeof data.orbit_score.total_score === "number") {
+        queryClient.setQueryData(["/api/orbit/score"], (prev: any) => ({
+          ...(prev || {}),
+          total_score: data.orbit_score?.total_score,
+        }));
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan"] });
 
       if (data.status === "failed") {
         if (data.document_id) {
