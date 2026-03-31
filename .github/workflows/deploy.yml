@@ -120,11 +120,27 @@ jobs:
         with:
           creds: ${{ env.AZURE_CREDENTIALS_JSON }}
 
-      - name: Deploy to Dev App Service
+      - name: Deploy to Dev App Service (attempt 1)
+        id: deploy_dev_1
+        continue-on-error: true
         uses: azure/webapps-deploy@v3
         with:
           app-name: careorbit-api-dev
           package: backend-package.zip
+
+      - name: Deploy to Dev App Service (attempt 2)
+        id: deploy_dev_2
+        if: steps.deploy_dev_1.outcome == 'failure'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: careorbit-api-dev
+          package: backend-package.zip
+
+      - name: Ensure Dev deployment succeeded
+        if: steps.deploy_dev_1.outcome == 'failure' && steps.deploy_dev_2.outcome == 'failure'
+        run: |
+          echo "Dev App Service deployment failed after retry." >&2
+          exit 1
 
       - name: Smoke test
         run: |
