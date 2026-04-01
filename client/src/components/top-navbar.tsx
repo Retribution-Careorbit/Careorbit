@@ -313,33 +313,6 @@ export function TopNavbar({
           </div>
 
           <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
-            {members.length > 1 && (
-              <div
-                className="hidden lg:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
-                style={{
-                  minWidth: 200,
-                  maxWidth: 220,
-                  background: "var(--bg-elevated)",
-                  border: "1px solid var(--border-default)",
-                }}
-                title={activeMemberName}
-              >
-                <select
-                  value={activePatientId}
-                  onChange={(e) => onSwitchPatient(e.target.value)}
-                  className="w-full bg-transparent text-xs font-medium outline-none appearance-none pr-6"
-                  style={{ color: "var(--text-primary)", textOverflow: "ellipsis" }}
-                  data-testid="select-active-member"
-                >
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="h-3.5 w-3.5 absolute right-2.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
-              </div>
-            )}
 
             <div
               className="hidden xl:flex items-center gap-2 rounded-full px-3"
@@ -405,6 +378,34 @@ export function TopNavbar({
             </Button>
 
             <div className="hidden md:flex items-center gap-2 ml-2 pl-3" style={{ borderLeft: "1px solid var(--border-subtle)" }}>
+              {members.length > 1 && (
+                <div
+                  className="hidden xl:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
+                  style={{
+                    minWidth: 200,
+                    maxWidth: 220,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border-default)",
+                  }}
+                  title={activeMemberName}
+                >
+                  <select
+                    value={activePatientId}
+                    onChange={(e) => onSwitchPatient(e.target.value)}
+                    className="w-full bg-transparent text-xs font-medium outline-none appearance-none pr-6"
+                    style={{ color: "var(--text-primary)", textOverflow: "ellipsis" }}
+                    data-testid="select-active-member"
+                  >
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="h-3.5 w-3.5 absolute right-2.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+                </div>
+              )}
+
               <Link href="/settings" data-testid="link-profile-avatar">
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-opacity hover:opacity-80"
