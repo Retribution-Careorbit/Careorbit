@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { useTheme } from "@/components/theme-provider";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { Shield, Crown, Check, Moon, Sun, User, LogOut } from "lucide-react";
@@ -22,8 +23,11 @@ interface Subscription {
 export default function SettingsPage() {
   const { toast } = useToast();
   const user = useAuthStore((s) => s.user);
+  const members = useActivePatientStore((s) => s.members);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useTheme();
+  const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name;
 
   const { data: subscription } = useQuery<Subscription>({
     queryKey: ["/api/subscriptions/current"],
@@ -85,11 +89,11 @@ export default function SettingsPage() {
                   {user?.email || "N/A"}
                 </span>
               </div>
-              {user?.name && (
+              {activeMemberName && (
                 <div className="flex items-center justify-between h-[52px]" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                   <span className="text-sm" style={{ color: "var(--text-muted)" }}>Name</span>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-profile-name">
-                    {user.name}
+                    {activeMemberName}
                   </span>
                 </div>
               )}

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { Phone, AlertTriangle, CreditCard, User, Heart, Pill, QrCode } from "lucide-react";
 
 export function SOSButton() {
@@ -127,6 +128,10 @@ function EmergencyContacts() {
 
 function MedicalIDCard() {
   const user = useAuthStore((s) => s.user);
+  const members = useActivePatientStore((s) => s.members);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+
+  const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "Patient";
 
   const { data: profileData } = useQuery<any>({
     queryKey: ["/api/patients/profile"],
@@ -161,7 +166,7 @@ function MedicalIDCard() {
               <Heart className="h-6 w-6" style={{ color: "var(--accent-cyan)" }} />
             </div>
             <div>
-              <p className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>{user?.name || "Patient"}</p>
+              <p className="font-bold text-lg" style={{ color: "var(--text-primary)" }}>{activeMemberName}</p>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>CareOrbit Medical ID</p>
             </div>
           </div>

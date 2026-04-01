@@ -138,6 +138,8 @@ function MobileMenuSheet({
   const { theme, toggleTheme } = useTheme();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
+  const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "User";
+  const activeMemberInitial = activeMemberName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -167,11 +169,11 @@ function MobileMenuSheet({
               style={{ background: "linear-gradient(135deg, var(--accent-violet), var(--accent-cyan))" }}
             >
               <span className="text-xs font-mono font-bold text-white">
-                {user?.name?.[0]?.toUpperCase() || "U"}
+                {activeMemberInitial}
               </span>
             </div>
             <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-              {user?.name || "User"}
+              {activeMemberName}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" aria-label="Close menu" data-testid="button-close-mobile-menu">
@@ -263,6 +265,8 @@ export function TopNavbar({
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "User";
+  const activeMemberInitial = activeMemberName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -399,13 +403,13 @@ export function TopNavbar({
                   }}
                 >
                   <span className="text-xs font-mono font-bold text-white">
-                    {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                    {activeMemberInitial}
                   </span>
                 </div>
               </Link>
               <div className="min-w-0 hidden xl:block">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }} data-testid="text-user-name">
-                  {user?.name || "User"}
+                  {activeMemberName}
                 </p>
               </div>
               <Button

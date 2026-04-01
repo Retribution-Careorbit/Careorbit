@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
 import { useAuthStore } from "@/lib/auth";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { StaggerContainer, StaggerItem, FadeIn, CountUp } from "@/components/animations";
 import { OrbitScoreRadial, HealthMetricsChart } from "@/components/charts";
 import { Pill, FileText, Bell, Activity, Heart, AlertCircle, ArrowRight, Calendar, Clock, TrendingUp, ChevronRight, Sparkles, BookOpen, Volume2, Square } from "lucide-react";
@@ -102,6 +103,8 @@ function StatCard({
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
+  const members = useActivePatientStore((s) => s.members);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
   const [activeReadKey, setActiveReadKey] = useState<string | null>(null);
 
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
@@ -162,7 +165,8 @@ export default function DashboardPage() {
     })),
   ];
 
-  const firstName = user?.name?.split(" ")[0] || "";
+  const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "";
+  const firstName = activeMemberName.split(" ")[0] || "";
   const nativeLang = (user?.preferredLanguage || "en").toLowerCase();
 
   const speakNative = async (text: string, key: string) => {
