@@ -317,7 +317,7 @@ export function TopNavbar({
             <div
               className="hidden 2xl:flex items-center gap-2 rounded-full px-3"
               style={{
-                width: 190,
+                width: 160,
                 height: 34,
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--border-default)",
@@ -380,10 +380,10 @@ export function TopNavbar({
             <div className="hidden md:flex items-center gap-2 ml-2 pl-3" style={{ borderLeft: "1px solid var(--border-subtle)" }}>
               {members.length > 1 && (
                 <div
-                  className="hidden 2xl:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
+                  className="hidden xl:flex relative items-center h-9 rounded-full px-2 shrink-0"
                   style={{
-                    minWidth: 200,
-                    maxWidth: 220,
+                    minWidth: 140,
+                    maxWidth: 156,
                     background: "var(--bg-elevated)",
                     border: "1px solid var(--border-default)",
                   }}
@@ -418,7 +418,7 @@ export function TopNavbar({
                   </span>
                 </div>
               </Link>
-              <div className="min-w-0 hidden 2xl:block">
+              <div className="hidden">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }} data-testid="text-user-name">
                   {activeMemberName}
                 </p>
