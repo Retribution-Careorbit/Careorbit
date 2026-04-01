@@ -12,7 +12,6 @@ from config import get_settings
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
-from db.seed_demo import DEMO_USER_ID, RAMESH_UPLOADED_DOCUMENTS
 from pipeline.document_pipeline import document_pipeline
 from services.azure_language import AzureLanguageService
 from services.azure_openai import AzureOpenAIService
@@ -1085,10 +1084,8 @@ async def list_valid_prescriptions(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    if patient_id == DEMO_USER_ID:
-        docs = [d for d in get_patient_documents(patient_id) if d.get("document_type") == "prescription" and d.get("valid")]
-        return {"documents": docs}
-    return {"documents": []}
+    docs = [d for d in get_patient_documents(patient_id) if d.get("document_type") == "prescription" and d.get("valid")]
+    return {"documents": docs}
 
 
 @router.get("/lab-reports/valid")

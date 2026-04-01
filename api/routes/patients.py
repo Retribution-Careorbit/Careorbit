@@ -7,9 +7,7 @@ from datetime import datetime, timezone
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
-from db.seed_demo import DEMO_USER_ID, RAMESH_VITALS, RAMESH_EMERGENCY_CONTACTS
-from db.seed_demo import RAMESH_MEDICATIONS
-from db.seed_demo import RAMESH_LAB_HISTORY
+from db.seed_demo import get_seed_list_for_patient
 from db.runtime_store import get_latest_lab_markers
 from api.middleware.audit import log_audit
 from graph.phig_builder import phig_builder
@@ -271,9 +269,7 @@ async def get_vitals(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    if patient_id == DEMO_USER_ID:
-        return {"vitals": RAMESH_VITALS}
-    return {"vitals": []}
+    return {"vitals": get_seed_list_for_patient(patient_id, "vitals")}
 
 
 @router.get("/lab-insights")
@@ -282,12 +278,13 @@ async def get_lab_insights(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    if patient_id != DEMO_USER_ID:
+    lab_history = get_seed_list_for_patient(patient_id, "lab_history")
+    if not lab_history:
         return {"areas": []}
 
     extracted_map = _latest_extracted_markers(patient_id)
     areas = []
-    for entry in RAMESH_LAB_HISTORY:
+    for entry in lab_history:
         points = entry.get("points", [])
         if not points:
             continue
@@ -339,9 +336,7 @@ async def get_emergency_contacts(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    if patient_id == DEMO_USER_ID:
-        return {"contacts": RAMESH_EMERGENCY_CONTACTS}
-    return {"contacts": []}
+    return {"contacts": get_seed_list_for_patient(patient_id, "emergency_contacts")}
 
 
 @router.get("/emergency-pass")
@@ -353,8 +348,8 @@ async def generate_emergency_pass(request: Request):
     users_store = _get_users_store()
     user_data = users_store.get(patient_id, {})
 
-    contacts = RAMESH_EMERGENCY_CONTACTS if patient_id == DEMO_USER_ID else []
-    meds = RAMESH_MEDICATIONS if patient_id == DEMO_USER_ID else []
+    contacts = get_seed_list_for_patient(patient_id, "emergency_contacts")
+    meds = get_seed_list_for_patient(patient_id, "medications")
     dispatch_number = _pick_dispatch_number(contacts)
 
     token = uuid4().hex

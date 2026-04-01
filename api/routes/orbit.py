@@ -6,9 +6,9 @@ from typing import Optional
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.seed_demo import (
-    DEMO_USER_ID, RAMESH_ORBIT_HISTORY, RAMESH_NARRATIVE,
-    RAMESH_APPOINTMENTS, RAMESH_CARE_GAPS, RAMESH_LABS, RAMESH_INTERACTIONS,
-    RAMESH_NARRATIVE_EVENTS,
+    FAMILY_MEMBER_IDS,
+    get_seed_list_for_patient,
+    get_seed_value_for_patient,
 )
 from api.routes.reminders import get_adherence_snapshot_for_patient
 from graph.phig_builder import phig_builder
@@ -54,11 +54,7 @@ async def get_score_history(patient_id: str, days: int = 30) -> list:
     history = get_runtime_orbit_score_history(patient_id)
     if history:
         return history
-    # DEMO SEED — remove when Azure + DB available
-    if patient_id == DEMO_USER_ID:
-        return RAMESH_ORBIT_HISTORY
-    # END DEMO SEED
-    return []
+    return get_seed_list_for_patient(patient_id, "orbit_history")
 
 
 async def create_appointment(patient_id: str, data: dict) -> dict:
@@ -82,19 +78,12 @@ async def create_appointment(patient_id: str, data: dict) -> dict:
 
 
 async def get_living_narrative(patient_id: str) -> dict:
-    # DEMO SEED — remove when Azure + DB available
-    if patient_id == DEMO_USER_ID:
-        return {
-            "narrative": RAMESH_NARRATIVE,
-            "events": RAMESH_NARRATIVE_EVENTS,
-            "trigger_event": "initial_profile_complete",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
-    # END DEMO SEED
+    narrative = get_seed_value_for_patient(patient_id, "narrative", "")
+    events = get_seed_list_for_patient(patient_id, "narrative_events")
     return {
-        "narrative": "",
-        "events": [],
-        "trigger_event": None,
+        "narrative": narrative,
+        "events": events,
+        "trigger_event": "initial_profile_complete" if narrative else None,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -114,8 +103,12 @@ async def build_improvement_plan(patient_id: str, user_tier: str = "free") -> di
             "why": "Adherence consistency directly improves confidence and Orbit score stability.",
         })
 
-    if patient_id == DEMO_USER_ID:
-        for lab in RAMESH_LABS:
+    seed_labs = get_seed_list_for_patient(patient_id, "labs")
+    seed_gaps = get_seed_list_for_patient(patient_id, "care_gaps")
+    seed_interactions = get_seed_list_for_patient(patient_id, "interactions")
+
+    if seed_labs:
+        for lab in seed_labs:
             if lab.get("abnormal"):
                 if lab.get("name") == "HbA1c":
                     actions.append({
@@ -132,7 +125,7 @@ async def build_improvement_plan(patient_id: str, user_tier: str = "free") -> di
                         "why": "Improving renal risk factors reduces medication interaction penalties.",
                     })
 
-        if any(g.get("status") == "open" for g in RAMESH_CARE_GAPS):
+        if any(g.get("status") == "open" for g in seed_gaps):
             actions.append({
                 "focus": "Care gap closure",
                 "action": "Complete diabetic retinopathy screening during your next appointment.",
@@ -140,7 +133,7 @@ async def build_improvement_plan(patient_id: str, user_tier: str = "free") -> di
                 "why": "Closing open care gaps raises preventive-care completeness.",
             })
 
-        if any(ix.get("severity") == "ELEVATED" for ix in RAMESH_INTERACTIONS):
+        if any(ix.get("severity") == "ELEVATED" for ix in seed_interactions):
             actions.append({
                 "focus": "Interaction risk",
                 "action": "Discuss replacing Ibuprofen with a kidney-safe analgesic option.",
@@ -227,7 +220,10 @@ async def post_appointment(request: Request, body: AppointmentCreate):
     return result
 
 
-_appointments_store: dict[str, list] = {DEMO_USER_ID: list(RAMESH_APPOINTMENTS)}
+_appointments_store: dict[str, list] = {
+    patient_id: list(get_seed_list_for_patient(patient_id, "appointments"))
+    for patient_id in FAMILY_MEMBER_IDS
+}
 
 
 @router.get("/appointments")

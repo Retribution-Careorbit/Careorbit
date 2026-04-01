@@ -3,6 +3,7 @@ import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { InlineOrbitScore } from "@/components/orbit-score-floater";
+import type { SwitchablePatient } from "@/lib/patient-context";
 import {
   Heart,
   LayoutDashboard,
@@ -121,7 +122,19 @@ function MoreDropdown({ location }: { location: string }) {
   );
 }
 
-function MobileMenuSheet({ location, onClose }: { location: string; onClose: () => void }) {
+function MobileMenuSheet({
+  location,
+  onClose,
+  members,
+  activePatientId,
+  onSwitchPatient,
+}: {
+  location: string;
+  onClose: () => void;
+  members: SwitchablePatient[];
+  activePatientId: string;
+  onSwitchPatient: (patientId: string) => void;
+}) {
   const { theme, toggleTheme } = useTheme();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
@@ -166,6 +179,33 @@ function MobileMenuSheet({ location, onClose }: { location: string; onClose: () 
           </button>
         </div>
         <nav className="p-3" aria-label="Main navigation">
+          {members.length > 1 && (
+            <div className="mb-2 px-1">
+              <p className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
+                Active Member
+              </p>
+              <div className="space-y-1">
+                {members.map((member) => {
+                  const active = member.id === activePatientId;
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => {
+                        onSwitchPatient(member.id);
+                        onClose();
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${active ? "font-medium" : "hover:bg-[var(--bg-hover)]"}`}
+                      style={{ color: active ? "var(--accent-cyan)" : "var(--text-secondary)" }}
+                      data-testid={`mobile-member-${member.id}`}
+                    >
+                      {member.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {allNav.map((item) => {
             const active = isActive(location, item.href, (item as any).exact);
             return (
@@ -209,7 +249,15 @@ function MobileMenuSheet({ location, onClose }: { location: string; onClose: () 
   );
 }
 
-export function TopNavbar() {
+export function TopNavbar({
+  members = [],
+  activePatientId,
+  onSwitchPatient,
+}: {
+  members?: SwitchablePatient[];
+  activePatientId: string;
+  onSwitchPatient: (patientId: string) => void;
+}) {
   const [location] = useLocation();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -261,6 +309,24 @@ export function TopNavbar() {
           </div>
 
           <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
+            {members.length > 1 && (
+              <div className="hidden lg:flex items-center rounded-full px-2.5 h-9" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+                <select
+                  value={activePatientId}
+                  onChange={(e) => onSwitchPatient(e.target.value)}
+                  className="bg-transparent text-xs font-medium outline-none"
+                  style={{ color: "var(--text-primary)" }}
+                  data-testid="select-active-member"
+                >
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div
               className="hidden xl:flex items-center gap-2 rounded-full px-3"
               style={{
@@ -356,7 +422,15 @@ export function TopNavbar() {
           </div>
         </div>
       </header>
-      {mobileMenuOpen && <MobileMenuSheet location={location} onClose={() => setMobileMenuOpen(false)} />}
+      {mobileMenuOpen && (
+        <MobileMenuSheet
+          location={location}
+          onClose={() => setMobileMenuOpen(false)}
+          members={members}
+          activePatientId={activePatientId}
+          onSwitchPatient={onSwitchPatient}
+        />
+      )}
     </>
   );
 }

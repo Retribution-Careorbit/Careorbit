@@ -3,8 +3,7 @@ from uuid import UUID
 
 from services.azure_search import AzureSearchService
 from db.seed_demo import (
-    DEMO_USER_ID, RAMESH_MEDICATIONS, RAMESH_CONDITIONS,
-    RAMESH_LABS, RAMESH_INTERACTIONS,
+    get_seed_list_for_patient,
 )
 from db.session import async_session
 from db.runtime_store import get_extracted_medications, get_latest_lab_markers
@@ -154,19 +153,16 @@ class PHIGBuilder:
         return results
 
     async def _get_patient_labs(self, patient_id: str) -> list:
-        # DEMO SEED — remove when Azure + DB available
-        if patient_id == DEMO_USER_ID:
-            return RAMESH_LABS
-        # END DEMO SEED
-        return []
+        return get_seed_list_for_patient(patient_id, "labs")
 
     async def get_medication_subgraph(self, patient_id: str) -> dict:
         db_subgraph = await self._get_db_medication_subgraph(patient_id)
 
-        # DEMO SEED — remove when Azure + DB available
-        if patient_id == DEMO_USER_ID:
+        seed_meds = get_seed_list_for_patient(patient_id, "medications")
+        seed_interactions = get_seed_list_for_patient(patient_id, "interactions")
+        if seed_meds:
             meds = []
-            for med in RAMESH_MEDICATIONS:
+            for med in seed_meds:
                 med_entry = {
                     "name": med["name"],
                     "dosage": med["dosage"],
@@ -176,7 +172,7 @@ class PHIGBuilder:
                     "prescribed_by_doctor": med.get("prescribed_by_doctor"),
                     "interactions": [],
                 }
-                for ix in RAMESH_INTERACTIONS:
+                for ix in seed_interactions:
                     if med["name"] in ix["drug_pair"]:
                         med_entry["interactions"].append(ix)
                 meds.append(med_entry)
@@ -198,18 +194,19 @@ class PHIGBuilder:
                 else:
                     meds.append(dict(med))
             return {"medications": meds}
-        # END DEMO SEED
         if db_subgraph.get("medications"):
             return db_subgraph
         return {"medications": get_extracted_medications(patient_id)}
 
     async def get_full_patient_graph(self, patient_id: str) -> dict:
-        # DEMO SEED — remove when Azure + DB available
-        if patient_id == DEMO_USER_ID:
+        seed_conditions = get_seed_list_for_patient(patient_id, "conditions")
+        seed_labs = get_seed_list_for_patient(patient_id, "labs")
+        seed_interactions = get_seed_list_for_patient(patient_id, "interactions")
+        if seed_conditions or seed_labs:
             meds_sub = await self.get_medication_subgraph(patient_id)
             dynamic_markers = get_latest_lab_markers(patient_id)
 
-            merged_labs = {lab.get("name"): dict(lab) for lab in RAMESH_LABS}
+            merged_labs = {lab.get("name"): dict(lab) for lab in seed_labs}
             for marker_name, marker in dynamic_markers.items():
                 merged_labs[marker_name] = {
                     "name": marker_name,
@@ -222,26 +219,25 @@ class PHIGBuilder:
                     "node_type": "lab_value",
                 }
 
-            merged_interactions = list(RAMESH_INTERACTIONS)
+            merged_interactions = list(seed_interactions)
             for med in meds_sub["medications"]:
                 for ix in med.get("interactions", []) or []:
                     if isinstance(ix, dict):
                         merged_interactions.append(ix)
 
-            total = len(meds_sub["medications"]) + len(RAMESH_CONDITIONS) + len(merged_labs)
+            total = len(meds_sub["medications"]) + len(seed_conditions) + len(merged_labs)
             return {
                 "summary": {
                     "total_nodes": total,
-                    "conditions_count": len(RAMESH_CONDITIONS),
+                    "conditions_count": len(seed_conditions),
                     "medications_count": len(meds_sub["medications"]),
                     "labs_count": len(merged_labs),
                 },
                 "medications": meds_sub["medications"],
-                "conditions": RAMESH_CONDITIONS,
+                "conditions": seed_conditions,
                 "labs": list(merged_labs.values()),
                 "interactions": merged_interactions,
             }
-        # END DEMO SEED
         return {"summary": {"total_nodes": 0}}
 
 

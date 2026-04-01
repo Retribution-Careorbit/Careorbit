@@ -8,12 +8,23 @@ async def verify_patient_access(user_id: str, patient_id: str = None, required_p
 
     permission_hierarchy = {"view": 0, "edit": 1, "full": 2}
 
-    session = async_session()
-    result = await session.execute(
-        "SELECT permission_level FROM caregiver_links WHERE caregiver_id = :cid AND patient_id = :pid AND revoked_at IS NULL",
-        {"cid": user_id, "pid": patient_id}
-    )
-    row = result.mappings().first()
+    row = None
+    from api.routes.caregivers import get_active_caregiver_links
+    for link in get_active_caregiver_links():
+        if link.get("caregiver_id") == user_id and link.get("patient_id") == patient_id:
+            row = {"permission_level": link.get("permission_level", "view")}
+            break
+
+    if row is None:
+        try:
+            async with async_session() as session:
+                result = await session.execute(
+                    "SELECT permission_level FROM caregiver_links WHERE caregiver_id = :cid AND patient_id = :pid AND revoked_at IS NULL",
+                    {"cid": user_id, "pid": patient_id}
+                )
+                row = result.mappings().first()
+        except Exception:
+            row = None
 
     if not row:
         raise HTTPException(

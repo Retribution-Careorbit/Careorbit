@@ -4,10 +4,11 @@ from pydantic import BaseModel
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.session import async_session
+from db.seed_demo import FAMILY_CAREGIVER_LINKS
 
 router = APIRouter(prefix="/api/caregivers", tags=["caregivers"])
 
-_caregiver_links = []
+_caregiver_links = [dict(link) for link in FAMILY_CAREGIVER_LINKS]
 
 VALID_RELATIONSHIPS = ["spouse", "son", "daughter", "parent", "sibling", "other"]
 VALID_PERMISSIONS = ["view", "edit", "full"]
@@ -17,6 +18,14 @@ class AddCaregiverRequest(BaseModel):
     caregiver_email: str
     relationship: str
     permission_level: str = "view"
+
+
+def get_caregiver_links() -> list[dict]:
+    return _caregiver_links
+
+
+def get_active_caregiver_links() -> list[dict]:
+    return [link for link in _caregiver_links if not link.get("revoked")]
 
 
 async def enforce_caregiver_limit(user_id: str, tier: str):
@@ -130,11 +139,24 @@ async def revoke_caregiver(caregiver_id: str, request: Request):
 @router.get("/my-patients")
 async def my_patients(request: Request):
     current_user = await auth_mod.get_current_user(request)
+    from api.routes.auth import _users_store
+
     patients = [
         link for link in _caregiver_links
         if link["caregiver_id"] == current_user["id"] and not link.get("revoked")
     ]
-    return patients
+
+    enriched = []
+    for link in patients:
+        patient_id = link.get("patient_id")
+        patient_user = _users_store.get(patient_id, {})
+        enriched.append({
+            **link,
+            "patient_id": patient_id,
+            "patient_name": patient_user.get("name") or patient_id,
+            "patient_email": patient_user.get("email"),
+        })
+    return enriched
 
 
 @router.get("/my-caregivers")

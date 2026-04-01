@@ -4,19 +4,20 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from db.seed_demo import DEMO_USER_ID, RAMESH_UPLOADED_DOCUMENTS, RAMESH_ORBIT_HISTORY
+from db.seed_demo import FAMILY_MEMBER_IDS, get_seed_list_for_patient
 
 _patient_documents: dict[str, list[dict[str, Any]]] = {
-    DEMO_USER_ID: deepcopy(RAMESH_UPLOADED_DOCUMENTS),
+    patient_id: deepcopy(get_seed_list_for_patient(patient_id, "documents"))
+    for patient_id in FAMILY_MEMBER_IDS
 }
 
 _patient_extracted_medications: dict[str, list[dict[str, Any]]] = {}
 _pending_document_reviews: dict[str, dict[str, dict[str, Any]]] = {}
 
 _patient_notifications: dict[str, list[dict[str, Any]]] = {
-    DEMO_USER_ID: [
+    patient_id: [
         {
-            "id": "notif-boot-001",
+            "id": f"notif-boot-{idx + 1:03d}",
             "type": "system",
             "title": "CareOrbit Live Updates Enabled",
             "message": "New uploads and reminder updates will appear here.",
@@ -26,10 +27,12 @@ _patient_notifications: dict[str, list[dict[str, Any]]] = {
             "metadata": {},
         }
     ]
+    for idx, patient_id in enumerate(FAMILY_MEMBER_IDS)
 }
 
 _patient_orbit_score_history: dict[str, list[dict[str, Any]]] = {
-    DEMO_USER_ID: deepcopy(RAMESH_ORBIT_HISTORY),
+    patient_id: deepcopy(get_seed_list_for_patient(patient_id, "orbit_history"))
+    for patient_id in FAMILY_MEMBER_IDS
 }
 
 

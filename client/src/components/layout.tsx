@@ -8,6 +8,8 @@ import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useActivePatientStore, type SwitchablePatient } from "@/lib/patient-context";
+import { useAuthStore } from "@/lib/auth";
 
 interface ProfileResponse {
   profile?: {
@@ -30,8 +32,41 @@ const SPEECH_LOCALE_MAP: Record<string, string> = {
 export function Layout({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
   const [, setLocation] = useLocation();
+  const authUser = useAuthStore((s) => s.user);
   const [preferredLanguage, setPreferredLanguage] = useState<string>("en");
   const lastDialogSignatureRef = useRef("");
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+  const members = useActivePatientStore((s) => s.members);
+  const setMembers = useActivePatientStore((s) => s.setMembers);
+  const setActivePatientId = useActivePatientStore((s) => s.setActivePatientId);
+
+  const { data: linkedPatients = [] } = useQuery<any[]>({
+    queryKey: ["/api/caregivers/my-patients"],
+    staleTime: 300_000,
+  });
+
+  useEffect(() => {
+    const mapped: SwitchablePatient[] = (linkedPatients || []).map((item: any) => ({
+      id: item.patient_id,
+      name: item.patient_name || item.patient_id,
+      relationship: item.relationship,
+      permission_level: item.permission_level,
+    }));
+    setMembers(mapped);
+  }, [linkedPatients, setMembers]);
+
+  const resolvedPatientId = activePatientId || authUser?.id || "";
+
+  const handleSwitchPatient = (patientId: string) => {
+    if (!patientId || patientId === resolvedPatientId) return;
+    setActivePatientId(patientId);
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key0 = query.queryKey?.[0];
+        return typeof key0 === "string" && key0.startsWith("/api/");
+      },
+    });
+  };
 
   const { data: profileData } = useQuery<ProfileResponse>({
     queryKey: ["/api/patients/profile"],
@@ -125,7 +160,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen w-full aurora-bg">
-      <TopNavbar />
+      <TopNavbar
+        members={members}
+        activePatientId={resolvedPatientId}
+        onSwitchPatient={handleSwitchPatient}
+      />
       <main className="flex-1 overflow-auto">
         <div className="px-4 py-6 md:px-8 md:py-8 lg:px-10 page-content pb-24 md:pb-8" style={{ maxWidth: 1280, margin: "0 auto" }}>
           <PageTransition>

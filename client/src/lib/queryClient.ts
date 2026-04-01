@@ -4,6 +4,8 @@ const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || "").trim();
 const SWA_HOST_SUFFIX = ".azurestaticapps.net";
 const SWA_FALLBACK_API_BASE = "https://careorbit-api-dev.azurewebsites.net";
 
+const PATIENT_ID_STORAGE_KEY = "careorbit_active_patient_id";
+
 function getToken(): string | null {
   return localStorage.getItem("careorbit_token");
 }
@@ -39,6 +41,18 @@ export function toApiUrl(url: string): string {
   return base ? `${base}${url}` : url;
 }
 
+function maybeAppendPatientId(url: string): string {
+  if (!url.startsWith("/api/")) return url;
+  if (url.startsWith("/api/auth/")) return url;
+  if (url.includes("patient_id=")) return url;
+
+  const patientId = localStorage.getItem(PATIENT_ID_STORAGE_KEY);
+  if (!patientId) return url;
+
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}patient_id=${encodeURIComponent(patientId)}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (res.status === 401) {
     clearAuthState();
@@ -65,7 +79,9 @@ export async function apiRequest(
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (data) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(toApiUrl(url), {
+  const urlWithPatient = maybeAppendPatientId(url);
+
+  const res = await fetch(toApiUrl(urlWithPatient), {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -85,7 +101,9 @@ export const getQueryFn: <T>(options: {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(toApiUrl(queryKey[0] as string), {
+    const endpoint = maybeAppendPatientId(queryKey[0] as string);
+
+    const res = await fetch(toApiUrl(endpoint), {
       headers,
     });
 

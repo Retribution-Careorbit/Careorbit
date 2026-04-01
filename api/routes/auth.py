@@ -28,22 +28,38 @@ _refresh_tokens_store = {}
 _otp_store = {}
 
 # DEMO SEED — remove when Azure + DB available
-from db.seed_demo import DEMO_USER_ID, DEMO_EMAIL, DEMO_PASSWORD, RAMESH_PROFILE
-_users_store[DEMO_USER_ID] = {
-    "id": DEMO_USER_ID,
-    "name": RAMESH_PROFILE["name"],
-    "email": DEMO_EMAIL,
-    "password_hash": hash_password(DEMO_PASSWORD),
-    "phone_number": RAMESH_PROFILE["phone_number"],
-    "tier": RAMESH_PROFILE["tier"],
-    "date_of_birth": RAMESH_PROFILE["date_of_birth"],
-    "gender": RAMESH_PROFILE["gender"],
-    "city": RAMESH_PROFILE["city"],
-    "state": RAMESH_PROFILE["state"],
-    "preferred_language": RAMESH_PROFILE["preferred_language"],
-    "medical_literacy_level": RAMESH_PROFILE["medical_literacy_level"],
-    "onboarding_completed_at": RAMESH_PROFILE["onboarding_completed_at"],
-}
+from db.seed_demo import (
+    DEMO_USER_ID,
+    DEMO_EMAIL,
+    DEMO_PASSWORD,
+    RAMESH_PROFILE,
+    FATHER_USER_ID,
+    FATHER_EMAIL,
+    FATHER_PASSWORD,
+    FATHER_PROFILE,
+)
+
+
+def _seed_user_record(user_id: str, profile: dict, email: str, password: str):
+    _users_store[user_id] = {
+        "id": user_id,
+        "name": profile["name"],
+        "email": email,
+        "password_hash": hash_password(password),
+        "phone_number": profile.get("phone_number"),
+        "tier": profile.get("tier", "free"),
+        "date_of_birth": profile.get("date_of_birth"),
+        "gender": profile.get("gender"),
+        "city": profile.get("city"),
+        "state": profile.get("state"),
+        "preferred_language": profile.get("preferred_language", "en"),
+        "medical_literacy_level": profile.get("medical_literacy_level"),
+        "onboarding_completed_at": profile.get("onboarding_completed_at"),
+    }
+
+
+_seed_user_record(DEMO_USER_ID, RAMESH_PROFILE, DEMO_EMAIL, DEMO_PASSWORD)
+_seed_user_record(FATHER_USER_ID, FATHER_PROFILE, FATHER_EMAIL, FATHER_PASSWORD)
 # END DEMO SEED
 
 

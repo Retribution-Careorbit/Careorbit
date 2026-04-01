@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from db.session import async_session
-from db.seed_demo import DEMO_USER_ID, RAMESH_REMINDERS, RAMESH_REMINDER_EVENTS
+from db.seed_demo import FAMILY_MEMBER_IDS, get_seed_list_for_patient
 from db.runtime_store import push_notification
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
@@ -21,9 +21,10 @@ _known_medication_nodes = {
 
 _reminder_events_store: dict[str, list[dict]] = {}
 
-for _seed in RAMESH_REMINDERS:
-    _reminders_store[_seed["reminder_id"]] = dict(_seed)
-_reminder_events_store[DEMO_USER_ID] = list(RAMESH_REMINDER_EVENTS)
+for _patient_id in FAMILY_MEMBER_IDS:
+    for _seed in get_seed_list_for_patient(_patient_id, "reminders"):
+        _reminders_store[_seed["reminder_id"]] = dict(_seed)
+    _reminder_events_store[_patient_id] = list(get_seed_list_for_patient(_patient_id, "reminder_events"))
 
 
 class CreateReminderRequest(BaseModel):
@@ -190,7 +191,7 @@ async def create_reminder(body: CreateReminderRequest, request: Request):
             "VALUES (:id, :user_id, :med_id, :time, :days)",
             {
                 "id": reminder_id,
-                "user_id": current_user["id"],
+                "user_id": patient_id,
                 "med_id": body.medication_node_id,
                 "time": body.reminder_time,
                 "days": days,
@@ -202,7 +203,7 @@ async def create_reminder(body: CreateReminderRequest, request: Request):
 
     _reminders_store[reminder_id] = {
         "reminder_id": reminder_id,
-        "user_id": current_user["id"],
+        "user_id": patient_id,
         "medication_node_id": body.medication_node_id,
         "reminder_time": body.reminder_time,
         "days_of_week": days,
@@ -223,14 +224,16 @@ async def create_reminder(body: CreateReminderRequest, request: Request):
 @router.get("/list")
 async def list_reminders(request: Request):
     current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
     user_reminders: list[dict] = [
         r for r in _reminders_store.values()
-        if r["user_id"] == current_user["id"] and r.get("active", True)
+        if r["user_id"] == patient_id and r.get("active", True)
     ]
 
     for reminder in user_reminders:
-        latest_event = _latest_event_for_reminder(current_user["id"], reminder["reminder_id"])
+        latest_event = _latest_event_for_reminder(patient_id, reminder["reminder_id"])
         reminder["latest_event"] = latest_event
 
     return user_reminders
@@ -239,17 +242,19 @@ async def list_reminders(request: Request):
 @router.get("/due")
 async def list_due_reminders(request: Request):
     current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     now = _utc_now()
-    _auto_mark_overdue_missed(current_user["id"], now)
+    _auto_mark_overdue_missed(patient_id, now)
 
     due = []
     for reminder in _reminders_store.values():
-        if reminder.get("user_id") != current_user["id"] or not reminder.get("active", True):
+        if reminder.get("user_id") != patient_id or not reminder.get("active", True):
             continue
         if not _is_due_today(reminder, now):
             continue
 
-        latest_event = _latest_event_for_reminder(current_user["id"], reminder["reminder_id"])
+        latest_event = _latest_event_for_reminder(patient_id, reminder["reminder_id"])
         due.append({
             "reminder_id": reminder["reminder_id"],
             "medication_node_id": reminder["medication_node_id"],
@@ -268,9 +273,11 @@ async def list_due_reminders(request: Request):
 @router.post("/{reminder_id}/mark")
 async def mark_reminder_status(reminder_id: str, body: ReminderStatusRequest, request: Request):
     current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
     reminder = _reminders_store.get(reminder_id)
-    if not reminder or reminder["user_id"] != current_user["id"]:
+    if not reminder or reminder["user_id"] != patient_id:
         raise HTTPException(status_code=404, detail="Reminder not found")
 
     status = (body.status or "").strip().lower()
@@ -287,7 +294,7 @@ async def mark_reminder_status(reminder_id: str, body: ReminderStatusRequest, re
         "reason": body.reason,
         "occurred_at": occurred_at,
     }
-    _reminder_events_store.setdefault(current_user["id"], []).append(event)
+    _reminder_events_store.setdefault(patient_id, []).append(event)
 
     if status == "taken":
         reminder["adherence_streak"] = int(reminder.get("adherence_streak", 0)) + 1
@@ -301,7 +308,7 @@ async def mark_reminder_status(reminder_id: str, body: ReminderStatusRequest, re
     reminder["last_status"] = status
 
     push_notification(
-        current_user["id"],
+        patient_id,
         "reminder",
         "Dose status updated",
         f"{reminder.get('medication_node_id', 'Medication')} marked as {status}.",
@@ -312,7 +319,7 @@ async def mark_reminder_status(reminder_id: str, body: ReminderStatusRequest, re
     return {
         "status": "updated",
         "event": event,
-        "adherence": _compute_adherence(current_user["id"]),
+        "adherence": _compute_adherence(patient_id),
         "orbit_recalculation_hint": "triggered",
     }
 
@@ -329,14 +336,16 @@ async def get_adherence_summary(request: Request):
 @router.delete("/{reminder_id}")
 async def delete_reminder(reminder_id: str, request: Request):
     current_user = await auth_mod.get_current_user(request)
+    patient_id = request.query_params.get("patient_id", current_user["id"])
+    await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
     reminder = _reminders_store.get(reminder_id)
-    if not reminder or reminder["user_id"] != current_user["id"]:
+    if not reminder or reminder["user_id"] != patient_id:
         raise HTTPException(status_code=404, detail="Reminder not found")
 
     _reminders_store.pop(reminder_id)
-    _reminder_events_store[current_user["id"]] = [
-        ev for ev in _reminder_events_store.get(current_user["id"], [])
+    _reminder_events_store[patient_id] = [
+        ev for ev in _reminder_events_store.get(patient_id, [])
         if ev.get("reminder_id") != reminder_id
     ]
     return {"status": "deleted"}

@@ -32,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("careorbit_token");
     localStorage.removeItem("careorbit_refresh_token");
     localStorage.removeItem("careorbit_user");
+    localStorage.removeItem("careorbit_active_patient_id");
     set({ token: null, refreshToken: null, user: null, isAuthenticated: false });
   },
 }));

@@ -1,6 +1,9 @@
 DEMO_USER_ID = "demo-ramesh-kumar-001"
 DEMO_EMAIL = "ramesh@careorbit.dev"
 DEMO_PASSWORD = "Ramesh123!"
+FATHER_USER_ID = "demo-harish-kumar-002"
+FATHER_EMAIL = "harish@careorbit.dev"
+FATHER_PASSWORD = "Harish123!"
 
 RAMESH_PROFILE = {
     "id": DEMO_USER_ID,
@@ -16,6 +19,22 @@ RAMESH_PROFILE = {
     "medical_literacy_level": "basic",
     "tier": "free",
     "onboarding_completed_at": "2026-01-10T08:00:00+00:00",
+}
+
+FATHER_PROFILE = {
+    "id": FATHER_USER_ID,
+    "name": "Harish Chandra Kumar",
+    "email": FATHER_EMAIL,
+    "phone_number": "+919876543310",
+    "date_of_birth": "1939-11-02",
+    "age": 86,
+    "gender": "male",
+    "city": "Durgapur",
+    "state": "West Bengal",
+    "preferred_language": "hi",
+    "medical_literacy_level": "basic",
+    "tier": "premium_family",
+    "onboarding_completed_at": "2026-01-11T09:00:00+00:00",
 }
 
 RAMESH_CONDITIONS = [
@@ -427,6 +446,243 @@ RAMESH_TEST_SCENARIOS = [
         "threshold": "systolic < 100",
     },
 ]
+
+FATHER_CONDITIONS = [
+    {"name": "Coronary Artery Disease", "code": "I25.10", "confidence": 0.86, "node_type": "condition"},
+    {"name": "Chronic Kidney Disease Stage 3", "code": "N18.30", "confidence": 0.82, "node_type": "condition"},
+    {"name": "Benign Prostatic Hyperplasia", "code": "N40.1", "confidence": 0.75, "node_type": "condition"},
+]
+
+FATHER_MEDICATIONS = [
+    {"name": "Telmisartan", "dosage": "40mg OD", "frequency": "once daily", "rxnorm": "73494", "confidence": 0.84, "confidence_label": "HIGH", "prescribed_by_doctor": "Dr. S. Banerjee", "node_type": "medication"},
+    {"name": "Clopidogrel", "dosage": "75mg OD", "frequency": "once daily", "rxnorm": "32968", "confidence": 0.88, "confidence_label": "HIGH", "prescribed_by_doctor": "Dr. A. Sengupta", "node_type": "medication"},
+    {"name": "Rosuvastatin", "dosage": "10mg HS", "frequency": "once daily at bedtime", "rxnorm": "301542", "confidence": 0.81, "confidence_label": "HIGH", "prescribed_by_doctor": "Dr. A. Sengupta", "node_type": "medication"},
+    {"name": "Tamsulosin", "dosage": "0.4mg HS", "frequency": "once daily at bedtime", "rxnorm": "77492", "confidence": 0.74, "confidence_label": "MODERATE", "prescribed_by_doctor": "Dr. R. Dutta", "node_type": "medication"},
+]
+
+FATHER_LABS = [
+    {"name": "LDL Cholesterol", "value": 112, "unit": "mg/dL", "ref_low": None, "ref_high": 100, "loinc": "13457-7", "abnormal": True, "reference_range": "<100 mg/dL", "node_type": "lab_value"},
+    {"name": "Creatinine", "value": 1.6, "unit": "mg/dL", "ref_low": 0.7, "ref_high": 1.3, "loinc": "2160-0", "abnormal": True, "reference_range": "0.7-1.3 mg/dL", "node_type": "lab_value"},
+    {"name": "eGFR", "value": 44, "unit": "mL/min", "ref_low": 90, "ref_high": None, "loinc": "33914-3", "abnormal": True, "reference_range": ">90 mL/min", "node_type": "lab_value"},
+    {"name": "Hemoglobin", "value": 11.2, "unit": "g/dL", "ref_low": 13.5, "ref_high": 17.5, "loinc": "718-7", "abnormal": True, "reference_range": "13.5-17.5 g/dL", "node_type": "lab_value"},
+]
+
+FATHER_LAB_HISTORY = [
+    {
+        "area_key": "cardio_lipids",
+        "area_label": "Cardiac Lipids",
+        "marker_name": "LDL Cholesterol",
+        "unit": "mg/dL",
+        "ref_low": None,
+        "ref_high": 100,
+        "points": [
+            {"date": "2025-10-10", "value": 132},
+            {"date": "2025-12-10", "value": 124},
+            {"date": "2026-01-20", "value": 118},
+            {"date": "2026-02-22", "value": 112},
+        ],
+    },
+    {
+        "area_key": "renal_function",
+        "area_label": "Renal Function",
+        "marker_name": "eGFR",
+        "unit": "mL/min",
+        "ref_low": 90,
+        "ref_high": None,
+        "points": [
+            {"date": "2025-10-10", "value": 50},
+            {"date": "2025-12-10", "value": 48},
+            {"date": "2026-01-20", "value": 46},
+            {"date": "2026-02-22", "value": 44},
+        ],
+    },
+]
+
+FATHER_INTERACTIONS = [
+    {
+        "drug_pair": "Clopidogrel + Ibuprofen",
+        "severity": "ELEVATED",
+        "description": "NSAID co-use can increase bleeding risk in patients on antiplatelet therapy.",
+        "clinical_action": "Avoid over-the-counter NSAIDs and consult physician for pain management.",
+        "acknowledged": False,
+    }
+]
+
+FATHER_CARE_GAPS = [
+    {"name": "Annual Cardiology Review", "status": "open", "description": "Follow-up CAD review is due this quarter."},
+]
+
+FATHER_ORBIT_HISTORY = [
+    {"total_score": 41.0, "computed_at": "2026-01-11T09:00:00+00:00", "delta": None},
+    {"total_score": 46.4, "computed_at": "2026-01-27T11:00:00+00:00", "delta": 5.4},
+    {"total_score": 52.1, "computed_at": "2026-02-10T08:45:00+00:00", "delta": 5.7},
+]
+
+FATHER_VITALS = [
+    {"date": "2026-01-12", "type": "blood_pressure", "systolic": 152, "diastolic": 90, "heart_rate": 72},
+    {"date": "2026-01-28", "type": "blood_pressure", "systolic": 146, "diastolic": 86, "heart_rate": 70},
+    {"date": "2026-02-22", "type": "blood_pressure", "systolic": 140, "diastolic": 84, "heart_rate": 69},
+    {"date": "2026-01-12", "type": "weight", "value": 69.4, "unit": "kg"},
+    {"date": "2026-02-22", "type": "weight", "value": 68.7, "unit": "kg"},
+]
+
+FATHER_APPOINTMENTS = [
+    {
+        "appointment_id": "appt-f-001",
+        "doctor_name": "Dr. Arindam Sengupta",
+        "specialization": "Cardiologist",
+        "appointment_datetime": "2026-03-20T10:00:00+05:30",
+        "clinic_name": "Heart Care Clinic, Durgapur",
+        "status": "upcoming",
+        "brief_scheduled": True,
+    }
+]
+
+FATHER_UPLOADED_DOCUMENTS = [
+    {
+        "document_id": "doc-f-001",
+        "file_name": "cardiology_followup_feb_2026.pdf",
+        "document_type": "prescription",
+        "valid": True,
+        "uploaded_at": "2026-02-18T08:40:00+05:30",
+        "doctor_name": "Dr. Arindam Sengupta",
+        "summary": "CAD follow-up and lipid management prescription.",
+        "file_url": "/api/documents/file/doc-f-001",
+    },
+    {
+        "document_id": "doc-f-002",
+        "file_name": "renal_panel_feb_2026.pdf",
+        "document_type": "lab_report",
+        "valid": True,
+        "uploaded_at": "2026-02-22T09:20:00+05:30",
+        "doctor_name": "AMRI Diagnostic Lab",
+        "summary": "Kidney panel and anemia markers.",
+        "file_url": "/api/documents/file/doc-f-002",
+        "extracted_markers": [
+            {"name": "Creatinine", "value": 1.6, "unit": "mg/dL", "ref_low": 0.7, "ref_high": 1.3},
+            {"name": "eGFR", "value": 44, "unit": "mL/min", "ref_low": 90, "ref_high": None},
+            {"name": "Hemoglobin", "value": 11.2, "unit": "g/dL", "ref_low": 13.5, "ref_high": 17.5},
+        ],
+    },
+]
+
+FATHER_EMERGENCY_CONTACTS = [
+    {"name": "Ramesh Kumar", "relation": "Son", "phone": "+919876543210"},
+    {"name": "Sunita Kumar", "relation": "Daughter-in-law", "phone": "+919876543211"},
+    {"name": "Emergency Ambulance", "relation": "Emergency", "phone": "108"},
+]
+
+FATHER_NARRATIVE = (
+    "Harish Chandra Kumar is an 86-year-old male with coronary artery disease and chronic kidney disease stage 3. "
+    "He is on Telmisartan, Clopidogrel, Rosuvastatin, and Tamsulosin with improving blood pressure trends. "
+    "Recent labs show persistent kidney risk with eGFR of 44 mL/min and Creatinine of 1.6 mg/dL, and mild anemia."
+)
+
+FATHER_NARRATIVE_EVENTS = [
+    {"date": "2026-01-11", "event": "Family onboarding completed", "impact": "Profile activated under family plan"},
+    {"date": "2026-01-27", "event": "Cardiology review done", "impact": "Medication plan stabilized"},
+    {"date": "2026-02-22", "event": "Renal panel uploaded", "impact": "CKD risk monitoring tightened"},
+]
+
+FATHER_REMINDERS = [
+    {
+        "reminder_id": "rem-f-001",
+        "user_id": FATHER_USER_ID,
+        "medication_node_id": "telmisartan-node-id",
+        "reminder_time": "08:30",
+        "days_of_week": [1, 2, 3, 4, 5, 6, 7],
+        "active": True,
+        "adherence_streak": 3,
+        "total_taken": 15,
+        "total_missed": 3,
+        "last_status": "taken",
+        "last_reason": None,
+    },
+]
+
+FATHER_REMINDER_EVENTS = [
+    {
+        "event_id": "evt-f-001",
+        "reminder_id": "rem-f-001",
+        "status": "taken",
+        "reason": None,
+        "occurred_at": "2026-02-22T08:33:00+05:30",
+    }
+]
+
+FAMILY_MEMBER_IDS = [DEMO_USER_ID, FATHER_USER_ID]
+
+FAMILY_CAREGIVER_LINKS = [
+    {
+        "patient_id": FATHER_USER_ID,
+        "caregiver_id": DEMO_USER_ID,
+        "caregiver_name": RAMESH_PROFILE["name"],
+        "relationship": "son",
+        "permission_level": "full",
+        "revoked": False,
+    },
+    {
+        "patient_id": DEMO_USER_ID,
+        "caregiver_id": FATHER_USER_ID,
+        "caregiver_name": FATHER_PROFILE["name"],
+        "relationship": "parent",
+        "permission_level": "full",
+        "revoked": False,
+    },
+]
+
+_PATIENT_SEED_BUNDLE = {
+    DEMO_USER_ID: {
+        "profile": RAMESH_PROFILE,
+        "conditions": RAMESH_CONDITIONS,
+        "medications": RAMESH_MEDICATIONS,
+        "labs": RAMESH_LABS,
+        "lab_history": RAMESH_LAB_HISTORY,
+        "interactions": RAMESH_INTERACTIONS,
+        "care_gaps": RAMESH_CARE_GAPS,
+        "orbit_history": RAMESH_ORBIT_HISTORY,
+        "vitals": RAMESH_VITALS,
+        "appointments": RAMESH_APPOINTMENTS,
+        "documents": RAMESH_UPLOADED_DOCUMENTS,
+        "emergency_contacts": RAMESH_EMERGENCY_CONTACTS,
+        "narrative": RAMESH_NARRATIVE,
+        "narrative_events": RAMESH_NARRATIVE_EVENTS,
+        "reminders": RAMESH_REMINDERS,
+        "reminder_events": RAMESH_REMINDER_EVENTS,
+    },
+    FATHER_USER_ID: {
+        "profile": FATHER_PROFILE,
+        "conditions": FATHER_CONDITIONS,
+        "medications": FATHER_MEDICATIONS,
+        "labs": FATHER_LABS,
+        "lab_history": FATHER_LAB_HISTORY,
+        "interactions": FATHER_INTERACTIONS,
+        "care_gaps": FATHER_CARE_GAPS,
+        "orbit_history": FATHER_ORBIT_HISTORY,
+        "vitals": FATHER_VITALS,
+        "appointments": FATHER_APPOINTMENTS,
+        "documents": FATHER_UPLOADED_DOCUMENTS,
+        "emergency_contacts": FATHER_EMERGENCY_CONTACTS,
+        "narrative": FATHER_NARRATIVE,
+        "narrative_events": FATHER_NARRATIVE_EVENTS,
+        "reminders": FATHER_REMINDERS,
+        "reminder_events": FATHER_REMINDER_EVENTS,
+    },
+}
+
+
+def get_seed_bundle_for_patient(patient_id: str) -> dict:
+    return _PATIENT_SEED_BUNDLE.get(patient_id, {})
+
+
+def get_seed_list_for_patient(patient_id: str, key: str) -> list:
+    value = get_seed_bundle_for_patient(patient_id).get(key)
+    return value if isinstance(value, list) else []
+
+
+def get_seed_value_for_patient(patient_id: str, key: str, default=None):
+    value = get_seed_bundle_for_patient(patient_id).get(key)
+    return default if value is None else value
 
 
 def get_phig_for_orbit():
