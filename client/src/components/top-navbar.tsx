@@ -314,12 +314,21 @@ export function TopNavbar({
 
           <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
             {members.length > 1 && (
-              <div className="hidden lg:flex items-center rounded-full px-2.5 h-9" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+              <div
+                className="hidden lg:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
+                style={{
+                  minWidth: 200,
+                  maxWidth: 220,
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                }}
+                title={activeMemberName}
+              >
                 <select
                   value={activePatientId}
                   onChange={(e) => onSwitchPatient(e.target.value)}
-                  className="bg-transparent text-xs font-medium outline-none"
-                  style={{ color: "var(--text-primary)" }}
+                  className="w-full bg-transparent text-xs font-medium outline-none appearance-none pr-6"
+                  style={{ color: "var(--text-primary)", textOverflow: "ellipsis" }}
                   data-testid="select-active-member"
                 >
                   {members.map((member) => (
@@ -328,6 +337,7 @@ export function TopNavbar({
                     </option>
                   ))}
                 </select>
+                <ChevronDown className="h-3.5 w-3.5 absolute right-2.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
               </div>
             )}
 
