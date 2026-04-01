@@ -292,7 +292,7 @@ export function TopNavbar({
               </span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-0.5 lg:gap-1" aria-label="Main navigation" data-testid="topnav-links">
+            <nav className="hidden md:flex min-w-0 items-center gap-0.5 lg:gap-1" aria-label="Main navigation" data-testid="topnav-links">
               {primaryNav.map((item) => {
                 const active = isActive(location, item.href, item.exact);
                 return (
@@ -315,9 +315,9 @@ export function TopNavbar({
           <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
 
             <div
-              className="hidden xl:flex items-center gap-2 rounded-full px-3"
+              className="hidden 2xl:flex items-center gap-2 rounded-full px-3"
               style={{
-                width: 200,
+                width: 190,
                 height: 34,
                 background: "var(--bg-elevated)",
                 border: "1px solid var(--border-default)",
@@ -380,7 +380,7 @@ export function TopNavbar({
             <div className="hidden md:flex items-center gap-2 ml-2 pl-3" style={{ borderLeft: "1px solid var(--border-subtle)" }}>
               {members.length > 1 && (
                 <div
-                  className="hidden xl:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
+                  className="hidden 2xl:flex relative items-center h-9 rounded-full px-2.5 shrink-0"
                   style={{
                     minWidth: 200,
                     maxWidth: 220,
@@ -418,7 +418,7 @@ export function TopNavbar({
                   </span>
                 </div>
               </Link>
-              <div className="min-w-0 hidden xl:block">
+              <div className="min-w-0 hidden 2xl:block">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }} data-testid="text-user-name">
                   {activeMemberName}
                 </p>
