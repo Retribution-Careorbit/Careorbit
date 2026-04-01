@@ -40,20 +40,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const setMembers = useActivePatientStore((s) => s.setMembers);
   const setActivePatientId = useActivePatientStore((s) => s.setActivePatientId);
 
-  const { data: linkedPatients = [] } = useQuery<any[]>({
+  const { data: linkedPatientsData } = useQuery<any[]>({
     queryKey: ["/api/caregivers/my-patients"],
     staleTime: 300_000,
   });
 
   useEffect(() => {
-    const mapped: SwitchablePatient[] = (linkedPatients || []).map((item: any) => ({
+    const mapped: SwitchablePatient[] = (linkedPatientsData || []).map((item: any) => ({
       id: item.patient_id,
       name: item.patient_name || item.patient_id,
       relationship: item.relationship,
       permission_level: item.permission_level,
     }));
     setMembers(mapped);
-  }, [linkedPatients, setMembers]);
+  }, [linkedPatientsData, setMembers]);
 
   const resolvedPatientId = activePatientId || authUser?.id || "";
 

@@ -44,6 +44,23 @@ export const useActivePatientStore = create<ActivePatientState>((set) => ({
         localStorage.setItem(ACTIVE_PATIENT_STORAGE_KEY, nextActive);
       }
 
+      const sameActive = state.activePatientId === nextActive;
+      const sameMembers =
+        state.members.length === normalized.length &&
+        state.members.every((member, idx) => {
+          const incoming = normalized[idx];
+          return (
+            member.id === incoming.id &&
+            member.name === incoming.name &&
+            member.relationship === incoming.relationship &&
+            member.permission_level === incoming.permission_level
+          );
+        });
+
+      if (sameActive && sameMembers) {
+        return state;
+      }
+
       return {
         members: normalized,
         activePatientId: nextActive,
