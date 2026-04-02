@@ -9,6 +9,36 @@ from services.azure_translator import AzureTranslatorService
 router = APIRouter(tags=["health"])
 
 
+def _entra_health(settings):
+    required = {
+        "ENTRA_CLIENT_ID": bool(settings.ENTRA_CLIENT_ID),
+        "ENTRA_CLIENT_SECRET": bool(settings.ENTRA_CLIENT_SECRET),
+        "ENTRA_REDIRECT_URI": bool(settings.ENTRA_REDIRECT_URI),
+        "ENTRA_FRONTEND_CALLBACK_URL": bool(settings.ENTRA_FRONTEND_CALLBACK_URL),
+        "ENTRA_SCOPES": bool(settings.ENTRA_SCOPES),
+    }
+    authority_present = bool(settings.ENTRA_OPENID_CONFIG_URL or settings.ENTRA_TENANT_ID)
+    required["ENTRA_AUTHORITY"] = authority_present
+
+    missing_required = [key for key, configured in required.items() if not configured]
+    enabled = bool(settings.ENTRA_ENABLED)
+    ready = enabled and not missing_required
+
+    return {
+        "enabled": enabled,
+        "ready": ready,
+        "missing_required": missing_required,
+        "configured": {
+            "ENTRA_CLIENT_ID": required["ENTRA_CLIENT_ID"],
+            "ENTRA_CLIENT_SECRET": required["ENTRA_CLIENT_SECRET"],
+            "ENTRA_REDIRECT_URI": required["ENTRA_REDIRECT_URI"],
+            "ENTRA_FRONTEND_CALLBACK_URL": required["ENTRA_FRONTEND_CALLBACK_URL"],
+            "ENTRA_SCOPES": required["ENTRA_SCOPES"],
+            "ENTRA_AUTHORITY": required["ENTRA_AUTHORITY"],
+        },
+    }
+
+
 @router.get("/health")
 async def health_check():
     environment = os.environ.get("ENVIRONMENT", "development")
@@ -73,5 +103,43 @@ async def health_dependencies():
         "status": status,
         "strict_mode": settings.CHAT_STRICT_AZURE_DEPENDENCIES,
         "missing_required": missing_required,
+        "entra": _entra_health(settings),
         "dependencies": dependencies,
+    }
+
+
+@router.get("/health/auth")
+async def health_auth():
+    settings = get_settings()
+    entra = _entra_health(settings)
+    return {
+        "status": "ready" if entra["ready"] else "degraded",
+        "provider": "azure-entra-id",
+        "entra": entra,
+    }
+
+
+@router.get("/health/startup")
+async def health_startup():
+    settings = get_settings()
+    db_status = await check_db_connection()
+    entra = _entra_health(settings)
+
+    checks = {
+        "database": {
+            "ready": db_status in ("connected", "sqlite", "in_memory", "not_configured"),
+            "status": db_status,
+        },
+        "entra_auth": {
+            "ready": entra["ready"],
+            "enabled": entra["enabled"],
+            "missing_required": entra["missing_required"],
+        },
+    }
+
+    overall_ready = checks["database"]["ready"] and (not entra["enabled"] or checks["entra_auth"]["ready"])
+
+    return {
+        "status": "ready" if overall_ready else "degraded",
+        "checks": checks,
     }

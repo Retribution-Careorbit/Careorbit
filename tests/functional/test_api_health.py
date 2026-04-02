@@ -42,3 +42,45 @@ class TestHealthEndpoint:
         response = client.get("/health")
         assert response.status_code == 200, \
             "Health endpoint must be accessible without auth"
+
+
+class TestHealthAuthEndpoint:
+
+    def test_health_auth_returns_200(self):
+        response = client.get("/health/auth")
+        assert response.status_code == 200
+
+    def test_health_auth_contains_entra_payload(self):
+        response = client.get("/health/auth")
+        data = response.json()
+        assert "status" in data
+        assert "provider" in data
+        assert data["provider"] == "azure-entra-id"
+        assert "entra" in data
+        assert "enabled" in data["entra"]
+        assert "ready" in data["entra"]
+        assert "configured" in data["entra"]
+        assert "missing_required" in data["entra"]
+
+    def test_health_auth_does_not_leak_secret_values(self):
+        response = client.get("/health/auth")
+        data = response.json()
+        configured = data["entra"]["configured"]
+        for value in configured.values():
+            assert isinstance(value, bool)
+
+
+class TestHealthStartupEndpoint:
+
+    def test_health_startup_returns_200(self):
+        response = client.get("/health/startup")
+        assert response.status_code == 200
+
+    def test_health_startup_contains_checks(self):
+        response = client.get("/health/startup")
+        data = response.json()
+        assert "status" in data
+        assert data["status"] in ("ready", "degraded")
+        assert "checks" in data
+        assert "database" in data["checks"]
+        assert "entra_auth" in data["checks"]
