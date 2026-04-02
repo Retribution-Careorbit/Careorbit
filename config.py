@@ -89,6 +89,17 @@ class Settings:
                 return default
             return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
+        self.ENTRA_ENABLED: bool = _to_bool(_get("ENTRA_ENABLED", "false"), False)
+        self.ENTRA_CLIENT_ID: str = _get("ENTRA_CLIENT_ID", "")
+        self.ENTRA_CLIENT_SECRET: str = _get("ENTRA_CLIENT_SECRET", "")
+        self.ENTRA_TENANT_ID: str = _get("ENTRA_TENANT_ID", "")
+        self.ENTRA_OPENID_CONFIG_URL: str = _get("ENTRA_OPENID_CONFIG_URL", "")
+        self.ENTRA_REDIRECT_URI: str = _get("ENTRA_REDIRECT_URI", "")
+        self.ENTRA_FRONTEND_CALLBACK_URL: str = _get("ENTRA_FRONTEND_CALLBACK_URL", "http://localhost:5000/auth/callback")
+        self.ENTRA_SCOPES: str = _get("ENTRA_SCOPES", "openid profile email offline_access")
+        self.ENTRA_GOOGLE_DOMAIN_HINT: str = _get("ENTRA_GOOGLE_DOMAIN_HINT", "")
+        self.ENTRA_APPLE_DOMAIN_HINT: str = _get("ENTRA_APPLE_DOMAIN_HINT", "")
+
         self.DOCUMENTS_ALLOW_PDF_UPLOADS: bool = _to_bool(_get("DOCUMENTS_ALLOW_PDF_UPLOADS", "false"), False)
         self.DOCUMENTS_REQUIRE_BLOB_DURABILITY: bool = _to_bool(
             _get("DOCUMENTS_REQUIRE_BLOB_DURABILITY", "true"),

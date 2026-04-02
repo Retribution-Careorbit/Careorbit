@@ -11,6 +11,7 @@ import { SOSButton } from "@/components/emergency";
 const NotFound = lazy(() => import("@/pages/not-found"));
 const LoginPage = lazy(() => import("@/pages/login"));
 const RegisterPage = lazy(() => import("@/pages/register"));
+const AuthCallbackPage = lazy(() => import("@/pages/auth-callback"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const MedicationsPage = lazy(() => import("@/pages/medications"));
 const DocumentsPage = lazy(() => import("@/pages/documents"));
@@ -53,6 +54,7 @@ function AuthenticatedRoutes() {
 function UnauthenticatedRoutes() {
   return (
     <Switch>
+      <Route path="/auth/callback"><AuthCallbackPage /></Route>
       <Route path="/register"><RegisterPage /></Route>
       <Route path="/"><LoginPage /></Route>
       <Route><LoginPage /></Route>

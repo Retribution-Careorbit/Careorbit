@@ -17,6 +17,10 @@ export default function LoginPage() {
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isPasswordValid = password.length >= 6;
 
+  const startFederatedLogin = (provider: "microsoft" | "google" | "apple") => {
+    window.location.assign(`/api/auth/entra/login?provider=${provider}`);
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,8 +300,17 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-google-login">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button type="button" onClick={() => startFederatedLogin("microsoft")} className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-entra-login">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="2" y="2" width="9" height="9" fill="currentColor" />
+                    <rect x="13" y="2" width="9" height="9" fill="currentColor" opacity="0.8" />
+                    <rect x="2" y="13" width="9" height="9" fill="currentColor" opacity="0.7" />
+                    <rect x="13" y="13" width="9" height="9" fill="currentColor" opacity="0.6" />
+                  </svg>
+                  Microsoft
+                </button>
+                <button type="button" onClick={() => startFederatedLogin("google")} className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-google-login">
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -306,7 +319,7 @@ export default function LoginPage() {
                   </svg>
                   Google
                 </button>
-                <button type="button" className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-apple-login">
+                <button type="button" onClick={() => startFederatedLogin("apple")} className="login-social-btn h-11 rounded-lg border border-[var(--border-default)] flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-primary)]" data-testid="button-apple-login">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.43-2.09-3.603-2.324-4.335-2.376-2.053-.169-3.924 1.253-4.665 1.253zM15.504 4.542c.83-1.006 1.385-2.399 1.233-3.793-1.144.047-2.585.761-3.447 1.761-.692.805-1.353 2.227-1.171 3.603 1.28.1 2.553-.665 3.385-1.571z"/>
                   </svg>
