@@ -2,6 +2,13 @@ import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { InlineOrbitScore } from "@/components/orbit-score-floater";
 import type { SwitchablePatient } from "@/lib/patient-context";
 import {
@@ -379,30 +386,41 @@ export function TopNavbar({
 
             <div className="hidden md:flex items-center gap-2 ml-2 pl-3" style={{ borderLeft: "1px solid var(--border-subtle)" }}>
               {members.length > 1 && (
-                <div
-                  className="hidden xl:flex relative items-center h-9 rounded-full px-2 shrink-0"
-                  style={{
-                    minWidth: 140,
-                    maxWidth: 156,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border-default)",
-                  }}
-                  title={activeMemberName}
-                >
-                  <select
+                <div className="hidden xl:flex shrink-0" style={{ minWidth: 140, maxWidth: 156 }}>
+                  <Select
                     value={activePatientId}
-                    onChange={(e) => onSwitchPatient(e.target.value)}
-                    className="w-full bg-transparent text-xs font-medium outline-none appearance-none pr-6"
-                    style={{ color: "var(--text-primary)", textOverflow: "ellipsis" }}
-                    data-testid="select-active-member"
+                    onValueChange={(value) => onSwitchPatient(value)}
                   >
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="h-3.5 w-3.5 absolute right-2.5 pointer-events-none" style={{ color: "var(--text-muted)" }} />
+                    <SelectTrigger
+                      className="h-9 w-full rounded-full px-3 text-xs font-medium border [&>svg]:h-3.5 [&>svg]:w-3.5"
+                      style={{
+                        background: "var(--bg-elevated)",
+                        borderColor: "var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                      title={activeMemberName}
+                      data-testid="select-active-member"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent
+                      style={{
+                        background: "var(--bg-elevated)",
+                        borderColor: "var(--border-default)",
+                      }}
+                    >
+                      {members.map((member) => (
+                        <SelectItem
+                          key={member.id}
+                          value={member.id}
+                          className="text-xs cursor-pointer text-[var(--text-primary)] focus:text-accent-foreground"
+                          data-testid={`select-member-${member.id}`}
+                        >
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
