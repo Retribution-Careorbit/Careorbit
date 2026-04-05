@@ -123,7 +123,6 @@ export default function DocumentsPage() {
   const [targetedPage, setTargetedPage] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const activePatientId = useActivePatientStore((s) => s.activePatientId);
   const { data: profileData } = useQuery<{ preferred_language?: string }>({
@@ -132,6 +131,12 @@ export default function DocumentsPage() {
   });
   const isHindi = ((profileData?.preferred_language || user?.preferredLanguage || "en").toLowerCase().startsWith("hi"));
   const tx = (en: string, hi: string) => (isHindi ? hi : en);
+
+  const withPatientContext = useCallback((path: string) => {
+    if (!activePatientId) return path;
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}patient_id=${encodeURIComponent(activePatientId)}`;
+  }, [activePatientId]);
 
   const activeResult = useMemo(
     () => results.find((r) => r.document_id && r.document_id === activeReviewDocId),
@@ -401,10 +406,11 @@ export default function DocumentsPage() {
       const currentDoctor = doctorNameDisplay.trim() ||
         (lowConfidenceFieldSet.has("doctor_name") ? (reviewSuggestions["doctor_name"] || "").trim() : "");
       const currentMeds = reviewMedsDisplay;
-      const res = await fetch(toApiUrl(`/api/documents/confirm/${activeReviewDocId}`), {
+      const authToken = useAuthStore.getState().token;
+      const res = await fetch(toApiUrl(withPatientContext(`/api/documents/confirm/${activeReviewDocId}`)), {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -412,6 +418,13 @@ export default function DocumentsPage() {
           medications: currentMeds,
         }),
       });
+      if (res.status === 401) {
+        useAuthStore.getState().logout();
+        if (window.location.pathname !== "/") {
+          window.location.assign("/");
+        }
+        throw new Error(tx("Session expired. Please log in again.", "सेशन समाप्त हो गया। कृपया फिर से लॉग इन करें।"));
+      }
       const data = await res.json();
       if (!res.ok) {
         if (data?.detail?.error === "post_confirmation_validation_gate_failed") {
@@ -500,11 +513,19 @@ export default function DocumentsPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(toApiUrl("/api/documents/upload"), {
+      const authToken = useAuthStore.getState().token;
+      const res = await fetch(toApiUrl(withPatientContext("/api/documents/upload")), {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
         body: formData,
       });
+      if (res.status === 401) {
+        useAuthStore.getState().logout();
+        if (window.location.pathname !== "/") {
+          window.location.assign("/");
+        }
+        throw new Error(tx("Session expired. Please log in again.", "सेशन समाप्त हो गया। कृपया फिर से लॉग इन करें।"));
+      }
       const raw = await res.text();
       const parsed = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
       if (!res.ok) {
