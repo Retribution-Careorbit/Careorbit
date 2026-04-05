@@ -19,6 +19,13 @@ function getGreeting() {
   return "Good evening";
 }
 
+function getGreetingHi() {
+  const h = new Date().getHours();
+  if (h < 12) return "सुप्रभात";
+  if (h < 17) return "नमस्कार";
+  return "शुभ संध्या";
+}
+
 function formatDate() {
   return new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -131,6 +138,10 @@ export default function DashboardPage() {
     queryKey: ["/api/orbit/narrative"],
   });
 
+  const { data: profileData } = useQuery<any>({
+    queryKey: ["/api/patients/profile"],
+  });
+
   const loading = overviewLoading || remLoading;
   const totalNodes = overview?.summary?.total_nodes || 0;
   const reminderList = Array.isArray(reminders) ? reminders : [];
@@ -167,7 +178,16 @@ export default function DashboardPage() {
 
   const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "";
   const firstName = activeMemberName.split(" ")[0] || "";
-  const nativeLang = (user?.preferredLanguage || "en").toLowerCase();
+  const activePreferredLanguage = String(profileData?.profile?.preferred_language || user?.preferredLanguage || "en").toLowerCase();
+  const isHindi = activePreferredLanguage === "hi";
+  const nativeLang = activePreferredLanguage;
+
+  const uiText = {
+    dashboard: isHindi ? "डैशबोर्ड" : "Dashboard",
+    overview: isHindi ? "आपके स्वास्थ्य का संक्षिप्त सार" : "Your healthcare overview at a glance",
+    livingNarrative: isHindi ? "जीवंत स्वास्थ्य कथा" : "Living Narrative",
+    read: isHindi ? "सुनें" : "Read",
+  };
 
   const speakNative = async (text: string, key: string) => {
     if (!("speechSynthesis" in window)) return;
@@ -222,17 +242,17 @@ export default function DashboardPage() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
-                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Dashboard</span>
+                  <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{uiText.dashboard}</span>
                 </div>
                 <h1
                   className="text-[32px] font-semibold leading-tight"
                   style={{ color: "var(--text-primary)" }}
                   data-testid="text-dashboard-title"
                 >
-                  {getGreeting()}{firstName ? `, ${firstName}` : ""}
+                  {(isHindi ? getGreetingHi() : getGreeting())}{firstName ? `, ${firstName}` : ""}
                 </h1>
                 <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  Your healthcare overview at a glance
+                  {uiText.overview}
                 </p>
               </div>
               <span className="font-mono text-xs hidden md:block mt-2" style={{ color: "var(--text-muted)" }}>
@@ -245,7 +265,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
-                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Living Narrative</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{uiText.livingNarrative}</span>
                   </div>
                   <Button
                     variant="outline"
@@ -254,7 +274,7 @@ export default function DashboardPage() {
                     onClick={() => speakNative(String(narrativeData.narrative || ""), "dashboard-living-narrative")}
                     data-testid="button-read-dashboard-summary"
                   >
-                    {activeReadKey === "dashboard-living-narrative" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                    {activeReadKey === "dashboard-living-narrative" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} {uiText.read}
                   </Button>
                 </div>
                 <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }} data-testid="text-dashboard-narrative">

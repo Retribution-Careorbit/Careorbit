@@ -18,6 +18,14 @@ _TRANSLATABLE_TEXT_KEYS = {
     "dose_to_take",
     "error_message",
     "title",
+    "narrative",
+    "event",
+    "impact",
+    "focus",
+    "action",
+    "why",
+    "label",
+    "clinical_priorities",
 }
 
 
