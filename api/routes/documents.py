@@ -13,7 +13,7 @@ from config import get_settings
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
 from api.middleware.localization import (
-    get_patient_preferred_language,
+    get_patient_preferred_language_async,
     translate_text_for_patient,
     localize_payload_for_patient,
 )
@@ -709,7 +709,7 @@ async def upload_document(
 ):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
-    preferred_language = get_patient_preferred_language(patient_id)
+    preferred_language = await get_patient_preferred_language_async(patient_id)
 
     await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
@@ -926,7 +926,7 @@ async def upload_document(
 async def confirm_document_extraction(document_id: str, body: ConfirmExtractionRequest, request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
-    preferred_language = get_patient_preferred_language(patient_id)
+    preferred_language = await get_patient_preferred_language_async(patient_id)
     await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
     pending = get_pending_document_review(patient_id, document_id)

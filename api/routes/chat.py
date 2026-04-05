@@ -7,7 +7,7 @@ from typing import Optional
 
 import api.middleware.auth as auth_mod
 from api.middleware.rbac import verify_patient_access
-from api.middleware.localization import get_patient_preferred_language
+from api.middleware.localization import get_patient_preferred_language_async
 from agents.orchestrator import orchestrator, AzureDependencyUnavailable
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -25,7 +25,7 @@ async def chat_query(body: ChatRequest, request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await verify_patient_access(current_user["id"], patient_id)
 
-    preferred_language = get_patient_preferred_language(patient_id, fallback="en")
+    preferred_language = await get_patient_preferred_language_async(patient_id, fallback="en")
     effective_language = preferred_language if preferred_language == "hi" else (body.language or preferred_language or "en")
 
     try:

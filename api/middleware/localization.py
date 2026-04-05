@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from db.session import async_session
 from db.seed_demo import get_seed_value_for_patient
 from services.azure_translator import AzureTranslatorService
 
@@ -39,8 +40,29 @@ def get_patient_preferred_language(patient_id: str, fallback: str = "en") -> str
     return fallback
 
 
+async def get_patient_preferred_language_async(patient_id: str, fallback: str = "en") -> str:
+    in_memory = get_patient_preferred_language(patient_id, fallback="")
+    if in_memory:
+        return in_memory
+
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                "SELECT preferred_language FROM users WHERE id = :uid LIMIT 1",
+                {"uid": patient_id},
+            )
+            row = result.mappings().first() if hasattr(result, "mappings") else None
+            db_lang = str((row or {}).get("preferred_language") or "").strip().lower()
+            if db_lang:
+                return db_lang
+    except Exception:
+        pass
+
+    return fallback
+
+
 async def translate_text_for_patient(text: str, patient_id: str) -> str:
-    language = get_patient_preferred_language(patient_id)
+    language = await get_patient_preferred_language_async(patient_id)
     if language != "hi":
         return text
     if not isinstance(text, str) or not text.strip():
@@ -53,7 +75,7 @@ async def translate_text_for_patient(text: str, patient_id: str) -> str:
 
 
 async def localize_payload_for_patient(payload: Any, patient_id: str) -> Any:
-    language = get_patient_preferred_language(patient_id)
+    language = await get_patient_preferred_language_async(patient_id)
     if language != "hi":
         return payload
 
