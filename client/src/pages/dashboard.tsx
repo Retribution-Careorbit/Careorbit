@@ -115,31 +115,31 @@ export default function DashboardPage() {
   const [activeReadKey, setActiveReadKey] = useState<string | null>(null);
 
   const { data: overview, isLoading: overviewLoading } = useQuery<any>({
-    queryKey: ["/api/patients/overview"],
+    queryKey: ["/api/patients/overview", activePatientId],
   });
 
   const { data: reminders = [], isLoading: remLoading } = useQuery<any[]>({
-    queryKey: ["/api/reminders/list"],
+    queryKey: ["/api/reminders/list", activePatientId],
   });
 
   const { data: orbitScore } = useQuery<any>({
-    queryKey: ["/api/orbit/score"],
+    queryKey: ["/api/orbit/score", activePatientId],
   });
 
   const { data: vitalsData } = useQuery<any>({
-    queryKey: ["/api/patients/vitals"],
+    queryKey: ["/api/patients/vitals", activePatientId],
   });
 
   const { data: appointments = [] } = useQuery<any[]>({
-    queryKey: ["/api/orbit/appointments"],
+    queryKey: ["/api/orbit/appointments", activePatientId],
   });
 
   const { data: narrativeData } = useQuery<any>({
-    queryKey: ["/api/orbit/narrative"],
+    queryKey: ["/api/orbit/narrative", activePatientId],
   });
 
   const { data: profileData } = useQuery<any>({
-    queryKey: ["/api/patients/profile"],
+    queryKey: ["/api/patients/profile", activePatientId],
   });
 
   const loading = overviewLoading || remLoading;
@@ -187,6 +187,20 @@ export default function DashboardPage() {
     overview: isHindi ? "आपके स्वास्थ्य का संक्षिप्त सार" : "Your healthcare overview at a glance",
     livingNarrative: isHindi ? "जीवंत स्वास्थ्य कथा" : "Living Narrative",
     read: isHindi ? "सुनें" : "Read",
+    quickActions: isHindi ? "त्वरित कार्रवाइयाँ" : "Quick Actions",
+    uploadDocument: isHindi ? "दस्तावेज़ अपलोड करें" : "Upload Document",
+    prescriptionLabReport: isHindi ? "पर्चा, लैब रिपोर्ट" : "Prescription, lab report",
+    askAiAssistant: isHindi ? "एआई सहायक से पूछें" : "Ask AI Assistant",
+    hindiOrEnglish: isHindi ? "हिन्दी या अंग्रेज़ी" : "Hindi or English",
+    upcomingReminders: isHindi ? "आगामी रिमाइंडर" : "Upcoming Reminders",
+    noReminders: isHindi ? "कोई रिमाइंडर सेट नहीं" : "No reminders set",
+    createReminder: isHindi ? "रिमाइंडर बनाएं" : "Create a reminder",
+    appointments: isHindi ? "अपॉइंटमेंट्स" : "Appointments",
+    noUpcomingAppointments: isHindi ? "कोई आगामी अपॉइंटमेंट नहीं" : "No upcoming appointments",
+    bookOne: isHindi ? "एक बुक करें" : "Book one",
+    viewAll: isHindi ? "सभी देखें" : "View All",
+    recentActivity: isHindi ? "हाल की गतिविधि" : "Recent Activity",
+    heartRate: isHindi ? "हृदय गति" : "Heart Rate",
   };
 
   const speakNative = async (text: string, key: string) => {
@@ -385,10 +399,10 @@ export default function DashboardPage() {
                       speakNative(text, "dashboard-heart-rate");
                     }}
                   >
-                    {activeReadKey === "dashboard-heart-rate" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                    {activeReadKey === "dashboard-heart-rate" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} {uiText.read}
                   </Button>
                 </div>
-                <HealthMetricsChart data={bpChartData} label="Heart Rate" color="#00D4FF" height={200} />
+                <HealthMetricsChart data={bpChartData} label={uiText.heartRate} color="#00D4FF" height={200} />
               </div>
             </FadeIn>
           )}
@@ -401,7 +415,7 @@ export default function DashboardPage() {
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <Sparkles className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Quick Actions</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{uiText.quickActions}</span>
               </div>
               <div className="flex-1 flex flex-col justify-center">
                 <Link href="/documents" data-testid="link-quick-upload">
@@ -416,8 +430,8 @@ export default function DashboardPage() {
                       <FileText className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                     </div>
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>Upload Document</p>
-                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Prescription, lab report</p>
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{uiText.uploadDocument}</p>
+                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{uiText.prescriptionLabReport}</p>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: "var(--text-muted)" }} />
                   </div>
@@ -431,8 +445,8 @@ export default function DashboardPage() {
                       <Activity className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
                     </div>
                     <div className="flex-1 min-w-0 overflow-hidden">
-                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>Ask AI Assistant</p>
-                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>Hindi or English</p>
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{uiText.askAiAssistant}</p>
+                      <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{uiText.hindiOrEnglish}</p>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 group-hover:translate-x-1 transition-transform" style={{ color: "var(--text-muted)" }} />
                   </div>
@@ -447,7 +461,7 @@ export default function DashboardPage() {
                 <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
                   <Bell className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Upcoming Reminders</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{uiText.upcomingReminders}</span>
               </div>
               {loading ? (
                 <div className="space-y-3 flex-1">
@@ -460,10 +474,10 @@ export default function DashboardPage() {
                     <Bell className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-amber)", opacity: 0.5 }} />
                   </div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-reminders">
-                    No reminders set
+                    {uiText.noReminders}
                   </p>
                   <Link href="/reminders">
-                    <span className="text-xs underline cursor-pointer" style={{ color: "var(--accent-cyan)" }}>Create a reminder</span>
+                    <span className="text-xs underline cursor-pointer" style={{ color: "var(--accent-cyan)" }}>{uiText.createReminder}</span>
                   </Link>
                 </div>
               ) : (
@@ -491,7 +505,7 @@ export default function DashboardPage() {
                 <div className="card-icon" style={{ background: "var(--accent-emerald-dim)" }}>
                   <Calendar className="h-[18px] w-[18px]" style={{ color: "var(--accent-emerald)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Appointments</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{uiText.appointments}</span>
               </div>
               {upcomingAppts.length === 0 ? (
                 <div className="text-center py-8 flex-1 flex flex-col items-center justify-center">
@@ -499,10 +513,10 @@ export default function DashboardPage() {
                     <Calendar className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-emerald)", opacity: 0.5 }} />
                   </div>
                   <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-appointments">
-                    No upcoming appointments
+                    {uiText.noUpcomingAppointments}
                   </p>
                   <Link href="/appointments">
-                    <span className="text-xs underline cursor-pointer" style={{ color: "var(--accent-cyan)" }}>Book one</span>
+                    <span className="text-xs underline cursor-pointer" style={{ color: "var(--accent-cyan)" }}>{uiText.bookOne}</span>
                   </Link>
                 </div>
               ) : (
@@ -522,7 +536,7 @@ export default function DashboardPage() {
                   ))}
                   <Link href="/appointments">
                     <Button variant="ghost" size="sm" className="w-full mt-1 text-xs" style={{ color: "var(--accent-cyan)" }} data-testid="link-view-appointments">
-                      View All <ArrowRight className="h-3 w-3 ml-1" />
+                      {uiText.viewAll} <ArrowRight className="h-3 w-3 ml-1" />
                     </Button>
                   </Link>
                 </div>
@@ -542,7 +556,7 @@ export default function DashboardPage() {
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <Activity className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Recent Activity</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{uiText.recentActivity}</span>
               </div>
               <div className="space-y-3">
                 {recentEvents.map((event, i) => (

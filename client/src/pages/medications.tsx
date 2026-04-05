@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Layout } from "@/components/layout";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { AdherenceDonut } from "@/components/charts";
 import { Pill, AlertTriangle, Search, Shield, CheckCircle } from "lucide-react";
@@ -29,14 +30,39 @@ const CONFIDENCE_COLORS: Record<string, { bg: string; text: string; border: stri
 export default function MedicationsPage() {
   const [search, setSearch] = useState("");
   const [interactionOpen, setInteractionOpen] = useState(false);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
 
   const { data, isLoading } = useQuery<{ medications: Medication[] }>({
-    queryKey: ["/api/patients/medications"],
+    queryKey: ["/api/patients/medications", activePatientId],
   });
 
   const { data: adherence } = useQuery<any>({
-    queryKey: ["/api/reminders/adherence/summary"],
+    queryKey: ["/api/reminders/adherence/summary", activePatientId],
   });
+
+  const { data: profileData } = useQuery<any>({
+    queryKey: ["/api/patients/profile", activePatientId],
+  });
+
+  const isHindi = String(profileData?.profile?.preferred_language || "en").toLowerCase() === "hi";
+  const t = {
+    title: isHindi ? "दवाइयाँ" : "Medications",
+    subtitle: isHindi ? "आपकी वर्तमान दवाइयाँ, कॉन्फिडेंस स्कोर और इंटरैक्शन अलर्ट सहित" : "Your current medications with confidence scores and interaction alerts",
+    checkInteractions: isHindi ? "इंटरैक्शन जाँचें" : "Check Interactions",
+    noInteractions: isHindi ? "कोई इंटरैक्शन नहीं मिला" : "No interactions detected",
+    allSafe: isHindi ? "आपकी सभी दवाइयाँ साथ में सुरक्षित दिखती हैं" : "All your medications appear safe together",
+    searchPlaceholder: isHindi ? "दवाइयाँ खोजें..." : "Search medications...",
+    noMatch: isHindi ? "आपकी खोज से कोई दवा नहीं मिली" : "No medications match your search",
+    noMeds: isHindi ? "कोई दवा नहीं मिली" : "No medications found",
+    trySearch: isHindi ? "कोई दूसरा शब्द आज़माएँ" : "Try a different search term",
+    uploadStart: isHindi ? "शुरू करने के लिए पर्चा अपलोड करें" : "Upload a prescription to get started",
+    dosage: isHindi ? "खुराक" : "Dosage",
+    frequency: isHindi ? "आवृत्ति" : "Frequency",
+    prescribedBy: isHindi ? "डॉक्टर" : "Prescribed by",
+    takenToday: isHindi ? "2/3 आज लिया गया" : "2/3 taken today",
+    interactionAlerts: isHindi ? "इंटरैक्शन अलर्ट" : "Interaction Alerts",
+    medAdherence: isHindi ? "दवा अनुपालन" : "Medication Adherence",
+  };
 
   const medications = data?.medications || [];
   const filteredMeds = medications.filter((m) =>
@@ -57,32 +83,32 @@ export default function MedicationsPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-medications-title">
-                Medications
+                {t.title}
               </h1>
               <p>
-                Your current medications with confidence scores and interaction alerts
+                {t.subtitle}
               </p>
             </div>
             <Dialog open={interactionOpen} onOpenChange={setInteractionOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="shrink-0" data-testid="button-check-interactions">
                   <Shield className="h-4 w-4 mr-2" />
-                  Check Interactions
+                  {t.checkInteractions}
                 </Button>
               </DialogTrigger>
               <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Shield className="h-5 w-5" style={{ color: "var(--accent-cyan)" }} />
-                    Drug Interaction Checker
+                    {t.checkInteractions}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3 mt-2">
                   {allInteractions.length === 0 ? (
                     <div className="text-center py-6">
                       <CheckCircle className="h-10 w-10 mx-auto mb-2" style={{ color: "var(--accent-emerald)" }} />
-                      <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-interactions">No interactions detected</p>
-                      <p className="text-sm" style={{ color: "var(--text-muted)" }}>All your medications appear safe together</p>
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-interactions">{t.noInteractions}</p>
+                      <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t.allSafe}</p>
                     </div>
                   ) : (
                     allInteractions.map((ix: any, j: number) => (
@@ -121,7 +147,7 @@ export default function MedicationsPage() {
                 <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
                 <input
                   type="search"
-                  placeholder="Search medications..."
+                  placeholder={t.searchPlaceholder}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="flex-1 bg-transparent border-none outline-none text-sm"
@@ -147,10 +173,10 @@ export default function MedicationsPage() {
                     <Pill className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-violet)", opacity: 0.5 }} />
                   </div>
                   <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-medications">
-                    {search ? "No medications match your search" : "No medications found"}
+                    {search ? t.noMatch : t.noMeds}
                   </p>
                   <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                    {search ? "Try a different search term" : "Upload a prescription to get started"}
+                    {search ? t.trySearch : t.uploadStart}
                   </p>
                 </div>
               </FadeIn>
@@ -192,19 +218,19 @@ export default function MedicationsPage() {
                           <div className="space-y-1 text-sm">
                             {med.dosage && (
                               <p>
-                                <span style={{ color: "var(--text-muted)" }}>Dosage:</span>{" "}
+                                <span style={{ color: "var(--text-muted)" }}>{t.dosage}:</span>{" "}
                                 <span className="font-mono text-xs" style={{ color: "var(--text-secondary)" }}>{med.dosage}</span>
                               </p>
                             )}
                             {med.frequency && (
                               <p>
-                                <span style={{ color: "var(--text-muted)" }}>Frequency:</span>{" "}
+                                <span style={{ color: "var(--text-muted)" }}>{t.frequency}:</span>{" "}
                                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.frequency}</span>
                               </p>
                             )}
                             {med.prescribed_by_doctor && (
                               <p>
-                                <span style={{ color: "var(--text-muted)" }}>Prescribed by:</span>{" "}
+                                <span style={{ color: "var(--text-muted)" }}>{t.prescribedBy}:</span>{" "}
                                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.prescribed_by_doctor}</span>
                               </p>
                             )}
@@ -220,7 +246,7 @@ export default function MedicationsPage() {
                                   title={pill <= 2 ? "Taken" : "Pending"}
                                 />
                               ))}
-                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>2/3 taken today</span>
+                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.takenToday}</span>
                             </div>
                           </div>
                           {med.interactions && med.interactions.length > 0 && (
@@ -231,7 +257,7 @@ export default function MedicationsPage() {
                             >
                               <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--accent-rose)" }}>
                                 <AlertTriangle className="h-4 w-4" />
-                                Interaction Alerts
+                                {t.interactionAlerts}
                               </div>
                               {med.interactions.map((int: any, j: number) => (
                                 <p key={j} className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>{int.description || JSON.stringify(int)}</p>
@@ -253,7 +279,7 @@ export default function MedicationsPage() {
               data-testid="card-adherence"
             >
               <AdherenceDonut percentage={clampedAdherence} size={120} />
-              <p className="text-xs mt-2 font-medium" style={{ color: "var(--text-muted)" }}>Medication Adherence</p>
+              <p className="text-xs mt-2 font-medium" style={{ color: "var(--text-muted)" }}>{t.medAdherence}</p>
             </div>
           </FadeIn>
         </div>

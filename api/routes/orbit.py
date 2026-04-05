@@ -233,7 +233,8 @@ async def list_appointments(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    return _appointments_store.get(patient_id, [])
+    payload = _appointments_store.get(patient_id, [])
+    return await localize_payload_for_patient(payload, patient_id)
 
 
 @router.get("/narrative")

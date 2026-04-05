@@ -10,6 +10,7 @@ import { Layout } from "@/components/layout";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { Calendar, Clock, Plus, MapPin, User, Video, Stethoscope, Download } from "lucide-react";
 
 export default function AppointmentsPage() {
@@ -21,10 +22,40 @@ export default function AppointmentsPage() {
   const [specialization, setSpecialization] = useState("");
   const [datetime, setDatetime] = useState("");
   const [clinicName, setClinicName] = useState("");
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
 
   const { data: appointments = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/orbit/appointments"],
+    queryKey: ["/api/orbit/appointments", activePatientId],
   });
+
+  const { data: profileData } = useQuery<any>({
+    queryKey: ["/api/patients/profile", activePatientId],
+  });
+
+  const isHindi = String(profileData?.profile?.preferred_language || "en").toLowerCase() === "hi";
+  const t = {
+    title: isHindi ? "अपॉइंटमेंट्स" : "Appointments",
+    subtitle: isHindi ? "अपने डॉक्टर अपॉइंटमेंट प्रबंधित करें" : "Manage your doctor appointments",
+    newAppointment: isHindi ? "नया अपॉइंटमेंट" : "New Appointment",
+    scheduleAppointment: isHindi ? "अपॉइंटमेंट शेड्यूल करें" : "Schedule Appointment",
+    doctorName: isHindi ? "डॉक्टर का नाम" : "Doctor Name",
+    specialization: isHindi ? "विशेषज्ञता" : "Specialization",
+    dateTime: isHindi ? "दिनांक और समय" : "Date & Time",
+    clinicName: isHindi ? "क्लिनिक का नाम" : "Clinic Name",
+    scheduling: isHindi ? "शेड्यूल हो रहा है..." : "Scheduling...",
+    upcoming: isHindi ? "आगामी" : "Upcoming",
+    noUpcoming: isHindi ? "कोई आगामी अपॉइंटमेंट नहीं" : "No upcoming appointments",
+    previsitBrief: isHindi ? "प्री-विजिट ब्रीफ" : "Pre-visit Brief",
+    videoCall: isHindi ? "वीडियो कॉल" : "Video Call",
+    briefPdf: isHindi ? "ब्रीफ पीडीएफ" : "Brief PDF",
+    past: isHindi ? "पिछले" : "Past",
+    completed: isHindi ? "पूर्ण" : "Completed",
+    viewVisit: isHindi ? "विजिट देखें" : "View Visit",
+    visitSummary: isHindi ? "पिछली विजिट सारांश" : "Past Visit Summary",
+    findings: isHindi ? "मुख्य निष्कर्ष" : "Findings",
+    doctorNotes: isHindi ? "डॉक्टर नोट्स" : "Doctor Notes",
+    prescriptions: isHindi ? "पर्चे" : "Prescriptions",
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -36,7 +67,7 @@ export default function AppointmentsPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/appointments", activePatientId] });
       toast({ title: "Appointment Created", description: "Your appointment has been scheduled." });
       setOpen(false);
       setDoctorName("");
@@ -86,7 +117,7 @@ export default function AppointmentsPage() {
 
   const visitHeader = selectedVisit
     ? `${selectedVisit.doctor_name || "Doctor"} • ${formatDate(selectedVisit.appointment_datetime || "")}`
-    : "Past Visit Summary";
+    : t.visitSummary;
 
   return (
     <Layout>
@@ -95,42 +126,42 @@ export default function AppointmentsPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-appointments-title">
-                Appointments
+                {t.title}
               </h1>
               <p>
-                Manage your doctor appointments
+                {t.subtitle}
               </p>
             </div>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-new-appointment">
                   <Plus className="h-4 w-4 mr-2" />
-                  New Appointment
+                  {t.newAppointment}
                 </Button>
               </DialogTrigger>
               <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
                 <DialogHeader>
-                  <DialogTitle>Schedule Appointment</DialogTitle>
+                  <DialogTitle>{t.scheduleAppointment}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="doctor">Doctor Name</Label>
+                    <Label htmlFor="doctor">{t.doctorName}</Label>
                     <Input id="doctor" data-testid="input-doctor-name" placeholder="Dr. Smith" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="spec">Specialization</Label>
+                    <Label htmlFor="spec">{t.specialization}</Label>
                     <Input id="spec" data-testid="input-specialization" placeholder="Cardiologist, General Physician..." value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="datetime">Date & Time</Label>
+                    <Label htmlFor="datetime">{t.dateTime}</Label>
                     <Input id="datetime" type="datetime-local" data-testid="input-appointment-datetime" value={datetime} onChange={(e) => setDatetime(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="clinic">Clinic Name</Label>
+                    <Label htmlFor="clinic">{t.clinicName}</Label>
                     <Input id="clinic" data-testid="input-clinic-name" placeholder="Apollo Hospital..." value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
                   </div>
                   <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-appointment">
-                    {createMutation.isPending ? "Scheduling..." : "Schedule Appointment"}
+                    {createMutation.isPending ? t.scheduling : t.scheduleAppointment}
                   </Button>
                 </form>
               </DialogContent>
@@ -151,7 +182,7 @@ export default function AppointmentsPage() {
             <FadeIn delay={0.1}>
               <p className="section-header flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Upcoming ({upcoming.length})
+                {t.upcoming} ({upcoming.length})
               </p>
             </FadeIn>
 
@@ -161,7 +192,7 @@ export default function AppointmentsPage() {
                   <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-cyan-dim)" }}>
                     <Calendar className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-cyan)", opacity: 0.5 }} />
                   </div>
-                  <p className="font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-upcoming">No upcoming appointments</p>
+                  <p className="font-medium" style={{ color: "var(--text-secondary)" }} data-testid="text-no-upcoming">{t.noUpcoming}</p>
                 </div>
               </FadeIn>
             ) : (
@@ -200,17 +231,17 @@ export default function AppointmentsPage() {
                         <div className="flex items-center gap-2">
                           {appt.brief_scheduled && (
                             <Badge className="text-xs" style={{ background: "var(--accent-violet-dim)", color: "var(--accent-violet)", border: "1px solid color-mix(in srgb, var(--accent-violet) 30%, transparent)" }}>
-                              Pre-visit Brief
+                              {t.previsitBrief}
                             </Badge>
                           )}
                           <Button variant="outline" size="sm" className="text-xs" data-testid={`button-video-${i}`}>
                             <Video className="h-3.5 w-3.5 mr-1" />
-                            Video Call
+                            {t.videoCall}
                           </Button>
                           <Button variant="outline" size="sm" className="text-xs" asChild data-testid={`button-brief-${i}`}>
                             <button onClick={() => handleOpenBrief(appt.appointment_id)}>
                               <Download className="h-3.5 w-3.5 mr-1" />
-                              Brief PDF
+                              {t.briefPdf}
                             </button>
                           </Button>
                         </div>
@@ -226,7 +257,7 @@ export default function AppointmentsPage() {
                 <FadeIn delay={0.2}>
                   <p className="section-header flex items-center gap-2 mt-4">
                     <Stethoscope className="h-4 w-4" />
-                    Past ({past.length})
+                    {t.past} ({past.length})
                   </p>
                 </FadeIn>
                 <StaggerContainer className="space-y-3">
@@ -248,10 +279,10 @@ export default function AppointmentsPage() {
                             <p className="text-sm font-mono text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(appt.appointment_datetime)}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                            <Badge variant="secondary" className="text-xs">{t.completed}</Badge>
                             {(appt.visit_summary || appt.visit_findings) && (
                               <span className="text-xs" style={{ color: "var(--accent-cyan)" }}>
-                                View Visit
+                                {t.viewVisit}
                               </span>
                             )}
                           </div>
@@ -275,7 +306,7 @@ export default function AppointmentsPage() {
                 <p className="text-sm" style={{ color: "var(--text-primary)" }}>{selectedVisit.visit_summary}</p>
                 {Array.isArray(selectedVisit.visit_findings) && selectedVisit.visit_findings.length > 0 && (
                   <div>
-                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Findings</p>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{t.findings}</p>
                     <ul className="text-sm mt-1 space-y-1" style={{ color: "var(--text-secondary)" }}>
                       {selectedVisit.visit_findings.map((f: string, i: number) => (
                         <li key={i}>- {f}</li>
@@ -285,13 +316,13 @@ export default function AppointmentsPage() {
                 )}
                 {selectedVisit.doctor_notes && (
                   <div>
-                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Doctor Notes</p>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{t.doctorNotes}</p>
                     <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>{selectedVisit.doctor_notes}</p>
                   </div>
                 )}
                 {Array.isArray(selectedVisit.visit_prescriptions) && selectedVisit.visit_prescriptions.length > 0 && (
                   <div>
-                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Prescriptions</p>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{t.prescriptions}</p>
                     <ul className="text-sm mt-1 space-y-1" style={{ color: "var(--text-secondary)" }}>
                       {selectedVisit.visit_prescriptions.map((p: any, i: number) => (
                         <li key={i}>- {p.name} {p.dosage}</li>

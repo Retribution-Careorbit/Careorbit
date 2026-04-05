@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
+from api.middleware.localization import localize_payload_for_patient
 from db.seed_demo import get_seed_list_for_patient
 from db.runtime_store import get_latest_lab_markers
 from api.middleware.audit import log_audit
@@ -252,7 +253,7 @@ async def get_overview(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     graph = await phig_builder.get_full_patient_graph(patient_id)
-    return graph
+    return await localize_payload_for_patient(graph, patient_id)
 
 
 @router.get("/medications")
@@ -261,7 +262,7 @@ async def get_medications(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
     meds = await phig_builder.get_medication_subgraph(patient_id)
-    return meds
+    return await localize_payload_for_patient(meds, patient_id)
 
 
 @router.get("/vitals")
@@ -269,7 +270,7 @@ async def get_vitals(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    return {"vitals": get_seed_list_for_patient(patient_id, "vitals")}
+    return await localize_payload_for_patient({"vitals": get_seed_list_for_patient(patient_id, "vitals")}, patient_id)
 
 
 @router.get("/lab-insights")
@@ -328,7 +329,7 @@ async def get_lab_insights(request: Request):
     for area in areas:
         area.pop("severity_score", None)
 
-    return {"areas": areas}
+    return await localize_payload_for_patient({"areas": areas}, patient_id)
 
 
 @router.get("/emergency-contacts")
@@ -336,7 +337,7 @@ async def get_emergency_contacts(request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
-    return {"contacts": get_seed_list_for_patient(patient_id, "emergency_contacts")}
+    return await localize_payload_for_patient({"contacts": get_seed_list_for_patient(patient_id, "emergency_contacts")}, patient_id)
 
 
 @router.get("/emergency-pass")
@@ -375,13 +376,14 @@ async def generate_emergency_pass(request: Request):
     }
     _emergency_pass_store[token] = payload
 
-    return {
+    payload = {
         "dispatch_phone": dispatch_number,
         "token": token,
         "qr_path": f"/api/patients/emergency-pass/{token}",
         "read_only_note": "Emergency view is read-only and intended for first responders.",
         "card": payload,
     }
+    return await localize_payload_for_patient(payload, patient_id)
 
 
 @router.get("/emergency-pass/{token}")
@@ -389,7 +391,7 @@ async def get_emergency_pass(token: str):
     payload = _emergency_pass_store.get(token)
     if not payload:
         raise HTTPException(status_code=404, detail="Emergency pass not found")
-    return {
+    response_payload = {
         "read_only": True,
         "patient_name": payload.get("patient_name"),
         "age": payload.get("age"),
@@ -401,3 +403,4 @@ async def get_emergency_pass(token: str):
         "medications": payload.get("medications", []),
         "issued_at": payload.get("created_at"),
     }
+    return await localize_payload_for_patient(response_payload, payload.get("patient_id"))

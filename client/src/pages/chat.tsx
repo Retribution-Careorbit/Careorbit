@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/layout";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { useToast } from "@/hooks/use-toast";
 import { FadeIn } from "@/components/animations";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,6 +37,31 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+
+  const { data: profileData } = useQuery<any>({
+    queryKey: ["/api/patients/profile", activePatientId],
+  });
+
+  const isHindi = String(profileData?.profile?.preferred_language || "en").toLowerCase() === "hi";
+
+  useEffect(() => {
+    if (isHindi) {
+      setLanguage("hi");
+    }
+  }, [isHindi]);
+
+  const t = {
+    title: isHindi ? "एआई स्वास्थ्य सहायक" : "AI Health Assistant",
+    subtitle: isHindi ? "दवाइयों, स्क्रीनिंग या स्वास्थ्य इतिहास के बारे में पूछें" : "Ask about medications, screenings, or your health history",
+    english: isHindi ? "अंग्रेज़ी" : "English",
+    hindi: "हिन्दी",
+    playVoice: isHindi ? "आवाज़ चलाएँ" : "Play Voice",
+    stopVoice: isHindi ? "आवाज़ रोकें" : "Stop Voice",
+    alertCount: isHindi ? "अलर्ट" : "alert(s)",
+    careGapCount: isHindi ? "केयर गैप" : "care gap(s)",
+    aiTyping: isHindi ? "केयरऑर्बिट एआई" : "CareOrbit AI",
+  };
 
   const supportsSpeechSynthesis = typeof window !== "undefined" && "speechSynthesis" in window;
   const supportsSpeechRecognition = typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -169,10 +195,10 @@ export default function ChatPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-chat-title">
-                AI Health Assistant
+                {t.title}
               </h1>
               <p>
-                Ask about medications, screenings, or your health history
+                {t.subtitle}
               </p>
             </div>
             <Button
@@ -181,7 +207,7 @@ export default function ChatPage() {
               data-testid="button-language-toggle"
             >
               <Globe className="h-4 w-4 mr-2" />
-              {language === "en" ? "English" : "हिन्दी"}
+              {language === "en" ? t.english : t.hindi}
             </Button>
           </div>
         </FadeIn>
@@ -270,13 +296,13 @@ export default function ChatPage() {
                           {msg.alerts && msg.alerts.length > 0 && (
                             <div className="flex items-center gap-1 text-xs" style={{ color: "var(--accent-rose)" }}>
                               <AlertTriangle className="h-3 w-3" />
-                              {msg.alerts.length} alert(s)
+                              {msg.alerts.length} {t.alertCount}
                             </div>
                           )}
                           {msg.care_gaps && msg.care_gaps.length > 0 && (
                             <div className="flex items-center gap-1 text-xs" style={{ color: "var(--accent-amber)" }}>
                               <Lightbulb className="h-3 w-3" />
-                              {msg.care_gaps.length} care gap(s)
+                              {msg.care_gaps.length} {t.careGapCount}
                             </div>
                           )}
                           <div>
@@ -289,7 +315,7 @@ export default function ChatPage() {
                               data-testid={`button-voice-read-${i}`}
                             >
                               {speakingIndex === i ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />}
-                              {speakingIndex === i ? "Stop Voice" : "Play Voice"}
+                              {speakingIndex === i ? t.stopVoice : t.playVoice}
                             </Button>
                           </div>
                         </div>
@@ -319,7 +345,7 @@ export default function ChatPage() {
                   <Bot className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2">
-                  <span className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>CareOrbit AI</span>
+                  <span className="text-xs font-medium" style={{ color: "var(--accent-cyan)" }}>{t.aiTyping}</span>
                   <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: "var(--accent-cyan)" }} />
                 </div>
               </motion.div>
