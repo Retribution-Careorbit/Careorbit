@@ -12,6 +12,11 @@ from config import get_settings
 
 import api.middleware.auth as auth_mod
 import api.middleware.rbac as rbac_mod
+from api.middleware.localization import (
+    get_patient_preferred_language,
+    translate_text_for_patient,
+    localize_payload_for_patient,
+)
 from pipeline.document_pipeline import document_pipeline
 from services.azure_language import AzureLanguageService
 from services.azure_openai import AzureOpenAIService
@@ -704,6 +709,7 @@ async def upload_document(
 ):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
+    preferred_language = get_patient_preferred_language(patient_id)
 
     await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
@@ -855,6 +861,10 @@ async def upload_document(
             or f"Please review extracted details from {doc_record['file_name']}."
         )
 
+    if preferred_language == "hi":
+        notif_title = await translate_text_for_patient(notif_title, patient_id)
+        notif_message = await translate_text_for_patient(notif_message, patient_id)
+
     try:
         push_notification(
             patient_id,
@@ -887,7 +897,7 @@ async def upload_document(
         trigger="document_upload",
     )
 
-    return {
+    response_payload = {
         "document_id": document_id,
         "file_name": doc_record["file_name"],
         "document_type": result.document_type,
@@ -909,11 +919,14 @@ async def upload_document(
         "orbit_score": orbit_score_update,
     }
 
+    return await localize_payload_for_patient(response_payload, patient_id)
+
 
 @router.post("/confirm/{document_id}")
 async def confirm_document_extraction(document_id: str, body: ConfirmExtractionRequest, request: Request):
     current_user = await auth_mod.get_current_user(request)
     patient_id = request.query_params.get("patient_id", current_user["id"])
+    preferred_language = get_patient_preferred_language(patient_id)
     await rbac_mod.verify_patient_access(current_user["id"], patient_id, "edit")
 
     pending = get_pending_document_review(patient_id, document_id)
@@ -1041,11 +1054,17 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
     )
     remove_pending_document_review(patient_id, document_id)
 
+    confirmation_title = "Document Confirmed"
+    confirmation_message = f"{len(phig_meds)} medication(s) confirmed and added to PHIG."
+    if preferred_language == "hi":
+        confirmation_title = await translate_text_for_patient(confirmation_title, patient_id)
+        confirmation_message = await translate_text_for_patient(confirmation_message, patient_id)
+
     push_notification(
         patient_id,
         "document",
-        "Document Confirmed",
-        f"{len(phig_meds)} medication(s) confirmed and added to PHIG.",
+        confirmation_title,
+        confirmation_message,
         path="/medications",
         metadata={"document_id": document_id},
     )
@@ -1056,7 +1075,7 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
         trigger="document_confirmed",
     )
 
-    return {
+    response_payload = {
         "status": "confirmed",
         "document_id": document_id,
         "doctor_name": doctor_name,
@@ -1068,6 +1087,8 @@ async def confirm_document_extraction(document_id: str, body: ConfirmExtractionR
         "orbit_score": orbit_score_update,
     }
 
+    return await localize_payload_for_patient(response_payload, patient_id)
+
 
 @router.get("/list")
 async def list_documents(request: Request):
@@ -1075,7 +1096,8 @@ async def list_documents(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    return {"documents": get_patient_documents(patient_id)}
+    payload = {"documents": get_patient_documents(patient_id)}
+    return await localize_payload_for_patient(payload, patient_id)
 
 
 @router.get("/prescriptions/valid")
@@ -1085,7 +1107,7 @@ async def list_valid_prescriptions(request: Request):
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
     docs = [d for d in get_patient_documents(patient_id) if d.get("document_type") == "prescription" and d.get("valid")]
-    return {"documents": docs}
+    return await localize_payload_for_patient({"documents": docs}, patient_id)
 
 
 @router.get("/lab-reports/valid")
@@ -1094,7 +1116,7 @@ async def list_valid_lab_reports(request: Request):
     patient_id = request.query_params.get("patient_id", current_user["id"])
     await rbac_mod.verify_patient_access(current_user["id"], patient_id)
 
-    return {"documents": get_valid_lab_reports(patient_id)}
+    return await localize_payload_for_patient({"documents": get_valid_lab_reports(patient_id)}, patient_id)
 
 
 @router.get("/file/{document_id}")
