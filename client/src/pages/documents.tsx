@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, toApiUrl } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth";
+import { useActivePatientStore } from "@/lib/patient-context";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { FileUp, Upload, CheckCircle, AlertTriangle, XCircle, Loader2, Plus } from "lucide-react";
 
@@ -123,6 +124,14 @@ export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+  const { data: profileData } = useQuery<{ preferred_language?: string }>({
+    queryKey: ["/api/patients/profile", activePatientId],
+    enabled: Boolean(activePatientId),
+  });
+  const isHindi = ((profileData?.preferred_language || user?.preferredLanguage || "en").toLowerCase().startsWith("hi"));
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const activeResult = useMemo(
     () => results.find((r) => r.document_id && r.document_id === activeReviewDocId),
@@ -462,10 +471,10 @@ export default function DocumentsPage() {
       setLowConfidenceFields([]);
       setActiveReviewDocId(null);
 
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
       if (data?.orbit_score && typeof data.orbit_score.total_score === "number") {
         queryClient.setQueryData(["/api/orbit/score"], (prev: any) => ({
@@ -473,17 +482,17 @@ export default function DocumentsPage() {
           total_score: data.orbit_score?.total_score,
         }));
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan", activePatientId] });
 
       toast({
-        title: "Confirmed",
-        description: `Added ${data.medications_added || 0} medication(s) to PHIG and synced across tabs.`,
+        title: tx("Confirmed", "पुष्टि हो गई"),
+        description: tx(`Added ${data.medications_added || 0} medication(s) to PHIG and synced across tabs.`, `PHIG में ${data.medications_added || 0} दवा जोड़ी गई और सभी टैब में सिंक हो गया।`),
       });
     },
     onError: (err: Error) => {
-      toast({ title: "Confirmation Failed", description: err.message, variant: "destructive" });
+      toast({ title: tx("Confirmation Failed", "पुष्टि विफल"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -509,8 +518,8 @@ export default function DocumentsPage() {
     },
     onSuccess: (data: UploadResult) => {
       setResults((prev) => [data, ...prev]);
-      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
       if (data?.orbit_score && typeof data.orbit_score.total_score === "number") {
         queryClient.setQueryData(["/api/orbit/score"], (prev: any) => ({
@@ -518,9 +527,9 @@ export default function DocumentsPage() {
           total_score: data.orbit_score?.total_score,
         }));
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan", activePatientId] });
 
       if (data.status === "failed") {
         if (data.document_id) {
@@ -528,8 +537,8 @@ export default function DocumentsPage() {
           loadReviewState(data.extracted_review, ["doctor_name", "medications"]);
         }
         toast({
-          title: "Extraction Failed",
-          description: data.error_message || "Could not extract clinical data. Please fill details manually and confirm.",
+          title: tx("Extraction Failed", "निकर्षण विफल"),
+          description: data.error_message || tx("Could not extract clinical data. Please fill details manually and confirm.", "क्लिनिकल डेटा नहीं निकाला जा सका। कृपया विवरण मैन्युअली भरकर पुष्टि करें।"),
           variant: "destructive",
         });
         return;
@@ -539,8 +548,8 @@ export default function DocumentsPage() {
         setActiveReviewDocId(data.document_id || null);
         loadReviewState(data.extracted_review);
         toast({
-          title: "Review Needed",
-          description: data.summary || `${data.document_type || "Document"} needs confirmation before finalizing.`,
+          title: tx("Review Needed", "समीक्षा आवश्यक"),
+          description: data.summary || tx(`${data.document_type || "Document"} needs confirmation before finalizing.`, `अंतिम करने से पहले ${data.document_type || "दस्तावेज़"} की पुष्टि आवश्यक है।`),
         });
         return;
       }
@@ -553,12 +562,12 @@ export default function DocumentsPage() {
       setLowConfidenceFields([]);
 
       toast({
-        title: "Extraction Complete",
-        description: "Data extracted with high confidence and processed.",
+        title: tx("Extraction Complete", "निकर्षण पूरा"),
+        description: tx("Data extracted with high confidence and processed.", "डेटा उच्च विश्वसनीयता के साथ निकाला और प्रोसेस किया गया।"),
       });
     },
     onError: (err: Error) => {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+      toast({ title: tx("Upload Failed", "अपलोड विफल"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -569,11 +578,11 @@ export default function DocumentsPage() {
     const mimeOk = allowedTypes.includes(file.type);
     const extOk = allowedExtensions.includes(ext);
     if (!mimeOk && !extOk) {
-      toast({ title: "Invalid File", description: "Allowed files: JPG, PNG, WebP, HEIC, or PDF (max 10MB)", variant: "destructive" });
+      toast({ title: tx("Invalid File", "अमान्य फ़ाइल"), description: tx("Allowed files: JPG, PNG, WebP, HEIC, or PDF (max 10MB)", "अनुमत फाइलें: JPG, PNG, WebP, HEIC या PDF (अधिकतम 10MB)"), variant: "destructive" });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File Too Large", description: "Maximum file size is 10MB", variant: "destructive" });
+      toast({ title: tx("File Too Large", "फ़ाइल बहुत बड़ी है"), description: tx("Maximum file size is 10MB", "अधिकतम फ़ाइल आकार 10MB है"), variant: "destructive" });
       return;
     }
     uploadMutation.mutate(file);
@@ -632,10 +641,10 @@ export default function DocumentsPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-documents-title">
-                Documents
+                {tx("Documents", "दस्तावेज़")}
               </h1>
               <p>
-                Upload prescriptions, lab reports, or medicine strip photos for AI extraction
+                {tx("Upload prescriptions, lab reports, or medicine strip photos for AI extraction", "एआई निकर्षण के लिए प्रिस्क्रिप्शन, लैब रिपोर्ट या दवा स्ट्रिप की फोटो अपलोड करें")}
               </p>
             </div>
           </div>
@@ -646,7 +655,7 @@ export default function DocumentsPage() {
             <div
               role="button"
               tabIndex={0}
-              aria-label="Upload document. Drop a file here or press Enter to browse"
+              aria-label={tx("Upload document. Drop a file here or press Enter to browse", "दस्तावेज़ अपलोड करें। फ़ाइल यहां छोड़ें या ब्राउज़ करने के लिए Enter दबाएं")}
               className="border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer"
               style={{
                 borderColor: dragOver ? "var(--accent-cyan)" : "var(--border-default)",
@@ -671,8 +680,8 @@ export default function DocumentsPage() {
                   >
                     <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--accent-cyan)" }} data-testid="spinner-processing" />
                   </div>
-                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Processing document...</p>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>AI is extracting health data</p>
+                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{tx("Processing document...", "दस्तावेज़ प्रोसेस हो रहा है...")}</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("AI is extracting health data", "एआई स्वास्थ्य डेटा निकाल रहा है")}</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -682,11 +691,11 @@ export default function DocumentsPage() {
                   >
                     <Upload className="h-8 w-8" style={{ color: "var(--text-muted)" }} />
                   </div>
-                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>Drop your document here</p>
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, HEIC, or PDF up to 10MB</p>
+                  <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>{tx("Drop your document here", "अपना दस्तावेज़ यहां छोड़ें")}</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("JPEG, PNG, WebP, HEIC, or PDF up to 10MB", "JPEG, PNG, WebP, HEIC या PDF, अधिकतम 10MB")}</p>
                   <Button variant="outline" className="rounded-full" data-testid="button-browse">
                     <FileUp className="h-4 w-4 mr-2" />
-                    Browse Files
+                    {tx("Browse Files", "फाइलें चुनें")}
                   </Button>
                 </div>
               )}
@@ -696,7 +705,7 @@ export default function DocumentsPage() {
 
         {results.length > 0 && (
           <div className="space-y-4">
-            <p className="section-header">Upload Results</p>
+            <p className="section-header">{tx("Upload Results", "अपलोड परिणाम")}</p>
             <StaggerContainer className="space-y-3">
               {results.map((result, i) => (
                 <StaggerItem key={i}>
@@ -704,18 +713,18 @@ export default function DocumentsPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(result.status)}
-                        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{result.document_type || "Document"}</span>
+                        <span className="font-medium" style={{ color: "var(--text-primary)" }}>{result.document_type || tx("Document", "दस्तावेज़")}</span>
                       </div>
                       <Badge variant={result.status === "success" ? "default" : "outline"}>{result.status}</Badge>
                     </div>
                     {result.file_name && (
                       <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
-                        File: <span className="font-mono">{result.file_name}</span>
+                        {tx("File", "फ़ाइल")}: <span className="font-mono">{result.file_name}</span>
                       </p>
                     )}
                     <div className="text-sm space-y-1.5">
                       <p>
-                        <span style={{ color: "var(--text-muted)" }}>Nodes created:</span>{" "}
+                        <span style={{ color: "var(--text-muted)" }}>{tx("Nodes created", "बने हुए नोड्स")}:</span>{" "}
                         <span className="font-mono font-medium" style={{ color: "var(--text-primary)" }}>{result.nodes_created}</span>
                       </p>
                       {result.error_message && (
@@ -745,7 +754,7 @@ export default function DocumentsPage() {
                             <Badge className="mt-2">Added to PHIG</Badge>
                           ) : (
                             <Button className="mt-2" size="sm" variant="outline" onClick={() => openReviewDialog(result)}>
-                              Review & Confirm
+                              {tx("Review & Confirm", "समीक्षा करें और पुष्टि करें")}
                             </Button>
                           )}
                         </div>
@@ -753,7 +762,7 @@ export default function DocumentsPage() {
                       {result.interaction_alerts?.length > 0 && (
                         <div className="mt-2 p-3 rounded-lg" style={{ background: "rgba(244,63,94,0.05)", border: "1px solid rgba(244,63,94,0.20)" }}>
                           <p className="font-medium text-sm" style={{ color: "var(--accent-rose)" }}>
-                            {result.interaction_alerts.length} interaction alert(s)
+                            {tx(`${result.interaction_alerts.length} interaction alert(s)`, `${result.interaction_alerts.length} इंटरैक्शन अलर्ट`) }
                           </p>
                         </div>
                       )}

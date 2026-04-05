@@ -58,16 +58,18 @@ export default function OnboardingPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const token = useAuthStore((s) => s.token);
   const refreshToken = useAuthStore((s) => s.refreshToken);
+  const isHindi = (preferredLanguage || user?.preferredLanguage || "en") === "hi";
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const filledCount = [dateOfBirth, gender, preferredLanguage, medicalLiteracyLevel].filter(Boolean).length;
   const progressPct = (filledCount / 4) * 100;
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
-    if (!gender) newErrors.gender = "Gender is required";
-    if (!preferredLanguage) newErrors.preferredLanguage = "Preferred language is required";
-    if (!medicalLiteracyLevel) newErrors.medicalLiteracyLevel = "Medical literacy level is required";
+    if (!dateOfBirth) newErrors.dateOfBirth = tx("Date of birth is required", "जन्म तिथि आवश्यक है");
+    if (!gender) newErrors.gender = tx("Gender is required", "लिंग आवश्यक है");
+    if (!preferredLanguage) newErrors.preferredLanguage = tx("Preferred language is required", "पसंदीदा भाषा आवश्यक है");
+    if (!medicalLiteracyLevel) newErrors.medicalLiteracyLevel = tx("Medical literacy level is required", "मेडिकल साक्षरता स्तर आवश्यक है");
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -94,7 +96,7 @@ export default function OnboardingPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to update profile");
+      if (!res.ok) throw new Error(data.detail || tx("Failed to update profile", "प्रोफ़ाइल अपडेट नहीं हो सकी"));
 
       if (user && token && refreshToken) {
         setAuth(token, refreshToken, {
@@ -104,10 +106,10 @@ export default function OnboardingPage() {
         });
       }
 
-      toast({ title: "Profile completed!", description: "Your health reports will now be personalized." });
+      toast({ title: tx("Profile completed!", "प्रोफ़ाइल पूरी हुई!"), description: tx("Your health reports will now be personalized.", "अब आपकी स्वास्थ्य रिपोर्ट व्यक्तिगत होंगी।") });
       navigate("/");
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: tx("Error", "त्रुटि"), description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

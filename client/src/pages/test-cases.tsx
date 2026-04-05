@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Layout } from "@/components/layout";
 import { apiRequest } from "@/lib/queryClient";
+import { useActivePatientStore } from "@/lib/patient-context";
+import { useAuthStore } from "@/lib/auth";
 import {
   FlaskConical, Search, ListChecks, Sparkles, Archive,
   Filter, X, RotateCcw, ChevronRight, AlertCircle,
@@ -531,17 +533,25 @@ export default function TestCasesPage() {
   const [appliedFilters, setAppliedFilters] = useState<FilterState>({ ...EMPTY_FILTERS });
   const [draftFilters, setDraftFilters] = useState<FilterState>({ ...EMPTY_FILTERS });
   const [filterOpen, setFilterOpen] = useState(false);
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+  const user = useAuthStore((s) => s.user);
+  const { data: profileData } = useQuery<{ preferred_language?: string }>({
+    queryKey: ["/api/patients/profile", activePatientId],
+    enabled: Boolean(activePatientId),
+  });
+  const isHindi = ((profileData?.preferred_language || user?.preferredLanguage || "en").toLowerCase().startsWith("hi"));
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const { data, isLoading } = useQuery<TestCasesResponse>({
-    queryKey: ["/api/tests/cases"],
+    queryKey: ["/api/tests/cases", activePatientId],
   });
 
   const { data: scenariosData } = useQuery<TestScenariosResponse>({
-    queryKey: ["/api/tests/scenarios"],
+    queryKey: ["/api/tests/scenarios", activePatientId],
   });
 
   const { data: labReportData } = useQuery<{ documents: LabReportDocument[] }>({
-    queryKey: ["/api/documents/lab-reports/valid"],
+    queryKey: ["/api/documents/lab-reports/valid", activePatientId],
   });
 
   const categories = useMemo(() => {
@@ -632,10 +642,10 @@ export default function TestCasesPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: "var(--text-primary)" }} data-testid="text-testcases-title">
               <FlaskConical className="h-6 w-6" style={{ color: "var(--accent-violet)" }} />
-              Lab Reports
+              {tx("Lab Reports", "लैब रिपोर्ट्स")}
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-              Verified lab report uploads and diagnostic scenarios
+              {tx("Verified lab report uploads and diagnostic scenarios", "सत्यापित लैब रिपोर्ट अपलोड और डायग्नोस्टिक परिदृश्य")}
             </p>
           </div>
           <button
@@ -649,7 +659,7 @@ export default function TestCasesPage() {
             data-testid="button-open-filters"
           >
             <Filter className="h-4 w-4" />
-            Filters
+            {tx("Filters", "फ़िल्टर")}
             {activeFilterCount > 0 && (
               <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent-cyan)", color: "#fff" }}>
                 {activeFilterCount}
@@ -672,27 +682,27 @@ export default function TestCasesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Total Reports</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{tx("Total Reports", "कुल रिपोर्ट्स")}</span>
                 <ListChecks className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
               </div>
               <div className="font-mono text-2xl font-bold" style={{ color: "var(--text-primary)" }} data-testid="text-total-tests">{validReports.length}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Uploaded lab reports</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{tx("Uploaded lab reports", "अपलोड की गई लैब रिपोर्ट्स")}</p>
             </div>
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Valid Reports</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{tx("Valid Reports", "मान्य रिपोर्ट्स")}</span>
                 <Sparkles className="h-4 w-4" style={{ color: "var(--accent-emerald)" }} />
               </div>
               <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-emerald)" }} data-testid="text-new-tests">{validReports.length}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Extracted and usable</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{tx("Extracted and usable", "निकाला गया और उपयोग योग्य")}</p>
             </div>
             <div className="page-card p-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Outcome Scenarios</span>
+                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{tx("Outcome Scenarios", "परिणाम परिदृश्य")}</span>
                 <Archive className="h-4 w-4" style={{ color: "var(--accent-amber)" }} />
               </div>
               <div className="font-mono text-2xl font-bold" style={{ color: "var(--accent-amber)" }} data-testid="text-existing-tests">{scenariosData?.summary?.total || 0}</div>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Limit flag outcomes</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{tx("Limit flag outcomes", "सीमा-फ़्लैग परिणाम")}</p>
             </div>
           </div>
         )}
@@ -700,25 +710,25 @@ export default function TestCasesPage() {
         {labReportData?.documents?.length ? (
           <div className="page-card p-4" data-testid="card-valid-lab-reports">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Valid Lab Reports</p>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Total: {labReportData.documents.length}</span>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tx("Valid Lab Reports", "मान्य लैब रिपोर्ट्स")}</p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Total", "कुल")}: {labReportData.documents.length}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {labReportData.documents.map((doc, i) => (
                 <div key={doc.document_id || i} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }} data-testid={`card-lab-report-${i}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{doc.file_name}</p>
-                    <Badge variant="outline" className="capitalize">valid</Badge>
+                    <Badge variant="outline" className="capitalize">{tx("valid", "मान्य")}</Badge>
                   </div>
-                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{doc.summary || "Lab report upload"}</p>
-                  <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{doc.doctor_name || "Unknown doctor"}</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{doc.summary || tx("Lab report upload", "लैब रिपोर्ट अपलोड")}</p>
+                  <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{doc.doctor_name || tx("Unknown doctor", "अज्ञात डॉक्टर")}</p>
                   {Array.isArray(doc.extracted_markers) && doc.extracted_markers.length > 0 && (
                     <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
                       {doc.extracted_markers.slice(0, 3).map((m) => `${m.name} ${m.value}${m.unit ? ` ${m.unit}` : ""}`).join(" • ")}
                     </p>
                   )}
                   <button type="button" className="text-xs underline" style={{ color: "var(--accent-cyan)" }} onClick={() => openLabReportPdf(doc.document_id)}>
-                    View PDF
+                    {tx("View PDF", "पीडीएफ देखें")}
                   </button>
                 </div>
               ))}
@@ -729,8 +739,8 @@ export default function TestCasesPage() {
         {scenariosData?.scenarios?.length ? (
           <div className="page-card p-4" data-testid="card-test-scenarios">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Outcome Scenarios & Limit Flags</p>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>Total: {scenariosData.summary.total}</span>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{tx("Outcome Scenarios & Limit Flags", "परिणाम परिदृश्य और सीमा फ़्लैग")}</p>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Total", "कुल")}: {scenariosData.summary.total}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scenariosData.scenarios.map((scenario, i) => (
@@ -749,7 +759,7 @@ export default function TestCasesPage() {
 
         {activeChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Active:</span>
+            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{tx("Active", "सक्रिय")}:</span>
             {activeChips.map((chip, i) => (
               <button
                 key={i}
@@ -763,14 +773,14 @@ export default function TestCasesPage() {
               </button>
             ))}
             <button onClick={clearApplied} className="text-xs underline ml-1" style={{ color: "var(--accent-rose)" }} data-testid="button-clear-all-chips">
-              Clear all
+              {tx("Clear all", "सब साफ़ करें")}
             </button>
           </div>
         )}
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-mono" style={{ color: "var(--text-muted)" }} data-testid="text-filtered-count">
-            Showing {validReports.length} valid lab reports
+            {tx(`Showing ${validReports.length} valid lab reports`, `${validReports.length} मान्य लैब रिपोर्ट्स दिख रही हैं`)}
           </span>
         </div>
 

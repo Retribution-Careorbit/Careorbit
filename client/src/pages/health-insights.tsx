@@ -10,6 +10,7 @@ import { HealthMetricsChart } from "@/components/charts";
 import { Download, Lightbulb, TrendingUp, Volume2, Square } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuthStore } from "@/lib/auth";
+import { useActivePatientStore } from "@/lib/patient-context";
 
 interface LabTrendPoint {
   date: string;
@@ -50,13 +51,20 @@ export default function HealthInsightsPage() {
   const [selectedArea, setSelectedArea] = useState<AffectedAreaInsight | null>(null);
   const [activeReadKey, setActiveReadKey] = useState<string | null>(null);
   const user = useAuthStore((s) => s.user);
-  const nativeLang = (user?.preferredLanguage || "en").toLowerCase();
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+  const { data: profileData } = useQuery<{ preferred_language?: string }>({
+    queryKey: ["/api/patients/profile", activePatientId],
+    enabled: Boolean(activePatientId),
+  });
+  const nativeLang = (profileData?.preferred_language || user?.preferredLanguage || "en").toLowerCase();
+  const isHindi = nativeLang.startsWith("hi");
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const { data: labInsightsData, isLoading: labInsightsLoading } = useQuery<LabInsightsResponse>({
-    queryKey: ["/api/patients/lab-insights"],
+    queryKey: ["/api/patients/lab-insights", activePatientId],
   });
   const { data: labReportsData, isLoading: labReportsLoading } = useQuery<{ documents: LabReportDocument[] }>({
-    queryKey: ["/api/documents/lab-reports/valid"],
+    queryKey: ["/api/documents/lab-reports/valid", activePatientId],
   });
 
   const severityColor: Record<string, string> = {
@@ -145,10 +153,10 @@ export default function HealthInsightsPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-insights-title">
-                Health Insights
+                {tx("Health Insights", "स्वास्थ्य अंतर्दृष्टि")}
               </h1>
               <p>
-                Lab report trends and AI-powered health recommendations
+                {tx("Lab report trends and AI-powered health recommendations", "लैब रिपोर्ट रुझान और एआई आधारित स्वास्थ्य सुझाव")}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -158,7 +166,7 @@ export default function HealthInsightsPage() {
                 onClick={() => setTimeframe("weekly")}
                 data-testid="button-timeframe-weekly"
               >
-                Weekly
+                {tx("Weekly", "साप्ताहिक")}
               </Button>
               <Button
                 variant={timeframe === "monthly" ? "default" : "outline"}
@@ -166,7 +174,7 @@ export default function HealthInsightsPage() {
                 onClick={() => setTimeframe("monthly")}
                 data-testid="button-timeframe-monthly"
               >
-                Monthly
+                {tx("Monthly", "मासिक")}
               </Button>
               <Button variant="outline" size="sm" onClick={downloadSummaryPdf} data-testid="button-download-summary">
                 <Download className="h-4 w-4 mr-1" />
@@ -193,7 +201,7 @@ export default function HealthInsightsPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-xs" style={{ color: "var(--text-muted)" }}>{area.area_label}</p>
                         <Badge variant="outline" className="text-xs uppercase" style={{ color, borderColor: `color-mix(in srgb, ${color} 40%, transparent)` }}>
-                          {area.severity}
+                            {isHindi ? (area.severity === "critical" ? "गंभीर" : area.severity === "warning" ? "चेतावनी" : "निगरानी") : area.severity}
                         </Badge>
                       </div>
                       <p className="text-2xl font-mono font-bold" style={{ color: "var(--text-primary)" }}>{area.latest_value}</p>
@@ -218,7 +226,7 @@ export default function HealthInsightsPage() {
                 <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                   <TrendingUp className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Top Lab Marker Trend</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{tx("Top Lab Marker Trend", "शीर्ष लैब मार्कर रुझान")}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -231,7 +239,7 @@ export default function HealthInsightsPage() {
                   disabled={!primaryArea}
                   data-testid="button-read-lab-trend-summary"
                 >
-                  {activeReadKey === "health-top-lab-trend" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                  {activeReadKey === "health-top-lab-trend" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} {tx("Read", "सुनें")}
                 </Button>
               </div>
               {labInsightsLoading ? (
@@ -239,11 +247,11 @@ export default function HealthInsightsPage() {
               ) : primaryArea && selectedChartData.length > 0 ? (
                 <HealthMetricsChart data={selectedChartData} label={primaryArea.marker_name} color="#00D4FF" height={220} />
               ) : (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No lab marker trend available</p>
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tx("No lab marker trend available", "कोई लैब मार्कर रुझान उपलब्ध नहीं है")}</p>
               )}
               {primaryArea && (
                 <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
-                  {primaryArea.area_label} • Latest {primaryArea.latest_value} {primaryArea.unit} ({primaryArea.threshold})
+                  {primaryArea.area_label} • {tx("Latest", "नवीनतम")} {primaryArea.latest_value} {primaryArea.unit} ({primaryArea.threshold})
                 </p>
               )}
             </div>
@@ -258,7 +266,7 @@ export default function HealthInsightsPage() {
                 <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
                   <Download className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
                 </div>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Recent Lab Reports</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{tx("Recent Lab Reports", "हाल की लैब रिपोर्ट्स")}</span>
               </div>
               {labReportsLoading ? (
                 <Skeleton className="h-[200px] w-full" />
@@ -268,23 +276,23 @@ export default function HealthInsightsPage() {
                     <div key={doc.document_id || i} className="p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{doc.file_name}</p>
-                        <Badge variant="outline" className="capitalize">valid</Badge>
+                        <Badge variant="outline" className="capitalize">{tx("valid", "मान्य")}</Badge>
                       </div>
-                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{doc.summary || "Lab report upload"}</p>
-                      <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{doc.doctor_name || "Unknown doctor"}</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{doc.summary || tx("Lab report upload", "लैब रिपोर्ट अपलोड")}</p>
+                      <p className="text-[11px] mt-2 font-mono" style={{ color: "var(--text-muted)" }}>{doc.doctor_name || tx("Unknown doctor", "अज्ञात डॉक्टर")}</p>
                       <button
                         type="button"
                         className="text-xs underline"
                         style={{ color: "var(--accent-cyan)" }}
                         onClick={() => openLabReportPdf(doc.document_id)}
                       >
-                        View PDF
+                        {tx("View PDF", "पीडीएफ देखें")}
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>No valid lab reports uploaded yet.</p>
+                <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>{tx("No valid lab reports uploaded yet.", "अभी तक कोई मान्य लैब रिपोर्ट अपलोड नहीं हुई है।")}</p>
               )}
             </div>
           </FadeIn>
@@ -299,7 +307,7 @@ export default function HealthInsightsPage() {
               <div className="card-icon" style={{ background: "var(--accent-amber-dim)" }}>
                 <Lightbulb className="h-[18px] w-[18px]" style={{ color: "var(--accent-amber)" }} />
               </div>
-              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>Most Affected Areas</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{tx("Most Affected Areas", "सबसे अधिक प्रभावित क्षेत्र")}</span>
             </div>
             {labInsightsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -320,7 +328,7 @@ export default function HealthInsightsPage() {
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{area.area_label}</p>
                         <Badge variant="outline" className="uppercase" style={{ color, borderColor: `color-mix(in srgb, ${color} 40%, transparent)` }}>
-                          {area.severity}
+                          {isHindi ? (area.severity === "critical" ? "गंभीर" : area.severity === "warning" ? "चेतावनी" : "निगरानी") : area.severity}
                         </Badge>
                       </div>
                       <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
@@ -332,7 +340,7 @@ export default function HealthInsightsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>No abnormal lab markers currently detected.</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("No abnormal lab markers currently detected.", "अभी कोई असामान्य लैब मार्कर नहीं मिला।")}</p>
             )}
           </div>
         </FadeIn>
@@ -342,7 +350,7 @@ export default function HealthInsightsPage() {
             <DialogHeader>
               <div className="flex items-center justify-between gap-3">
                 <DialogTitle style={{ color: "var(--text-primary)" }}>
-                  {selectedArea?.area_label || "Area Trend"}
+                  {selectedArea?.area_label || tx("Area Trend", "क्षेत्र रुझान")}
                 </DialogTitle>
                 <Button
                   type="button"
@@ -353,7 +361,7 @@ export default function HealthInsightsPage() {
                   disabled={!selectedAreaNarration}
                   data-testid="button-read-health-popup-summary"
                 >
-                  {activeReadKey === "health-popup-summary" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} Read
+                  {activeReadKey === "health-popup-summary" ? <Square className="h-3 w-3 mr-1" /> : <Volume2 className="h-3 w-3 mr-1" />} {tx("Read", "सुनें")}
                 </Button>
               </div>
             </DialogHeader>
@@ -361,13 +369,13 @@ export default function HealthInsightsPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{selectedArea.marker_name}</Badge>
-                  <Badge variant="outline">Latest: {selectedArea.latest_value} {selectedArea.unit}</Badge>
-                  <Badge variant="outline">Threshold: {selectedArea.threshold}</Badge>
+                  <Badge variant="outline">{tx("Latest", "नवीनतम")}: {selectedArea.latest_value} {selectedArea.unit}</Badge>
+                  <Badge variant="outline">{tx("Threshold", "सीमा")}: {selectedArea.threshold}</Badge>
                 </div>
                 {selectedChartData.length > 0 ? (
                   <HealthMetricsChart data={selectedChartData} label={selectedArea.marker_name} color="#00D4FF" height={220} />
                 ) : (
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>No trend points available for this marker.</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("No trend points available for this marker.", "इस मार्कर के लिए कोई रुझान बिंदु उपलब्ध नहीं हैं।")}</p>
                 )}
                 <div className="flex items-center justify-between">
                   <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{selectedArea.insight}</p>

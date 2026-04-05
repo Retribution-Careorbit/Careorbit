@@ -61,6 +61,24 @@ export default function ChatPage() {
     alertCount: isHindi ? "अलर्ट" : "alert(s)",
     careGapCount: isHindi ? "केयर गैप" : "care gap(s)",
     aiTyping: isHindi ? "केयरऑर्बिट एआई" : "CareOrbit AI",
+    error: isHindi ? "त्रुटि" : "Error",
+    voiceUnavailable: isHindi ? "आवाज़ सुविधा उपलब्ध नहीं" : "Voice unavailable",
+    ttsNotSupported: isHindi ? "इस ब्राउज़र में टेक्स्ट-टू-स्पीच समर्थित नहीं है।" : "Text-to-speech is not supported in this browser.",
+    voicePlaybackFailed: isHindi ? "आवाज़ चलाने में विफल" : "Voice playback failed",
+    voicePlaybackFailedDesc: isHindi ? "सहायक की आवाज़ प्रतिक्रिया नहीं चल सकी।" : "Could not play assistant voice response.",
+    sttNotSupported: isHindi ? "इस ब्राउज़र में स्पीच रिकग्निशन समर्थित नहीं है।" : "Speech recognition is not supported in this browser.",
+    voiceInputFailed: isHindi ? "आवाज़ इनपुट विफल" : "Voice input failed",
+    voiceInputFailedDesc: isHindi ? "आवाज़ कैप्चर नहीं हो सकी। कृपया फिर से प्रयास करें।" : "Could not capture voice. Please try again.",
+    voiceCaptured: isHindi ? "आवाज़ कैप्चर हुई" : "Voice captured",
+    voiceCapturedDesc: isHindi ? "ट्रांसक्राइब संदेश की समीक्षा करें और भेजें।" : "Review and send your transcribed message.",
+    stopVoiceInput: isHindi ? "वॉइस इनपुट रोकें" : "Stop voice input",
+    startVoiceInput: isHindi ? "वॉइस इनपुट शुरू करें" : "Start voice input",
+    sendMessage: isHindi ? "संदेश भेजें" : "Send message",
+    emptyPrompt: isHindi ? "मैं आज आपकी कैसे मदद कर सकता हूँ?" : "How can I help you today?",
+    quickQs: isHindi
+      ? ["मैं कौन-कौन सी दवाइयाँ ले रहा हूँ?", "क्या कोई दवा इंटरैक्शन है?", "क्या मेरी कोई स्क्रीनिंग देय है?"]
+      : ["What medications am I taking?", "Any drug interactions?", "Am I due for screenings?"],
+    inputPlaceholder: isHindi ? "अपना स्वास्थ्य प्रश्न टाइप करें..." : "Type your health question...",
   };
 
   const supportsSpeechSynthesis = typeof window !== "undefined" && "speechSynthesis" in window;
@@ -102,7 +120,7 @@ export default function ChatPage() {
       ]);
     },
     onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: t.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -132,7 +150,7 @@ export default function ChatPage() {
 
   const speakMessage = (content: string, msgLang: string | undefined, index: number) => {
     if (!supportsSpeechSynthesis) {
-      toast({ title: "Voice unavailable", description: "Text-to-speech is not supported in this browser." });
+      toast({ title: t.voiceUnavailable, description: t.ttsNotSupported });
       return;
     }
 
@@ -149,7 +167,7 @@ export default function ChatPage() {
     utterance.onend = () => setSpeakingIndex(null);
     utterance.onerror = () => {
       setSpeakingIndex(null);
-      toast({ title: "Voice playback failed", description: "Could not play assistant voice response.", variant: "destructive" });
+      toast({ title: t.voicePlaybackFailed, description: t.voicePlaybackFailedDesc, variant: "destructive" });
     };
     setSpeakingIndex(index);
     window.speechSynthesis.speak(utterance);
@@ -157,7 +175,7 @@ export default function ChatPage() {
 
   const startVoiceInput = () => {
     if (!supportsSpeechRecognition) {
-      toast({ title: "Voice unavailable", description: "Speech recognition is not supported in this browser." });
+      toast({ title: t.voiceUnavailable, description: t.sttNotSupported });
       return;
     }
 
@@ -175,13 +193,13 @@ export default function ChatPage() {
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
       setIsListening(false);
-      toast({ title: "Voice input failed", description: "Could not capture voice. Please try again.", variant: "destructive" });
+      toast({ title: t.voiceInputFailed, description: t.voiceInputFailedDesc, variant: "destructive" });
     };
     recognition.onresult = (event: any) => {
       const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || "";
       if (!transcript) return;
       setInput(transcript);
-      toast({ title: "Voice captured", description: "Review and send your transcribed message." });
+      toast({ title: t.voiceCaptured, description: t.voiceCapturedDesc });
     };
 
     recognitionRef.current = recognition;
@@ -229,10 +247,10 @@ export default function ChatPage() {
                     <Bot className="h-10 w-10" style={{ color: "var(--accent-cyan)", opacity: 0.6 }} />
                   </div>
                   <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-chat-empty">
-                    {language === "en" ? "How can I help you today?" : "मैं आज आपकी कैसे मदद कर सकता हूँ?"}
+                    {t.emptyPrompt}
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {["What medications am I taking?", "Any drug interactions?", "Am I due for screenings?"].map((q) => (
+                    {t.quickQs.map((q) => (
                       <Button
                         key={q}
                         variant="outline"
@@ -369,14 +387,14 @@ export default function ChatPage() {
                   border: "1px solid var(--border-default)",
                   color: isListening ? "white" : "var(--text-secondary)",
                 }}
-                aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                aria-label={isListening ? t.stopVoiceInput : t.startVoiceInput}
                 data-testid="button-voice-input"
               >
                 {isListening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
               <input
                 type="text"
-                placeholder={language === "en" ? "Type your health question..." : "अपना स्वास्थ्य प्रश्न टाइप करें..."}
+                placeholder={t.inputPlaceholder}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -397,7 +415,7 @@ export default function ChatPage() {
                   color: "white",
                   boxShadow: "0 2px 8px rgba(0, 212, 255, 0.3)",
                 }}
-                aria-label="Send message"
+                aria-label={t.sendMessage}
                 data-testid="button-send"
               >
                 <Send className="h-4 w-4" />

@@ -28,6 +28,12 @@ export default function SettingsPage() {
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useTheme();
   const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name;
+  const { data: profileData } = useQuery<any>({
+    queryKey: ["/api/patients/profile", activePatientId],
+    enabled: Boolean(activePatientId),
+  });
+  const isHindi = String(profileData?.profile?.preferred_language || user?.preferredLanguage || "en").toLowerCase() === "hi";
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const { data: subscription } = useQuery<Subscription>({
     queryKey: ["/api/subscriptions/current"],
@@ -46,15 +52,15 @@ export default function SettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions/current"] });
-      toast({ title: "Plan Updated" });
+      toast({ title: tx("Plan Updated", "प्लान अपडेट हुआ") });
     },
     onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: tx("Error", "त्रुटि"), description: err.message, variant: "destructive" });
     },
   });
 
   const formatPrice = (cents: number) => {
-    if (cents === 0) return "Free";
+    if (cents === 0) return tx("Free", "मुफ़्त");
     return `₹${(cents / 100).toFixed(0)}/mo`;
   };
 
@@ -65,10 +71,10 @@ export default function SettingsPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-settings-title">
-                Settings
+                {tx("Settings", "सेटिंग्स")}
               </h1>
               <p>
-                Manage your account and subscription
+                {tx("Manage your account and subscription", "अपना खाता और सब्सक्रिप्शन प्रबंधित करें")}
               </p>
             </div>
           </div>
@@ -80,28 +86,28 @@ export default function SettingsPage() {
               <div className="card-icon" style={{ background: "var(--accent-cyan-dim)" }}>
                 <User className="h-[18px] w-[18px]" style={{ color: "var(--accent-cyan)" }} />
               </div>
-              <span className="font-medium" style={{ color: "var(--text-primary)" }}>Profile</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{tx("Profile", "प्रोफ़ाइल")}</span>
             </div>
             <div className="space-y-0">
               <div className="flex items-center justify-between h-[52px]" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                <span className="text-sm" style={{ color: "var(--text-muted)" }}>Email</span>
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("Email", "ईमेल")}</span>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-profile-email">
-                  {user?.email || "N/A"}
+                  {user?.email || tx("N/A", "उपलब्ध नहीं")}
                 </span>
               </div>
               {activeMemberName && (
                 <div className="flex items-center justify-between h-[52px]" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>Name</span>
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("Name", "नाम")}</span>
                   <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-profile-name">
                     {activeMemberName}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between h-[52px]">
-                <span className="text-sm" style={{ color: "var(--text-muted)" }}>Theme</span>
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>{tx("Theme", "थीम")}</span>
                 <Button variant="outline" size="sm" onClick={toggleTheme} data-testid="button-theme">
                   {theme === "dark" ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
-                  {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                  {theme === "dark" ? tx("Light Mode", "लाइट मोड") : tx("Dark Mode", "डार्क मोड")}
                 </Button>
               </div>
             </div>
@@ -114,12 +120,12 @@ export default function SettingsPage() {
               <div className="card-icon" style={{ background: "var(--accent-violet-dim)" }}>
                 <Shield className="h-[18px] w-[18px]" style={{ color: "var(--accent-violet)" }} />
               </div>
-              <span className="font-medium" style={{ color: "var(--text-primary)" }}>Subscription</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{tx("Subscription", "सब्सक्रिप्शन")}</span>
             </div>
             <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-              Current plan: <Badge className="ml-1" data-testid="text-current-tier">{subscription?.tier || "free"}</Badge>
+              {tx("Current plan", "वर्तमान प्लान")}: <Badge className="ml-1" data-testid="text-current-tier">{subscription?.tier || "free"}</Badge>
               {subscription?.features?.shows_ads && (
-                <span className="text-xs ml-2">(with ads)</span>
+                <span className="text-xs ml-2">{tx("(with ads)", "(विज्ञापनों के साथ)")}</span>
               )}
             </p>
 
@@ -143,7 +149,7 @@ export default function SettingsPage() {
                       data-testid={`card-plan-${plan.tier}`}
                     >
                       {isCurrent && (
-                        <Badge className="absolute -top-0 left-4 rounded-t-none">Current</Badge>
+                        <Badge className="absolute -top-0 left-4 rounded-t-none">{tx("Current", "वर्तमान")}</Badge>
                       )}
                       <div
                         className="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-3"
@@ -159,7 +165,7 @@ export default function SettingsPage() {
                         {isCurrent ? (
                           <Button variant="outline" disabled className="w-full">
                             <Check className="h-4 w-4 mr-2" />
-                            Current Plan
+                            {tx("Current Plan", "वर्तमान प्लान")}
                           </Button>
                         ) : (
                           <Button
@@ -168,7 +174,7 @@ export default function SettingsPage() {
                             disabled={upgradeMutation.isPending}
                             data-testid={`button-upgrade-${plan.tier}`}
                           >
-                            {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
+                            {upgradeMutation.isPending ? tx("Upgrading...", "अपग्रेड हो रहा है...") : tx("Upgrade", "अपग्रेड करें")}
                           </Button>
                         )}
                       </div>
@@ -189,7 +195,7 @@ export default function SettingsPage() {
               data-testid="button-sign-out"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              {tx("Sign Out", "साइन आउट")}
             </Button>
           </div>
         </FadeIn>

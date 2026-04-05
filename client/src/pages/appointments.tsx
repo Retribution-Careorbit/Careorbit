@@ -55,6 +55,14 @@ export default function AppointmentsPage() {
     findings: isHindi ? "मुख्य निष्कर्ष" : "Findings",
     doctorNotes: isHindi ? "डॉक्टर नोट्स" : "Doctor Notes",
     prescriptions: isHindi ? "पर्चे" : "Prescriptions",
+    appointmentCreated: isHindi ? "अपॉइंटमेंट बन गया" : "Appointment Created",
+    appointmentScheduled: isHindi ? "आपका अपॉइंटमेंट शेड्यूल हो गया है।" : "Your appointment has been scheduled.",
+    error: isHindi ? "त्रुटि" : "Error",
+    unableToOpenBrief: isHindi ? "ब्रीफ नहीं खुल सका" : "Unable to open brief",
+    doctorPlaceholder: isHindi ? "डॉ. शर्मा" : "Dr. Smith",
+    specializationPlaceholder: isHindi ? "कार्डियोलॉजिस्ट, जनरल फिजिशियन..." : "Cardiologist, General Physician...",
+    clinicPlaceholder: isHindi ? "अपोलो अस्पताल..." : "Apollo Hospital...",
+    doctorFallback: isHindi ? "डॉक्टर" : "Doctor",
   };
 
   const createMutation = useMutation({
@@ -68,7 +76,7 @@ export default function AppointmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/appointments", activePatientId] });
-      toast({ title: "Appointment Created", description: "Your appointment has been scheduled." });
+      toast({ title: t.appointmentCreated, description: t.appointmentScheduled });
       setOpen(false);
       setDoctorName("");
       setSpecialization("");
@@ -76,7 +84,7 @@ export default function AppointmentsPage() {
       setClinicName("");
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: t.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -106,7 +114,7 @@ export default function AppointmentsPage() {
       window.open(url, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err: any) {
-      toast({ title: "Unable to open brief", description: err.message, variant: "destructive" });
+      toast({ title: t.unableToOpenBrief, description: err.message, variant: "destructive" });
     }
   };
 
@@ -116,7 +124,7 @@ export default function AppointmentsPage() {
   };
 
   const visitHeader = selectedVisit
-    ? `${selectedVisit.doctor_name || "Doctor"} • ${formatDate(selectedVisit.appointment_datetime || "")}`
+    ? `${selectedVisit.doctor_name || t.doctorFallback} • ${formatDate(selectedVisit.appointment_datetime || "")}`
     : t.visitSummary;
 
   return (
@@ -146,11 +154,11 @@ export default function AppointmentsPage() {
                 <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="doctor">{t.doctorName}</Label>
-                    <Input id="doctor" data-testid="input-doctor-name" placeholder="Dr. Smith" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required />
+                    <Input id="doctor" data-testid="input-doctor-name" placeholder={t.doctorPlaceholder} value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="spec">{t.specialization}</Label>
-                    <Input id="spec" data-testid="input-specialization" placeholder="Cardiologist, General Physician..." value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
+                    <Input id="spec" data-testid="input-specialization" placeholder={t.specializationPlaceholder} value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="datetime">{t.dateTime}</Label>
@@ -158,7 +166,7 @@ export default function AppointmentsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="clinic">{t.clinicName}</Label>
-                    <Input id="clinic" data-testid="input-clinic-name" placeholder="Apollo Hospital..." value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
+                    <Input id="clinic" data-testid="input-clinic-name" placeholder={t.clinicPlaceholder} value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
                   </div>
                   <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-appointment">
                     {createMutation.isPending ? t.scheduling : t.scheduleAppointment}

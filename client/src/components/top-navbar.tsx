@@ -33,6 +33,10 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 
+function navLabel(href: string, label: string, isHindi: boolean) {
+  return label;
+}
+
 const primaryNav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, testId: "nav-dashboard", exact: true },
   { href: "/medications", label: "Medications", icon: Pill, testId: "nav-medications" },
@@ -56,7 +60,7 @@ function isActive(location: string, href: string, exact?: boolean) {
   return location.startsWith(href);
 }
 
-function MoreDropdown({ location }: { location: string }) {
+function MoreDropdown({ location, isHindi }: { location: string; isHindi: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -87,9 +91,9 @@ function MoreDropdown({ location }: { location: string }) {
         data-testid="nav-more-dropdown"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="More navigation options"
+        aria-label={isHindi ? "अधिक नेविगेशन विकल्प" : "More navigation options"}
       >
-        More
+        {isHindi ? "और" : "More"}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
@@ -119,7 +123,7 @@ function MoreDropdown({ location }: { location: string }) {
                 style={{ color: active ? "var(--accent-cyan)" : "var(--text-secondary)" }}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                {navLabel(item.href, item.label, isHindi)}
               </Link>
             );
           })}
@@ -135,12 +139,14 @@ function MobileMenuSheet({
   members,
   activePatientId,
   onSwitchPatient,
+  isHindi,
 }: {
   location: string;
   onClose: () => void;
   members: SwitchablePatient[];
   activePatientId: string;
   onSwitchPatient: (patientId: string) => void;
+  isHindi: boolean;
 }) {
   const { theme, toggleTheme } = useTheme();
   const logout = useAuthStore((s) => s.logout);
@@ -167,7 +173,7 @@ function MobileMenuSheet({
           animation: "slideInRight 200ms ease forwards",
         }}
         role="dialog"
-        aria-label="Navigation menu"
+        aria-label={isHindi ? "नेविगेशन मेनू" : "Navigation menu"}
       >
         <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
           <div className="flex items-center gap-2">
@@ -183,15 +189,15 @@ function MobileMenuSheet({
               {activeMemberName}
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" aria-label="Close menu" data-testid="button-close-mobile-menu">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)]" aria-label={isHindi ? "मेनू बंद करें" : "Close menu"} data-testid="button-close-mobile-menu">
             <X className="h-5 w-5" style={{ color: "var(--text-secondary)" }} />
           </button>
         </div>
-        <nav className="p-3" aria-label="Main navigation">
+        <nav className="p-3" aria-label={isHindi ? "मुख्य नेविगेशन" : "Main navigation"}>
           {members.length > 1 && (
             <div className="mb-2 px-1">
               <p className="text-xs uppercase tracking-wide mb-2" style={{ color: "var(--text-muted)" }}>
-                Active Member
+                {isHindi ? "सक्रिय सदस्य" : "Active Member"}
               </p>
               <div className="space-y-1">
                 {members.map((member) => {
@@ -229,7 +235,7 @@ function MobileMenuSheet({
                 style={{ color: active ? "var(--accent-cyan)" : "var(--text-secondary)" }}
               >
                 <item.icon className="h-4.5 w-4.5" />
-                {item.label}
+                {navLabel(item.href, item.label, isHindi)}
               </Link>
             );
           })}
@@ -242,7 +248,9 @@ function MobileMenuSheet({
             data-testid="mobile-menu-theme-toggle"
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            {theme === "dark"
+              ? (isHindi ? "लाइट मोड" : "Light Mode")
+              : (isHindi ? "डार्क मोड" : "Dark Mode")}
           </button>
           <button
             onClick={() => { logout(); onClose(); }}
@@ -250,7 +258,7 @@ function MobileMenuSheet({
             data-testid="mobile-menu-sign-out"
           >
             <LogOut className="h-4 w-4" />
-            Sign Out
+            {isHindi ? "साइन आउट" : "Sign Out"}
           </button>
         </div>
       </div>
@@ -271,6 +279,7 @@ export function TopNavbar({
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const { theme, toggleTheme } = useTheme();
+  const isHindi = false;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const activeMemberName = members.find((m) => m.id === activePatientId)?.name || user?.name || "User";
   const activeMemberInitial = activeMemberName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
@@ -310,12 +319,12 @@ export function TopNavbar({
                     className={`topnav-link ${active ? "topnav-link-active" : ""}`}
                   >
                     <item.icon className="h-4 w-4" />
-                    {item.label}
+                    {navLabel(item.href, item.label, isHindi)}
                     {item.testId === "nav-orbit-score" && <InlineOrbitScore />}
                   </Link>
                 );
               })}
-              <MoreDropdown location={location} />
+              <MoreDropdown location={location} isHindi={isHindi} />
             </nav>
           </div>
 
@@ -333,7 +342,7 @@ export function TopNavbar({
               <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-muted)" }} />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={isHindi ? "खोजें..." : "Search..."}
                 className="flex-1 bg-transparent border-none outline-none text-xs"
                 style={{ color: "var(--text-primary)" }}
                 data-testid="input-header-search"
@@ -363,7 +372,9 @@ export function TopNavbar({
               size="icon"
               onClick={toggleTheme}
               className="h-9 w-9 rounded-full hidden md:flex"
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label={theme === "dark"
+                ? (isHindi ? "लाइट मोड में बदलें" : "Switch to light mode")
+                : (isHindi ? "डार्क मोड में बदलें" : "Switch to dark mode")}
               data-testid="button-theme"
             >
               {theme === "dark" ? (
@@ -378,7 +389,7 @@ export function TopNavbar({
               size="icon"
               onClick={() => setMobileMenuOpen(true)}
               className="h-9 w-9 rounded-full md:hidden"
-              aria-label="Open navigation menu"
+              aria-label={isHindi ? "नेविगेशन मेनू खोलें" : "Open navigation menu"}
               data-testid="button-mobile-menu"
             >
               <Menu className="h-5 w-5" style={{ color: "var(--text-secondary)" }} />
@@ -446,7 +457,7 @@ export function TopNavbar({
                 size="icon"
                 onClick={logout}
                 className="h-8 w-8 shrink-0 rounded-full hover:text-destructive"
-                aria-label="Sign out"
+                aria-label={isHindi ? "साइन आउट" : "Sign out"}
                 data-testid="button-sign-out"
               >
                 <LogOut className="h-4 w-4" />
@@ -462,6 +473,7 @@ export function TopNavbar({
           members={members}
           activePatientId={activePatientId}
           onSwitchPatient={onSwitchPatient}
+          isHindi={isHindi}
         />
       )}
     </>

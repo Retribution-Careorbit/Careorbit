@@ -11,6 +11,8 @@ import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations";
 import { Bell, Plus, Trash2, Clock, Loader2, Calendar } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useActivePatientStore } from "@/lib/patient-context";
+import { useAuthStore } from "@/lib/auth";
 
 interface Reminder {
   reminder_id: string;
@@ -49,21 +51,29 @@ export default function RemindersPage() {
   const [time, setTime] = useState("08:00");
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const { toast } = useToast();
+  const activePatientId = useActivePatientStore((s) => s.activePatientId);
+  const user = useAuthStore((s) => s.user);
+  const { data: profileData } = useQuery<{ preferred_language?: string }>({
+    queryKey: ["/api/patients/profile", activePatientId],
+    enabled: Boolean(activePatientId),
+  });
+  const isHindi = ((profileData?.preferred_language || user?.preferredLanguage || "en").toLowerCase().startsWith("hi"));
+  const tx = (en: string, hi: string) => (isHindi ? hi : en);
 
   const { data: reminders = [], isLoading } = useQuery<Reminder[]>({
-    queryKey: ["/api/reminders/list"],
+    queryKey: ["/api/reminders/list", activePatientId],
   });
 
   const { data: dueData } = useQuery<{ due: DueReminder[] }>({
-    queryKey: ["/api/reminders/due"],
+    queryKey: ["/api/reminders/due", activePatientId],
   });
 
   const { data: appointments = [] } = useQuery<any[]>({
-    queryKey: ["/api/orbit/appointments"],
+    queryKey: ["/api/orbit/appointments", activePatientId],
   });
 
   const { data: adherence } = useQuery<any>({
-    queryKey: ["/api/reminders/adherence/summary"],
+    queryKey: ["/api/reminders/adherence/summary", activePatientId],
   });
 
   const reminderList = Array.isArray(reminders) ? reminders : [];
@@ -75,14 +85,14 @@ export default function RemindersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reminders/list"] });
-      toast({ title: "Reminder Created" });
+      toast({ title: tx("Reminder Created", "रिमाइंडर बनाया गया") });
       setDialogOpen(false);
       setNodeId("");
       setTime("08:00");
       setSelectedDays([1, 2, 3, 4, 5, 6, 7]);
     },
     onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: tx("Error", "त्रुटि"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -92,10 +102,10 @@ export default function RemindersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/reminders/list"] });
-      toast({ title: "Reminder Deleted" });
+      toast({ title: tx("Reminder Deleted", "रिमाइंडर हटाया गया") });
     },
     onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: tx("Error", "त्रुटि"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -112,10 +122,10 @@ export default function RemindersPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/reminders/due"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reminders/adherence/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
-      toast({ title: "Reminder updated" });
+      toast({ title: tx("Reminder updated", "रिमाइंडर अपडेट हुआ") });
     },
     onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: tx("Error", "त्रुटि"), description: err.message, variant: "destructive" });
     },
   });
 
@@ -141,9 +151,9 @@ export default function RemindersPage() {
     : [];
 
   const handleMarkMissed = (reminderId: string) => {
-    const reason = window.prompt("Why did you miss this dose? (required)");
+    const reason = window.prompt(tx("Why did you miss this dose? (required)", "आपने यह डोज़ क्यों मिस की? (ज़रूरी)"));
     if (!reason || !reason.trim()) {
-      toast({ title: "Missed reason is required", variant: "destructive" });
+      toast({ title: tx("Missed reason is required", "मिस करने का कारण ज़रूरी है"), variant: "destructive" });
       return;
     }
     markMutation.mutate({ reminderId, status: "missed", reason: reason.trim() });
@@ -155,19 +165,19 @@ export default function RemindersPage() {
         <FadeIn>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="page-card p-3">
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Adherence Rate</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Adherence Rate", "अनुपालन दर")}</p>
               <p className="font-mono text-xl font-bold" data-testid="text-adherence-rate">{Math.round((adherence?.adherence_rate || 0) * 100)}%</p>
             </div>
             <div className="page-card p-3">
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Current Streak</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Current Streak", "वर्तमान स्ट्रीक")}</p>
               <p className="font-mono text-xl font-bold" data-testid="text-adherence-streak">{adherence?.streak_days || 0}d</p>
             </div>
             <div className="page-card p-3">
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Taken</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Taken", "लिया")}</p>
               <p className="font-mono text-xl font-bold" data-testid="text-total-taken">{adherence?.total_taken || 0}</p>
             </div>
             <div className="page-card p-3">
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Missed</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{tx("Missed", "मिस")}</p>
               <p className="font-mono text-xl font-bold" data-testid="text-total-missed">{adherence?.total_missed || 0}</p>
             </div>
           </div>
@@ -176,7 +186,7 @@ export default function RemindersPage() {
         {dueList.length > 0 && (
           <FadeIn delay={0.05}>
             <div className="page-card p-4">
-              <p className="section-header mb-2">Due Now</p>
+              <p className="section-header mb-2">{tx("Due Now", "अभी देय")}</p>
               <div className="space-y-2">
                 {dueList.map((item, i) => (
                   <div key={item.reminder_id} className="flex items-center justify-between p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }} data-testid={`card-due-reminder-${i}`}>
@@ -187,10 +197,10 @@ export default function RemindersPage() {
                     {item.status === "pending" ? (
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => markMutation.mutate({ reminderId: item.reminder_id, status: "taken" })} disabled={markMutation.isPending} data-testid={`button-mark-taken-${i}`}>
-                          Taken
+                          {tx("Taken", "लिया")}
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleMarkMissed(item.reminder_id)} disabled={markMutation.isPending} data-testid={`button-mark-missed-${i}`}>
-                          Missed
+                          {tx("Missed", "मिस")}
                         </Button>
                       </div>
                     ) : (
@@ -208,14 +218,14 @@ export default function RemindersPage() {
             <div className="page-card p-4" data-testid="card-upcoming-appointments">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="h-4 w-4" style={{ color: "var(--accent-cyan)" }} />
-                <p className="section-header">Upcoming Appointments</p>
+                <p className="section-header">{tx("Upcoming Appointments", "आगामी अपॉइंटमेंट्स")}</p>
               </div>
               <div className="space-y-2">
                 {upcomingAppts.map((appt: any, i: number) => (
                   <div key={appt.appointment_id || i} className="flex items-center justify-between p-3 rounded-xl" style={{ border: "1px solid var(--border-subtle)" }}>
                     <div>
                       <p className="font-medium" style={{ color: "var(--text-primary)" }}>{appt.doctor_name}</p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{appt.specialization || "General"}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{appt.specialization || tx("General", "सामान्य")}</p>
                     </div>
                     <Badge variant="outline" className="text-xs font-mono">
                       {new Date(appt.appointment_datetime).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
@@ -231,34 +241,34 @@ export default function RemindersPage() {
           <div className="page-title-bar">
             <div>
               <h1 data-testid="text-reminders-title">
-                Reminders
+                {tx("Reminders", "रिमाइंडर्स")}
               </h1>
               <p>
-                Manage your medication reminder schedule
+                {tx("Manage your medication reminder schedule", "अपनी दवा रिमाइंडर समय-सारणी प्रबंधित करें")}
               </p>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-create-reminder">
                   <Plus className="h-4 w-4 mr-2" />
-                  New Reminder
+                  {tx("New Reminder", "नया रिमाइंडर")}
                 </Button>
               </DialogTrigger>
               <DialogContent style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
                 <DialogHeader>
-                  <DialogTitle>Create Medication Reminder</DialogTitle>
+                  <DialogTitle>{tx("Create Medication Reminder", "दवा रिमाइंडर बनाएं")}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nodeId">Medication Node ID</Label>
-                    <Input id="nodeId" value={nodeId} onChange={(e) => setNodeId(e.target.value)} placeholder="e.g., med_metformin_001" data-testid="input-node-id" required />
+                    <Label htmlFor="nodeId">{tx("Medication Node ID", "दवा नोड आईडी")}</Label>
+                    <Input id="nodeId" value={nodeId} onChange={(e) => setNodeId(e.target.value)} placeholder={tx("e.g., med_metformin_001", "उदा., med_metformin_001")} data-testid="input-node-id" required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="time">Reminder Time</Label>
+                    <Label htmlFor="time">{tx("Reminder Time", "रिमाइंडर समय")}</Label>
                     <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="input-time" required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Days of Week</Label>
+                    <Label>{tx("Days of Week", "सप्ताह के दिन")}</Label>
                     <div className="flex gap-2 flex-wrap">
                       {DAYS.map((day) => (
                         <label
@@ -277,7 +287,7 @@ export default function RemindersPage() {
                             onCheckedChange={() => toggleDay(day.value)}
                             data-testid={`checkbox-day-${day.value}`}
                             className="sr-only"
-                            aria-label={`Select ${day.label}`}
+                            aria-label={tx(`Select ${day.label}`, `${day.label} चुनें`)}
                           />
                           <span>{day.label}</span>
                         </label>
@@ -286,7 +296,7 @@ export default function RemindersPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-reminder">
                     {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Create Reminder
+                    {tx("Create Reminder", "रिमाइंडर बनाएं")}
                   </Button>
                 </form>
               </DialogContent>
@@ -306,9 +316,9 @@ export default function RemindersPage() {
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "var(--accent-amber-dim)" }}>
                 <Bell className="h-8 w-8" strokeWidth={1} style={{ color: "var(--accent-amber)", opacity: 0.5 }} />
               </div>
-              <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-reminders">No reminders set</p>
+              <p className="font-medium" style={{ color: "var(--text-primary)" }} data-testid="text-no-reminders">{tx("No reminders set", "कोई रिमाइंडर सेट नहीं है")}</p>
               <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                Create a reminder to stay on track with your medications
+                {tx("Create a reminder to stay on track with your medications", "दवाइयों के साथ नियमित रहने के लिए रिमाइंडर बनाएं")}
               </p>
             </div>
           </FadeIn>
@@ -335,7 +345,7 @@ export default function RemindersPage() {
                             <Badge variant="outline" className="text-xs capitalize">{reminder.last_status}</Badge>
                           )}
                           {typeof reminder.adherence_streak === "number" && (
-                            <Badge variant="outline" className="text-xs">Streak {reminder.adherence_streak}d</Badge>
+                            <Badge variant="outline" className="text-xs">{tx("Streak", "स्ट्रीक")} {reminder.adherence_streak}d</Badge>
                           )}
                           {reminder.days_of_week && (
                             <div className="flex gap-1">
@@ -347,7 +357,7 @@ export default function RemindersPage() {
                         </div>
                         {reminder.last_reason && (
                           <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                            Last missed reason: {reminder.last_reason}
+                            {tx("Last missed reason", "पिछला मिस कारण")}: {reminder.last_reason}
                           </p>
                         )}
                       </div>
@@ -358,7 +368,7 @@ export default function RemindersPage() {
                       onClick={() => deleteMutation.mutate(reminder.reminder_id)}
                       disabled={deleteMutation.isPending}
                       className="h-9 w-9 rounded-full hover:text-destructive"
-                      aria-label={`Delete reminder for ${reminder.medication_node_id}`}
+                      aria-label={tx(`Delete reminder for ${reminder.medication_node_id}`, `${reminder.medication_node_id} के लिए रिमाइंडर हटाएं`)}
                       data-testid={`button-delete-reminder-${i}`}
                     >
                       <Trash2 className="h-4 w-4" />

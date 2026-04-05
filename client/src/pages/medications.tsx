@@ -62,6 +62,43 @@ export default function MedicationsPage() {
     takenToday: isHindi ? "2/3 आज लिया गया" : "2/3 taken today",
     interactionAlerts: isHindi ? "इंटरैक्शन अलर्ट" : "Interaction Alerts",
     medAdherence: isHindi ? "दवा अनुपालन" : "Medication Adherence",
+    warning: isHindi ? "चेतावनी" : "Warning",
+    potentialInteraction: isHindi ? "संभावित इंटरैक्शन मिला" : "Potential interaction detected",
+    taken: isHindi ? "लिया गया" : "Taken",
+    pending: isHindi ? "बाकी" : "Pending",
+    verified: isHindi ? "सत्यापित" : "Verified",
+    high: isHindi ? "उच्च" : "High",
+    moderate: isHindi ? "मध्यम" : "Moderate",
+    low: isHindi ? "निम्न" : "Low",
+    unknown: isHindi ? "अज्ञात" : "Unknown",
+  };
+
+  const confidenceLabelText = (label: string) => {
+    const key = String(label || "").toUpperCase();
+    if (key === "VERIFIED") return t.verified;
+    if (key === "HIGH") return t.high;
+    if (key === "MODERATE") return t.moderate;
+    if (key === "LOW") return t.low;
+    return t.unknown;
+  };
+
+  const severityText = (value: string) => {
+    const key = String(value || "").toUpperCase();
+    if (!isHindi) return key || t.warning;
+    if (key === "LOW") return "निम्न";
+    if (key === "MODERATE") return "मध्यम";
+    if (key === "ELEVATED") return "उच्च";
+    if (key === "HIGH") return "उच्च";
+    if (key === "CRITICAL") return "गंभीर";
+    if (key === "CONTRAINDICATED") return "वर्जित";
+    return key || t.warning;
+  };
+
+  const doctorDisplay = (raw?: string) => {
+    const text = String(raw || "").trim();
+    if (!isHindi) return text;
+    if (text.toUpperCase() === "DR SELF") return "डॉ स्वयं";
+    return text;
   };
 
   const medications = data?.medications || [];
@@ -121,10 +158,10 @@ export default function MedicationsPage() {
                           <AlertTriangle className="h-4 w-4" style={{ color: "var(--accent-rose)" }} />
                           <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>{ix.drug_pair || ix.medicationName}</span>
                           <Badge className="text-xs ml-auto" style={{ background: "rgba(244,63,94,0.10)", color: "var(--accent-rose)", border: "1px solid rgba(244,63,94,0.30)" }}>
-                            {ix.severity || "Warning"}
+                            {severityText(ix.severity || t.warning)}
                           </Badge>
                         </div>
-                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ix.description || "Potential interaction detected"}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{ix.description || t.potentialInteraction}</p>
                         {ix.clinical_action && (
                           <p className="text-xs mt-1" style={{ color: "var(--accent-cyan)" }}>{ix.clinical_action}</p>
                         )}
@@ -211,7 +248,7 @@ export default function MedicationsPage() {
                                 }}
                                 data-testid={`badge-confidence-${(med.confidence_label || "unknown").toLowerCase()}`}
                               >
-                                {(med.confidence_label || "Unknown").charAt(0) + (med.confidence_label || "Unknown").slice(1).toLowerCase()}
+                                {confidenceLabelText(med.confidence_label || "Unknown")}
                               </Badge>
                             )}
                           </div>
@@ -231,7 +268,7 @@ export default function MedicationsPage() {
                             {med.prescribed_by_doctor && (
                               <p>
                                 <span style={{ color: "var(--text-muted)" }}>{t.prescribedBy}:</span>{" "}
-                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{med.prescribed_by_doctor}</span>
+                                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{doctorDisplay(med.prescribed_by_doctor)}</span>
                               </p>
                             )}
                             <div className="flex items-center gap-2 mt-2">
@@ -243,7 +280,7 @@ export default function MedicationsPage() {
                                     background: pill <= 2 ? "var(--accent-cyan-dim)" : "var(--bg-elevated)",
                                     border: pill <= 2 ? "2px solid color-mix(in srgb, var(--accent-cyan) 40%, transparent)" : "2px solid var(--border-subtle)",
                                   }}
-                                  title={pill <= 2 ? "Taken" : "Pending"}
+                                  title={pill <= 2 ? t.taken : t.pending}
                                 />
                               ))}
                               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{t.takenToday}</span>

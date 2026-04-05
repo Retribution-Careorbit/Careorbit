@@ -39,12 +39,22 @@ from db.runtime_store import (
     get_latest_orbit_score_record,
     add_orbit_score_record,
 )
+from utils.drug_database import DrugDatabase
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 logger = logging.getLogger("careorbit.routes.documents")
 
 language_service = AzureLanguageService()
 openai_service = AzureOpenAIService()
+drug_database = DrugDatabase()
+
+_LOCAL_INTERACTION_RULES = {
+    frozenset({"metformin", "ibuprofen"}): {
+        "severity": "ELEVATED",
+        "description": "NSAIDs may decrease renal function and increase Metformin-associated lactic acidosis risk in kidney impairment.",
+        "clinical_action": "Use a kidney-safe analgesic alternative where possible and monitor renal function closely.",
+    },
+}
 
 _BASE_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"]
 MAX_SIZE = 10 * 1024 * 1024
@@ -246,6 +256,68 @@ def _extract_peer_medication_name(drug_pair: str, source_name: str) -> str | Non
         if part.lower() != source_lower:
             return part
     return None
+
+
+def _canonical_drug_name(name: str) -> str:
+    match = drug_database.fuzzy_match(str(name or "").strip())
+    candidate = (match.generic_name or name or "").strip().lower()
+    return candidate
+
+
+async def _build_local_interaction_alerts(patient_id: str, extracted_medications: list[dict], existing_alerts: list[dict]) -> list[dict]:
+    existing_alerts = list(existing_alerts or [])
+    existing_pairs = {
+        str(alert.get("drug_pair") or "").strip().lower()
+        for alert in existing_alerts
+        if isinstance(alert, dict)
+    }
+
+    med_subgraph = await phig_builder.get_medication_subgraph(patient_id)
+    current_med_names = [
+        str(m.get("name") or "").strip()
+        for m in (med_subgraph.get("medications") or [])
+        if str(m.get("name") or "").strip()
+    ]
+
+    extracted_names = [
+        str(m.get("name") or "").strip()
+        for m in (extracted_medications or [])
+        if str(m.get("name") or "").strip()
+    ]
+
+    for src_name in extracted_names:
+        src_canon = _canonical_drug_name(src_name)
+        if not src_canon:
+            continue
+
+        for other_name in current_med_names:
+            if other_name.strip().lower() == src_name.strip().lower():
+                continue
+
+            other_canon = _canonical_drug_name(other_name)
+            if not other_canon:
+                continue
+
+            rule = _LOCAL_INTERACTION_RULES.get(frozenset({src_canon, other_canon}))
+            if not rule:
+                continue
+
+            pair_display = f"{src_canon.capitalize()} + {other_canon.capitalize()}"
+            if pair_display.lower() in existing_pairs:
+                continue
+
+            existing_alerts.append(
+                {
+                    "drug_pair": pair_display,
+                    "severity": rule["severity"],
+                    "description": rule["description"],
+                    "clinical_action": rule["clinical_action"],
+                    "source": "local_rule",
+                }
+            )
+            existing_pairs.add(pair_display.lower())
+
+    return existing_alerts
 
 
 async def _persist_medications_to_phig_db(patient_id: str, document_id: str, medications: list[dict]) -> tuple[bool, int]:
@@ -865,6 +937,13 @@ async def upload_document(
         notif_title = await translate_text_for_patient(notif_title, patient_id)
         notif_message = await translate_text_for_patient(notif_message, patient_id)
 
+    extracted_meds = (result.extracted_data or {}).get("medications", [])
+    result.interaction_alerts = await _build_local_interaction_alerts(
+        patient_id=patient_id,
+        extracted_medications=extracted_meds,
+        existing_alerts=result.interaction_alerts or [],
+    )
+
     try:
         push_notification(
             patient_id,
@@ -876,11 +955,16 @@ async def upload_document(
         )
 
         if result.interaction_alerts:
+            interaction_title = "New Interaction Alert"
+            interaction_message = f"{len(result.interaction_alerts)} potential interaction(s) detected from latest upload."
+            if preferred_language == "hi":
+                interaction_title = await translate_text_for_patient(interaction_title, patient_id)
+                interaction_message = await translate_text_for_patient(interaction_message, patient_id)
             push_notification(
                 patient_id,
                 "interaction",
-                "New Interaction Alert",
-                f"{len(result.interaction_alerts)} potential interaction(s) detected from latest upload.",
+                interaction_title,
+                interaction_message,
                 path="/medications",
                 metadata={"document_id": document_id},
             )
