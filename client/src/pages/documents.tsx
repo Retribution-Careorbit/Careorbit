@@ -539,6 +539,11 @@ export default function DocumentsPage() {
     },
     onSuccess: (data: UploadResult) => {
       setResults((prev) => [data, ...prev]);
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/medications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview", activePatientId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients/lab-insights", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/tests/scenarios", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/lab-reports/valid", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/system/notifications"] });
@@ -547,7 +552,12 @@ export default function DocumentsPage() {
           ...(prev || {}),
           total_score: data.orbit_score?.total_score,
         }));
+        queryClient.setQueryData(["/api/orbit/score", activePatientId], (prev: any) => ({
+          ...(prev || {}),
+          total_score: data.orbit_score?.total_score,
+        }));
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/orbit/score"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/score/history", activePatientId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orbit/improvement-plan", activePatientId] });

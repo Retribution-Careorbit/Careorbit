@@ -910,6 +910,9 @@ async def upload_document(
     persisted_labs = 0
     lab_persistence = "not_applicable"
     lab_rejections = list((result.extracted_data or {}).get("lab_rejections", []))
+    extracted_meds = (result.extracted_data or {}).get("medications", [])
+    persisted_meds = 0
+    medication_persistence = "not_applicable"
     if (result.document_type or "") == "lab_report":
         labs_for_persistence = (result.extracted_data or {}).get("labs", [])
         persisted_labs_ok, persisted_labs, persistence_rejections = await _persist_labs_to_phig_db(
@@ -920,6 +923,17 @@ async def upload_document(
         )
         lab_rejections.extend(persistence_rejections)
         lab_persistence = "database" if persisted_labs_ok else "failed"
+    elif result.processing_status == "success" and extracted_meds:
+        persisted_meds_ok, persisted_meds = await _persist_medications_to_phig_db(
+            patient_id=patient_id,
+            document_id=document_id,
+            medications=extracted_meds,
+        )
+        if persisted_meds_ok and persisted_meds > 0:
+            medication_persistence = "database"
+        else:
+            add_extracted_medications(patient_id, extracted_meds)
+            medication_persistence = "runtime_fallback"
 
     notif_title = "Document Processed"
     notif_message = f"{doc_record['file_name']} processed as {doc_record['document_type']}"
@@ -937,7 +951,6 @@ async def upload_document(
         notif_title = await translate_text_for_patient(notif_title, patient_id)
         notif_message = await translate_text_for_patient(notif_message, patient_id)
 
-    extracted_meds = (result.extracted_data or {}).get("medications", [])
     result.interaction_alerts = await _build_local_interaction_alerts(
         patient_id=patient_id,
         extracted_medications=extracted_meds,
@@ -997,6 +1010,8 @@ async def upload_document(
         "file_url": doc_record["file_url"],
         "source_blob_url": (result.extracted_data or {}).get("source_blob_url"),
         "extracted_review": doc_record["extracted_data"],
+        "medications_added": persisted_meds,
+        "medication_persistence": medication_persistence,
         "labs_added": persisted_labs,
         "lab_persistence": lab_persistence,
         "lab_rejections": lab_rejections,
