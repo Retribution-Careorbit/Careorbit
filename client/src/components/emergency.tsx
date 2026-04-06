@@ -127,6 +127,7 @@ function EmergencyContacts() {
 }
 
 function MedicalIDCard() {
+  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
   const user = useAuthStore((s) => s.user);
   const members = useActivePatientStore((s) => s.members);
   const activePatientId = useActivePatientStore((s) => s.activePatientId);
@@ -170,17 +171,19 @@ function MedicalIDCard() {
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>CareOrbit Medical ID</p>
             </div>
           </div>
-          <a
-            href={qrUrl || "#"}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={() => {
+              if (qrImageUrl) setQrPreviewOpen(true);
+            }}
             className="w-16 h-16 rounded-lg flex items-center justify-center"
             style={{
               background: "var(--bg-elevated)",
               border: "1px solid var(--border-subtle)",
-              pointerEvents: qrUrl ? "auto" : "none",
+              pointerEvents: qrImageUrl ? "auto" : "none",
             }}
-            title={qrUrl ? "Open emergency read-only profile" : "Generating emergency QR"}
+            title={qrImageUrl ? "Tap to enlarge emergency QR" : "Generating emergency QR"}
+            aria-label={qrImageUrl ? "Enlarge emergency QR" : "Generating emergency QR"}
             data-testid="link-emergency-qr"
           >
             {qrImageUrl ? (
@@ -192,7 +195,7 @@ function MedicalIDCard() {
             ) : (
               <QrCode className="h-10 w-10" style={{ color: "var(--text-muted)" }} />
             )}
-          </a>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -230,12 +233,34 @@ function MedicalIDCard() {
           </div>
         )}
 
-        {qrUrl && (
-          <p className="text-[11px] break-all" style={{ color: "var(--text-muted)" }} data-testid="text-emergency-qr-url">
-            QR read-only URL: {qrUrl}
-          </p>
-        )}
       </div>
+
+      <Dialog open={qrPreviewOpen} onOpenChange={setQrPreviewOpen}>
+        <DialogContent className="max-w-sm" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+          <DialogHeader>
+            <DialogTitle>Emergency QR</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-2">
+            {qrImageUrl ? (
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(qrUrl)}`}
+                alt="Emergency QR enlarged"
+                className="w-72 h-72 rounded-lg"
+                data-testid="img-emergency-qr-large"
+              />
+            ) : (
+              <QrCode className="h-24 w-24" style={{ color: "var(--text-muted)" }} />
+            )}
+            {qrUrl && (
+              <a href={qrUrl} target="_blank" rel="noreferrer" className="w-full">
+                <Button className="w-full" variant="outline" data-testid="button-open-emergency-qr-link">
+                  Open Emergency Profile
+                </Button>
+              </a>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
