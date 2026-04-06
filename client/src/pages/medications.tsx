@@ -47,7 +47,7 @@ export default function MedicationsPage() {
   const isHindi = String(profileData?.profile?.preferred_language || "en").toLowerCase() === "hi";
   const t = {
     title: isHindi ? "दवाइयाँ" : "Medications",
-    subtitle: isHindi ? "आपकी वर्तमान दवाइयाँ, कॉन्फिडेंस स्कोर और इंटरैक्शन अलर्ट सहित" : "Your current medications with confidence scores and interaction alerts",
+    subtitle: isHindi ? "आपकी वर्तमान दवाइयाँ, डेटा कॉन्फिडेंस और क्लिनिकल इंटरैक्शन जोखिम सहित" : "Your current medications with data confidence and clinical interaction risk",
     checkInteractions: isHindi ? "इंटरैक्शन जाँचें" : "Check Interactions",
     noInteractions: isHindi ? "कोई इंटरैक्शन नहीं मिला" : "No interactions detected",
     allSafe: isHindi ? "आपकी सभी दवाइयाँ साथ में सुरक्षित दिखती हैं" : "All your medications appear safe together",
@@ -61,6 +61,7 @@ export default function MedicationsPage() {
     prescribedBy: isHindi ? "डॉक्टर" : "Prescribed by",
     takenToday: isHindi ? "2/3 आज लिया गया" : "2/3 taken today",
     interactionAlerts: isHindi ? "इंटरैक्शन अलर्ट" : "Interaction Alerts",
+    interactionSeverity: isHindi ? "इंटरैक्शन गंभीरता" : "Interaction Severity",
     medAdherence: isHindi ? "दवा अनुपालन" : "Medication Adherence",
     warning: isHindi ? "चेतावनी" : "Warning",
     potentialInteraction: isHindi ? "संभावित इंटरैक्शन मिला" : "Potential interaction detected",
@@ -71,6 +72,10 @@ export default function MedicationsPage() {
     moderate: isHindi ? "मध्यम" : "Moderate",
     low: isHindi ? "निम्न" : "Low",
     unknown: isHindi ? "अज्ञात" : "Unknown",
+    dataConfidence: isHindi ? "डेटा कॉन्फिडेंस" : "Data Confidence",
+    severityNote: isHindi
+      ? "नोट: कॉन्फिडेंस डेटा-निकर्षण गुणवत्ता दर्शाता है; जोखिम गंभीरता किडनी लैब (eGFR/Creatinine) के आधार पर अलग से बढ़ सकती है।"
+      : "Note: Confidence reflects extraction reliability; risk severity can be escalated independently by kidney labs (eGFR/Creatinine).",
   };
 
   const confidenceLabelText = (label: string) => {
@@ -248,7 +253,7 @@ export default function MedicationsPage() {
                                 }}
                                 data-testid={`badge-confidence-${(med.confidence_label || "unknown").toLowerCase()}`}
                               >
-                                {confidenceLabelText(med.confidence_label || "Unknown")}
+                                {`${t.dataConfidence}: ${confidenceLabelText(med.confidence_label || "Unknown")}`}
                               </Badge>
                             )}
                           </div>
@@ -296,9 +301,15 @@ export default function MedicationsPage() {
                                 <AlertTriangle className="h-4 w-4" />
                                 {t.interactionAlerts}
                               </div>
+                              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                                {t.interactionSeverity}: {severityText(String(med.interactions[0]?.severity || ""))}
+                              </p>
                               {med.interactions.map((int: any, j: number) => (
                                 <p key={j} className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>{int.description || JSON.stringify(int)}</p>
                               ))}
+                              <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+                                {t.severityNote}
+                              </p>
                             </div>
                           )}
                         </div>
