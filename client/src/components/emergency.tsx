@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
 import { useActivePatientStore } from "@/lib/patient-context";
 import { Phone, AlertTriangle, CreditCard, User, Heart, Pill, QrCode } from "lucide-react";
+import QRCode from "qrcode";
 
 export function SOSButton() {
   const [open, setOpen] = useState(false);
@@ -127,7 +128,8 @@ function EmergencyContacts() {
 }
 
 function MedicalIDCard() {
-  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrImageDataUrl, setQrImageDataUrl] = useState("");
   const user = useAuthStore((s) => s.user);
   const members = useActivePatientStore((s) => s.members);
   const activePatientId = useActivePatientStore((s) => s.activePatientId);
@@ -148,11 +150,57 @@ function MedicalIDCard() {
 
   const profile = profileData?.profile || {};
   const medications = medsData?.medications || [];
-  const qrPath = emergencyPass?.qr_path;
-  const qrUrl = qrPath ? `${window.location.origin}${qrPath}` : "";
-  const qrImageUrl = qrUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrUrl)}`
-    : "";
+  const offlineQrPayload = useMemo(() => {
+    const emergencyContacts = Array.isArray(emergencyPass?.card?.emergency_contacts)
+      ? emergencyPass.card.emergency_contacts.slice(0, 3)
+      : [];
+    return {
+      schema: "CAREORBIT_OFFLINE_V1",
+      read_only: true,
+      patient: {
+        name: activeMemberName,
+        age: profile.age || null,
+        gender: profile.gender || null,
+        blood_type: profile.blood_type || null,
+        city: profile.city || null,
+      },
+      dispatch_phone: emergencyPass?.dispatch_phone || "108",
+      emergency_contacts: emergencyContacts.map((c: any) => ({
+        name: c?.name || "",
+        relation: c?.relation || "",
+        phone: c?.phone || "",
+      })),
+      medications: medications.slice(0, 10).map((med: any) => ({
+        name: med?.name || "",
+        dosage: med?.dosage || "",
+        frequency: med?.frequency || "",
+      })),
+      issued_at: emergencyPass?.card?.created_at || new Date().toISOString(),
+    };
+  }, [activeMemberName, emergencyPass, medications, profile.age, profile.blood_type, profile.city, profile.gender]);
+
+  const qrContent = useMemo(
+    () => `CAREORBIT_OFFLINE_V1:${JSON.stringify(offlineQrPayload)}`,
+    [offlineQrPayload]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    QRCode.toDataURL(qrContent, {
+      width: 360,
+      margin: 1,
+      errorCorrectionLevel: "M",
+    })
+      .then((dataUrl: string) => {
+        if (mounted) setQrImageDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (mounted) setQrImageDataUrl("");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [qrContent]);
 
   return (
     <div className="mt-3">
@@ -173,22 +221,19 @@ function MedicalIDCard() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (qrImageUrl) setQrPreviewOpen(true);
-            }}
             className="w-16 h-16 rounded-lg flex items-center justify-center"
             style={{
               background: "var(--bg-elevated)",
               border: "1px solid var(--border-subtle)",
-              pointerEvents: qrImageUrl ? "auto" : "none",
+              cursor: qrImageDataUrl ? "zoom-in" : "default",
             }}
-            title={qrImageUrl ? "Tap to enlarge emergency QR" : "Generating emergency QR"}
-            aria-label={qrImageUrl ? "Enlarge emergency QR" : "Generating emergency QR"}
-            data-testid="link-emergency-qr"
+            title={qrImageDataUrl ? "Tap to enlarge QR" : "Generating QR"}
+            onClick={() => qrImageDataUrl && setQrOpen(true)}
+            data-testid="button-emergency-qr"
           >
-            {qrImageUrl ? (
+            {qrImageDataUrl ? (
               <img
-                src={qrImageUrl}
+                src={qrImageDataUrl}
                 alt="Emergency QR"
                 className="w-14 h-14 rounded"
               />
@@ -233,31 +278,32 @@ function MedicalIDCard() {
           </div>
         )}
 
+        <p className="text-[11px]" style={{ color: "var(--text-muted)" }} data-testid="text-emergency-qr-hint">
+          Tap QR to enlarge. Scan works in offline mode.
+        </p>
       </div>
 
-      <Dialog open={qrPreviewOpen} onOpenChange={setQrPreviewOpen}>
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="max-w-sm" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
           <DialogHeader>
-            <DialogTitle>Emergency QR</DialogTitle>
+            <DialogTitle>Emergency Medical QR</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-3 py-2">
-            {qrImageUrl ? (
+            {qrImageDataUrl ? (
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(qrUrl)}`}
-                alt="Emergency QR enlarged"
+                src={qrImageDataUrl}
+                alt="Enlarged emergency QR"
                 className="w-72 h-72 rounded-lg"
-                data-testid="img-emergency-qr-large"
+                data-testid="image-emergency-qr-large"
               />
             ) : (
-              <QrCode className="h-24 w-24" style={{ color: "var(--text-muted)" }} />
+              <div className="w-72 h-72 rounded-lg flex items-center justify-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}>
+                <QrCode className="h-16 w-16" style={{ color: "var(--text-muted)" }} />
+              </div>
             )}
-            {qrUrl && (
-              <a href={qrUrl} target="_blank" rel="noreferrer" className="w-full">
-                <Button className="w-full" variant="outline" data-testid="button-open-emergency-qr-link">
-                  Open Emergency Profile
-                </Button>
-              </a>
-            )}
+            <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+              Scan to view read-only medical history payload without internet.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
