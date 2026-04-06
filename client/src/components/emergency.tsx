@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
 import { useActivePatientStore } from "@/lib/patient-context";
-import { Phone, AlertTriangle, CreditCard, User, Heart, Pill, QrCode } from "lucide-react";
+import { Phone, AlertTriangle, CreditCard, User, Heart, Pill, QrCode, Download } from "lucide-react";
 import QRCode from "qrcode";
 
 export function SOSButton() {
@@ -206,6 +206,17 @@ function MedicalIDCard() {
     };
   }, [qrContent]);
 
+  const downloadQrImage = () => {
+    if (!qrImageDataUrl) return;
+    const link = document.createElement("a");
+    const safeName = String(activeMemberName || "patient").trim().replace(/\s+/g, "_").toLowerCase();
+    link.href = qrImageDataUrl;
+    link.download = `careorbit_sos_qr_${safeName}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="mt-3">
       <div
@@ -282,8 +293,20 @@ function MedicalIDCard() {
           </div>
         )}
 
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={downloadQrImage}
+          disabled={!qrImageDataUrl}
+          data-testid="button-download-sos-qr"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Download SOS QR
+        </Button>
+
         <p className="text-[11px]" style={{ color: "var(--text-muted)" }} data-testid="text-emergency-qr-hint">
-          Tap QR to enlarge. Scan works in offline mode.
+          Tap QR to enlarge. Download and set as lock-screen/wallet image so responders can scan without unlocking app.
         </p>
       </div>
 
