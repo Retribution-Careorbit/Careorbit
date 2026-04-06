@@ -35,7 +35,11 @@ export function SOSButton() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}>
+        <DialogContent
+          className="max-w-md"
+          style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)" }}
+          data-testid="dialog-emergency-sos"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ color: "var(--accent-rose)" }}>
               <AlertTriangle className="h-5 w-5" />

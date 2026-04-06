@@ -123,8 +123,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       const dialog = document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]') as HTMLElement | null;
       if (!dialog) return;
 
-      if (dialog.getAttribute("data-testid") === "dialog-manual-review" ||
+        if (dialog.getAttribute("data-testid") === "dialog-manual-review" ||
+          dialog.getAttribute("data-testid") === "dialog-emergency-sos" ||
           dialog.querySelector('[data-testid="dialog-manual-review"]') ||
+          dialog.querySelector('[data-testid="dialog-emergency-sos"]') ||
           dialog.closest('[data-testid="dialog-manual-review"]')) return;
 
       const text = (dialog.textContent || "").replace(/\s+/g, " ").trim();
