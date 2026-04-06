@@ -401,7 +401,7 @@ async def entra_callback(request: Request, code: Optional[str] = None, state: Op
             "name": user.get("name"),
             "email": user.get("email"),
             "onboarding_complete": all(user.get(f) for f in ("date_of_birth", "gender", "preferred_language", "medical_literacy_level")),
-            "preferred_language": user.get("preferred_language", "en"),
+            "preferred_language": "en",
         },
     }
 
@@ -489,7 +489,7 @@ async def register(body: RegisterRequest, request: Request):
             "name": body.name,
             "email": body.email,
             "onboarding_complete": False,
-            "preferred_language": body.preferred_language or "en",
+            "preferred_language": "en",
         },
     }
 
@@ -530,7 +530,7 @@ async def login(body: LoginRequest, request: Request):
             "name": user.get("name"),
             "email": user["email"],
             "onboarding_complete": all(user.get(f) for f in ("date_of_birth", "gender", "preferred_language", "medical_literacy_level")),
-            "preferred_language": user.get("preferred_language", "en"),
+            "preferred_language": "en",
         },
     }
 

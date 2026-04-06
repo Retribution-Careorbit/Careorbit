@@ -125,7 +125,7 @@ def _build_profile_response(user_data: dict) -> dict:
             "date_of_birth": user_data.get("date_of_birth"),
             "age": age,
             "gender": user_data.get("gender"),
-            "preferred_language": user_data.get("preferred_language", "en"),
+            "preferred_language": "en",
             "medical_literacy_level": user_data.get("medical_literacy_level"),
             "blood_type": user_data.get("blood_type"),
             "height_cm": user_data.get("height_cm"),
